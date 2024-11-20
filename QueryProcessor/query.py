@@ -4,7 +4,7 @@ class Query:
     def __init__(self, query):
 
         syntaxes = ["SELECT","UPDATE","AS","FROM","JOIN","WHERE","ORDER","LIMIT","BEGIN","COMMIT","END","TRANSACTION"]
-        syntaxes_statement = ["SELECT","UPDATE","FROM","WHERE","LIMIT","BEGIN","COMMIT","END"]
+        syntaxes_statement = ["SELECT","UPDATE","FROM","WHERE","ORDER","LIMIT","BEGIN","COMMIT","END"]
         
         # atribut
         self.statements = {} # statement
@@ -97,9 +97,46 @@ class Query:
         # TODO
         pass
 
-    def isLimitValid():
-        # TODO
-        pass
+    def isOrderValid(self):
+        if "ORDER" not in self.statements:
+            return True  
+
+        order_pattern = r"ORDER\s+BY\s+[a-zA-Z0-9_]+(\s+(ASC|DESC))?"
+        if re.match(order_pattern, self.statements["ORDER"], re.IGNORECASE):
+            columns = self.statements["ORDER"].split("BY")[1].strip()
+            if ',' in columns:  
+                return False
+            return True
+        return False
+
+    def isLimitValid(self):
+        if "LIMIT" not in self.statements:
+            return True  
+
+        limit_pattern = r"LIMIT\s+\d+"
+        if re.match(limit_pattern, self.statements["LIMIT"], re.IGNORECASE):
+            if "ORDER" in self.statements:
+                limit_index = list(self.statements.keys()).index("LIMIT")
+                order_index = list(self.statements.keys()).index("ORDER")
+                if limit_index < order_index:
+                    return False  
+           
+            try:
+                limit_value = int(self.statements["LIMIT"].split()[1].replace(";", "").strip())
+                if limit_value < 0:
+                    return False
+            except ValueError:
+                return False 
+            return True
+        return False
+
+    def debug_parse(self):
+        print("Parsed Statements:")
+        for key, value in self.statements.items():
+            print(f"  {key}: {value}")
+        print("Rename Map (SELECT):", self.rename_select)
+        print("Rename Map (FROM):", self.rename_from)
+
 
     def out(self):
         print(self.statements)
@@ -135,11 +172,32 @@ qs2 = [
     "select *, name ",
     "select * ",
 ]
+
+test_queries = [
+        "SELECT name, age FROM employees ORDER BY age ASC LIMIT 10",  # Valid
+        "SELECT * FROM employees ORDER BY name DESC LIMIT 5",  # Valid
+        "SELECT id FROM employees ORDER BY salary",  # Valid (default ASC)
+        "SELECT id FROM employees ORDER BY",  # Invalid ORDER BY missing column
+        "SELECT id FROM employees LIMIT",  # Invalid LIMIT missing number
+        "SELECT id FROM employees ORDER BY salary ASC LIMIT",  # Invalid LIMIT missing number
+        "SELECT id FROM employees LIMIT 10 ORDER BY salary",  # Invalid ORDER
+        "SELECT id FROM employees ORDER BY salary DESC LIMIT -5",  # Invalid LIMIT negative value
+        "SELECT name, age FROM employees ORDER BY name, age LIMIT 10",  # Invalid multiple ORDER BY columns (unsupported here)
+        "SELECT name, age FROM employees LIMIT 10 ORDER BY name",  # Invalid: LIMIT must follow ORDER BY
+]
+
 # test = Query(qs2[0])
 # print(test.isBeginValid())
-for q in qs2:
-    test = Query(q)
-    # test.out()
-    # print(test.isFromValid(test_tables))
-    print(test.isSelectValid(test_tables))
-    print("Columns and renaming:", test.rename_select)
+# for q in qs2:
+#     test = Query(q)
+#     # test.out()
+#     # print(test.isFromValid(test_tables))
+#     print(test.isSelectValid(test_tables))
+#     print("Columns and renaming:", test.rename_select)
+
+for query in test_queries:
+    test = Query(query)
+    print(f"Processing query: {query}")
+    test.debug_parse()  
+    print("ORDER BY Valid:", test.isOrderValid())
+    print("LIMIT Valid:", test.isLimitValid())
