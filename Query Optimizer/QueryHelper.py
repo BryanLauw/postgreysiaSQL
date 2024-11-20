@@ -17,33 +17,29 @@ class QueryHelper:
 
     @staticmethod
     def extract_FROM(values: str):
+        """
+        Extract FROM clause and split by JOIN operations. 
+        Returns a list of tables and JOIN expressions.
+        """
         arr_joins = []
         values_parsed = values.split()
-        len_parsed = len(values_parsed)
-        met_join = False
         element = ""
         i = 0
-        while i < len_parsed:
-            if i + 1 < len_parsed and values_parsed[i] == "NATURAL" and values_parsed[i + 1] == "JOIN":
-                if not met_join:
-                    met_join = True
-                    element += " NATURAL JOIN"
-                else:
-                    arr_joins.append(element.strip())
-                    element = " NATURAL JOIN "
-                i += 2
-                continue
+        while i < len(values_parsed):
             if values_parsed[i] == "JOIN":
-                if not met_join:
-                    met_join = True
-                else:
+                if element:
                     arr_joins.append(element.strip())
-                    element = ""
-            element += " " + values_parsed[i]
+                arr_joins.append("JOIN")
+                element = ""
+            else:
+                element += " " + values_parsed[i]
             i += 1
+
         if element:
             arr_joins.append(element.strip())
+
         return arr_joins
+
 
     @staticmethod
     def extract_WHERE(values: str):

@@ -39,11 +39,41 @@ class OptimizationEngine:
 
             i += 1
 
-        print(query_components_value)
-        return ParsedQuery(QueryTree("ROOT", "QUERY", []), query)
+        query_tree = self.__build_query_tree(query_components_value)
+        return ParsedQuery(query_tree, query)
+
+    def __build_query_tree(self, components: dict) -> QueryTree:
+        """
+        Build a query tree with JOIN handling.
+        """
+        # Root node
+        root = QueryTree(type_="QUERY", val="ROOT")
+
+        for key, value in components.items():
+            clause_node = QueryTree(type_=key, val=str(value))
+            if key == "FROM" and isinstance(value, list):
+                # Handle JOINs specifically
+                current_table = None
+                for item in value:
+                    if item == "JOIN":
+                        join_node = QueryTree(type_="JOIN", val="JOIN")
+                        clause_node.add_child(join_node)
+                    else:
+                        if current_table is None:
+                            current_table = QueryTree(type_="TABLE", val=item)
+                            clause_node.add_child(current_table)
+                        else:
+                            current_table = QueryTree(type_="TABLE", val=item)
+                            clause_node.add_child(current_table)
+            else:
+                clause_node.add_child(QueryTree(type_="VALUE", val=str(value)))
+
+            root.add_child(clause_node)
+
+        return root
 
     def optimize_query(self, query: ParsedQuery) -> ParsedQuery:
-        # Future optimization logic
+        # Placeholder for future optimization logic
         pass
 
     def __get_cost(self, query: ParsedQuery) -> int:
@@ -54,12 +84,14 @@ class OptimizationEngine:
 if __name__ == "__main__":
     new = OptimizationEngine()
 
-    # Test SELECT query
-    select_query = "SELECT a, b, c FROM students JOIN teacher t ON students.id = t.id WHERE a=1 ORDER BY a DESC LIMIT 1"
+    # Test SELECT query with JOIN
+    select_query = "SELECT a, b FROM students JOIN teacher ON students.id = teacher.id WHERE a > 1"
     print(select_query)
-    new.parse_query(select_query)
+    parsed_query = new.parse_query(select_query)
+    print(parsed_query)
 
     # Test UPDATE query
-    update_query = "UPDATE employee SET salary=1.05*salary WHERE salary > 1000"
+    update_query = "UPDATE employee SET salary = salary * 1.1 WHERE salary > 1000"
     print(update_query)
-    new.parse_query(update_query)
+    parsed_update_query = new.parse_query(update_query)
+    print(parsed_update_query)
