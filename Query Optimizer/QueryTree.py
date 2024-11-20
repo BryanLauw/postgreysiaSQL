@@ -1,14 +1,17 @@
 from typing import List, Dict
 
 class QueryTree:
-    def __init__(self, type_: str, val: str, childs: List['QueryTree'] = None, parent: 'QueryTree' = None):
-        self.type = type_
+    def __init__(self, type: str, val: str = None, childs: List['QueryTree'] = None, parent: 'QueryTree' = None):
+        self.type = type
         self.val = val
         self.childs = childs if childs else []
         self.parent = parent
 
-    def add_child(self, child: 'QueryTree'):
+    def add_child(self, child: 'QueryTree') -> 'QueryTree':
         self.childs.append(child)
+    
+    def add_parent(self, parent: 'QueryTree') -> 'QueryTree':
+        self.parent = parent
 
     def __repr__(self, level=0):
         ret = "\t" * level + f"({self.type}: {self.val})\n"

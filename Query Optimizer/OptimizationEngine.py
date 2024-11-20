@@ -39,36 +39,44 @@ class OptimizationEngine:
 
             i += 1
 
+        print(f"query_components_value: {query_components_value}") # testing
+
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree, query)
 
     def __build_query_tree(self, components: dict) -> QueryTree:
-        """
-        Build a query tree with JOIN handling.
-        """
-        # Root node
-        root = QueryTree(type_="QUERY", val="ROOT")
 
-        for key, value in components.items():
-            clause_node = QueryTree(type_=key, val=str(value))
-            if key == "FROM" and isinstance(value, list):
-                # Handle JOINs specifically
-                current_table = None
-                for item in value:
-                    if item == "JOIN":
-                        join_node = QueryTree(type_="JOIN", val="JOIN")
-                        clause_node.add_child(join_node)
-                    else:
-                        if current_table is None:
-                            current_table = QueryTree(type_="TABLE", val=item)
-                            clause_node.add_child(current_table)
-                        else:
-                            current_table = QueryTree(type_="TABLE", val=item)
-                            clause_node.add_child(current_table)
-            else:
-                clause_node.add_child(QueryTree(type_="VALUE", val=str(value)))
+        root = QueryTree(type="ROOT")
+        top = root
 
-            root.add_child(clause_node)
+        if "LIMIT" in components:
+            limit_tree = QueryTree(type="LIMIT", val=components["LIMIT"])
+            top.add_child(limit_tree)
+            limit_tree.add_parent(top)
+            top = limit_tree
+        
+        if "ORDER BY" in components:
+            order_by_tree = QueryTree(type="ORDER BY", val=components["ORDER BY"])
+            top.add_child(order_by_tree)
+            order_by_tree.add_parent(top)
+            top = order_by_tree
+        
+        if "SELECT" in components:
+            select_tree = QueryTree(type="SELECT", val=components["SELECT"])
+            top.add_child(select_tree)
+            select_tree.add_parent(top)
+            top = select_tree
+        
+        if "WHERE" in components:
+            where_tree = QueryTree(type="WHERE", val=components["WHERE"])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
+        
+        if "FROM" in components:
+            join_tree = QueryHelper.build_join_tree(components["FROM"])
+            top.add_child(join_tree)
+            join_tree.add_parent(top)
 
         return root
 
@@ -85,7 +93,7 @@ if __name__ == "__main__":
     new = OptimizationEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT a, b FROM students JOIN teacher ON students.id = teacher.id WHERE a > 1"
+    select_query = "SELECT a, b FROM students JOIN teacher ON students.id = teacher.id JOIN teacher ON students.id = teacher.id WHERE a > 1 ORDER BY apalah LIMIT 10"
     print(select_query)
     parsed_query = new.parse_query(select_query)
     print(parsed_query)
