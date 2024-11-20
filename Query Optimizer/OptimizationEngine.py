@@ -6,32 +6,37 @@ class OptimizationEngine:
         pass
     
     def parse_query(self,query: str) -> ParsedQuery:
-        query.upper()
-        components = ["SELECT","DELETE","FROM","UPDATE","SET","WHERE","LIMIT","ORDERBY"]
+        normalized_query = QueryHelper.remove_excessive_whitespace(
+            QueryHelper.normalize_string(query)
+            .upper())
+        
+        components = ["SELECT","DELETE","FROM","UPDATE","SET","WHERE","ORDER BY","LIMIT"]
         
         # Map/Dictionary, untuk nampung value dari SELECT, FROM, dll
         # Cth: "SELECT" => "a,b"
         query_components_value = {}
 
         i = 0
-        while(i < 6):
-            idx_first_comp = query.find(components[i])
+        while(i < 8):
+            idx_first_comp = normalized_query.find(components[i])
             if idx_first_comp == -1:
                 i+=1
                 continue
             
-            if(i == 5):
+            if(i == 7):
                 query_components_value[components[i]] = QueryHelper.extract_value(query,components[i], "")
                 break
             
             j = i+1
-            idx_second_comp = query.find(components[j])
+            idx_second_comp = normalized_query.find(components[j])
             while(idx_second_comp == -1):
                 if j == 5:
                     break
                 j+=1
                 idx_second_comp = query.find(components[j])
 
+            # print(components[i],components[j])
+            
             query_components_value[components[i]] = QueryHelper.extract_value(query,components[i],
                                                                               "" if idx_second_comp == -1
                                                                               else components[j])
@@ -49,4 +54,6 @@ class OptimizationEngine:
 
 new = OptimizationEngine()
 
-new.parse_query("SELECT a,b, c FROM students WHERE a=1 ")
+query = "SELECT a,b, c FROM students JOIN teacher t ON students.id = t.id WHERE a=1 ORDER BY a DESC LIMIT 1"
+print(query)
+new.parse_query(query)

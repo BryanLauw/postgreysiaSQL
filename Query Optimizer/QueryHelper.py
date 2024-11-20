@@ -8,7 +8,7 @@ class QueryHelper:
 
     @staticmethod
     def normalize_string(query: str):
-        return query.replace(" ","").replace("\t","").replace("\n","").replace("\r","")
+        return query.replace("\t","").replace("\n","").replace("\r","")
 
     @staticmethod
     def extract_SELECT(values:str):
@@ -53,8 +53,16 @@ class QueryHelper:
         
         return arr_joins
     
+    @staticmethod
+    def extract_WHERE(values: str):
+        return values.replace(" ","")
     
+    def extract_ORDERBY(values: str):
+        return values.strip()
             
+    def extract_LIMIT(values: str):
+        return int(values)
+    
     @staticmethod
     def extract_value(query:str, before: str,after: str):
         start = query.find(before) + len(before)
@@ -63,7 +71,20 @@ class QueryHelper:
         else:
             end = query.find(after)
         
-        string_value = query[start:end]
+        extracted = query[start:end]
+        if(before == "SELECT"):
+            extracted = QueryHelper.extract_SELECT(extracted)
+        elif(before == "FROM"):
+            extracted = QueryHelper.extract_FROM(extracted)
+        elif(before == "WHERE"):
+            extracted = QueryHelper.extract_WHERE(extracted)
+        elif(before == "ORDER BY"):
+            extracted = QueryHelper.extract_ORDERBY(extracted)
+        elif(before == "LIMIT"):
+            extracted = QueryHelper.extract_LIMIT(extracted)
+        
+        return extracted
     
-print(QueryHelper.extract_FROM("a NATURAL JOIN b JOIN c ON a.id = b.id"))
+# print(QueryHelper.extract_FROM("a NATURAL JOIN b JOIN c ON a.id = b.id"))
+# print(QueryHelper.extract_value("SELECT * FROM a NATURAL JOIN b JOIN c ON b.id = c.id WHERE a=1 ORDER BY a asc LIMIT 1","FROM","WHERE"))
         
