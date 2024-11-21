@@ -3,8 +3,8 @@ import re
 class Query:
     def __init__(self, query):
 
-        syntaxes = ["SELECT", "UPDATE", "AS", "FROM", "JOIN", "WHERE", "ORDER", "LIMIT", "BEGIN", "COMMIT", "END", "TRANSACTION", "DELETE"]
-        syntaxes_statement = ["SELECT", "UPDATE", "FROM", "WHERE", "ORDER", "LIMIT", "BEGIN", "COMMIT", "END", "DELETE"]
+        syntaxes = ["SELECT", "UPDATE", "AS", "FROM", "JOIN", "WHERE", "ORDER", "LIMIT", "BEGIN", "COMMIT", "END", "TRANSACTION", "DELETE", "INSERT", "VALUES", "INTO"]
+        syntaxes_statement = ["SELECT", "UPDATE", "FROM", "WHERE", "ORDER", "LIMIT", "BEGIN", "COMMIT", "END", "DELETE", "INSERT"]
         
         # atribut
         self.statements = {} # statement
@@ -161,6 +161,34 @@ class Query:
             return "Error: DELETE query must contain only one condition in the WHERE clause."
 
         return "Success: Your DELETE query is valid."
+    
+    def isInsertValid(self, valid_tables):
+        if "INSERT" not in self.statements:
+            return "Error: Missing 'INSERT' clause."
+
+        pattern = r"INSERT\s+INTO\s+(\w+)\s*(\([^)]*\))?\s*VALUES\s*\(([^)]*)\)"
+        match = re.match(pattern, self.statements["INSERT"], re.IGNORECASE)
+
+        if not match:
+            return "Error: Invalid syntax in the INSERT query."
+
+        table_name = match.group(1)
+        columns = match.group(2) or ""
+        values = match.group(3) or ""
+
+        if table_name not in valid_tables:
+            return f"Error: The table '{table_name}' does not exist in the database."
+
+        column_list = [col.strip() for col in columns.strip("()").split(",") if col.strip()]
+        value_list = [val.strip() for val in values.split(",")]
+        for column in column_list:
+            if column not in valid_tables[table_name]:
+                return f"Error: The column '{column}' is not valid for the table '{table_name}'."
+
+        if len(column_list) != len(value_list):
+            return f"Error: Mismatch between number of columns ({len(column_list)}) and values ({len(value_list)})."
+
+        return "Success: Your INSERT query is valid."
 
     def debug_parse(self):
         print("Parsed Statements:")
@@ -254,9 +282,28 @@ if __name__ == "__main__":
         "DELETE FROM employee WHERE position='Manager'",  # Invalid: Invalid attribute
     ]
 
-    for query in delete_test_queries:
+    insert_test_queries = [
+        "INSERT INTO employee (id, name, department, salary) VALUES (1, 'John Doe', 'RnD', 5000);",  # Valid
+        "INSERT INTO employee (id, name, department) VALUES (2, 'Jane Doe', 'HR', 4000);",  # Valid
+        "INSERT INTO unknown_table (id, name) VALUES (1, 'Unknown');",  # Invalid: Table does not exist
+        "INSERT INTO employee (id, name) VALUES (3);",  # Invalid: Mismatch between columns and values
+        "INSERT employee (id, name) VALUES (4, 'Test');",  # Invalid: Missing 'INTO'
+        "INSERT INTO employee (id, name department) VALUES (5, 'Error', 'RnD');",  # Invalid: Missing comma between columns
+        "INSERT INTO employee (id, name, department) VALUE (6, 'Missing', 'RnD');",  # Invalid: Typo 'VALUE' instead of 'VALUES'
+        "INSERT INTO employee VALUES (7, 'No Columns', 'RnD', 3000);",  # Invalid: Columns not specified
+        "INSERT INTO employee (id, name, department) VALUES ();",  # Invalid: Empty values
+    ]
+
+    # for query in delete_test_queries:
+    #     print(f"Processing query: {query}")
+    #     test = Query(query)
+    #     test.debug_parse() 
+    #     print(test.isDeleteValid(valid_tables))
+    #     print("-" * 80)
+
+    for query in insert_test_queries:
         print(f"Processing query: {query}")
         test = Query(query)
-        test.debug_parse() 
-        print(test.isDeleteValid(valid_tables))
+        test.debug_parse()
+        print(test.isInsertValid(valid_tables))
         print("-" * 80)
