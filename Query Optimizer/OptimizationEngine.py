@@ -68,6 +68,17 @@ class OptimizationEngine:
                 select_tree.add_parent(top)
                 top = select_tree
                 
+        if "UPDATE" in components:
+            where_tree = QueryTree(type="UPDATE", val=components["UPDATE"])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
+
+        # if "DELETE" in components:
+        #     where_tree = QueryTree(type="DELETE", val=components["DELETE"])
+        #     top.add_child(where_tree)
+        #     where_tree.add_parent(top)
+        #     top = where_tree
         
         if "WHERE" in components:
             where_tree = QueryTree(type="WHERE", val=components["WHERE"])
@@ -105,3 +116,9 @@ if __name__ == "__main__":
     print(update_query)
     parsed_update_query = new.parse_query(update_query)
     print(parsed_update_query)
+
+    # #Test DELETE query
+    # delete_query = "DELETE FROM employees WHERE salary < 3000"
+    # print(delete_query)
+    # parsed_delete_query = new.parse_query(delete_query)
+    # print(parsed_delete_query)
