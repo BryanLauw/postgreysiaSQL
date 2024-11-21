@@ -4,7 +4,7 @@ class Query:
     def __init__(self, query):
 
         syntaxes = ["SELECT","UPDATE","AS","FROM","JOIN","WHERE","ORDER","LIMIT","BEGIN","COMMIT","END","TRANSACTION"]
-        syntaxes_statement = ["SELECT","UPDATE","FROM","WHERE","LIMIT","BEGIN","COMMIT","END"]
+        syntaxes_statement = ["SELECT","UPDATE","FROM","WHERE","ORDER","LIMIT","BEGIN","COMMIT","END"]
         
         # atribut
         self.statements = {} # statement
@@ -98,6 +98,10 @@ class Query:
         pass
 
     def isLimitValid():
+        # TODO
+        pass
+
+    def isOrderValid():
         # TODO
         pass
 
