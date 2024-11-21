@@ -7,12 +7,18 @@ class QueryProcessor:
         pass
 
     def execute_query(self, query : str):
-        print("Executing query: " + query)
-        if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
-            pass
-        elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
-            pass
-        elif(query.upper() == "END TRANSACTION"):
-            pass
-        else:
-            pass
+        queries = self.parse_query(query)
+        for query in queries:
+            if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
+                pass
+            elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
+                pass
+            elif(query.upper() == "END TRANSACTION"):
+                pass
+            else:
+                pass
+
+
+    def parse_query(self, query : str):
+        queries = query.split(';')
+        return [q.strip() for q in queries if q.strip()]
