@@ -118,7 +118,11 @@ class Query:
                 print (f"Attribute '{attr_name}' does not exist in table '{table_name}'")
                 return False
             
-        #TODO: Validasi WHERE clause    
+        try:
+            self.isWhereValid(valid_tables)
+        except Exception as e:
+            print(e)
+            return False   
 
         print("\033[92mSuccess: Your UPDATE query is valid.\033[0m")
         return True
@@ -382,7 +386,7 @@ if __name__ == "__main__":
     ]
 
     update_test_queries = [
-        "UPDATE employee SET salary=6000",  # Valid
+        "UPDATE employee SET salary=6000 WHERE department='RnD'",  # Valid
         "UPDATE employee SET salary=6000",  # Invalid: Missing WHERE clause
         "UPDATE unknown_table SET location='HQ' WHERE name='IT'",  # Invalid: Table does not exist
         "UPDATE employee SET salary=6000 AND department='RnD'",  # Invalid: Missing WHERE keyword
