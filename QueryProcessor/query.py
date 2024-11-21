@@ -140,17 +140,104 @@ class Query:
             return True
         return False
 
-    def isUpdateValid():
-        # TODO
-        pass
+    def isUpdateValid(self, valid_tables):
+        if "WHERE" not in self.statements:
+            print ("Error: Missing 'WHERE' clause. Avoid updating all rows accidentally.")
+            return False
+
+
+        update_pattern = r"^\s*UPDATE\s+(\w+)\s+SET\s+(.*?)\s*$"
+        match = re.match(update_pattern, self.statements["UPDATE"], re.IGNORECASE)
+        if not match:
+            print ("Invalid UPDATE query")
+            return False
+
+        table_name = match.group(1)
+        self.rename_from[table_name] = table_name
+        set_clause = match.group(2)
+
+        if table_name not in valid_tables:
+            print (f"Table '{table_name}' does not exist")
+            return False
+
+        attributes = valid_tables[table_name]
+        assignments = [assign.strip() for assign in set_clause.split(',')]
+
+        for assignment in assignments:
+            attr_match = re.match(r"(\w+)\s*=", assignment)
+            if not attr_match:
+                print ("Invalid SET clause")
+                return False
+            attr_name = attr_match.group(1)
+            if attr_name not in attributes:
+                print (f"Attribute '{attr_name}' does not exist in table '{table_name}'")
+                return False
+            
+        #TODO: Validasi WHERE clause    
+
+        print("\033[92mSuccess: Your UPDATE query is valid.\033[0m")
+        return True
 
     def isFromValid():
         # TODO
         pass
 
-    def isWhereValid():
-        # TODO
-        pass
+    def isWhereValid(self, valid_tables):
+        where_statement = self.statements["WHERE"]
+        if (len(self.rename_from) > 1):
+            where_regex = r"^[Ww][Hh][Ee][Rr][Ee]\s+(\(*(\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*))(\s+([Aa][Nn][Dd]|[Oo][Rr])\s+(\(*(\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*)))*$"
+        else:
+            where_regex = r"^[Ww][Hh][Ee][Rr][Ee]\s+(\(*(\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*))(\s+([Aa][Nn][Dd]|[Oo][Rr])\s+(\(*(\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*)))*$"
+        
+        match = re.fullmatch(where_regex, where_statement)
+        stack = 0
+        flag = True
+
+        # Check parentheses matching
+        for char in where_statement:
+            if char == '(':
+                stack += 1
+            elif char == ')':
+                if stack == 0:
+                    flag = False
+                    break
+                stack -= 1
+        
+        flag = flag and (stack == 0)
+        if not match:
+            raise Exception("Kesalahan sintaks pada klausa WHERE.")
+        if not flag:
+            raise Exception("Tanda kurung tidak seimbang.")
+        
+        if len(self.rename_from) > 1:
+            table_groups = re.findall(r"((\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?))", where_statement)
+            
+        else:
+            table_groups = re.findall(r"((\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?))", where_statement)
+        comparisons = [(group[1], group[3]) for group in table_groups]  # Extract attributes and RHS value
+
+        for v in comparisons:
+            v = v[0]
+            if len(self.rename_from) > 1:
+                table_alias, attr = v.split('.')
+                table = self.rename_from.get(table_alias)
+                if table == None:
+                    raise Exception(f"Tidak ada {table_alias}.")
+                
+                if table not in valid_tables:
+                    raise Exception(f"Nama tabel {table} tidak valid.")
+                
+                valid_attributes = valid_tables[table]
+                if attr not in valid_tables.get(valid_attributes, []):
+                    raise Exception(f"Atribut {attr} tidak valid pada tabel {table}.")
+            else:
+                attr = v
+                first_key, first_value = list(self.rename_from.items())[0]
+                valid_attributes = valid_tables[first_value]
+                if attr not in valid_tables.get(valid_attributes, []):
+                    raise Exception(f"Atribut {attr} tidak valid pada tabel {first_value}.")
+        
+        return True
 
     def isOrderValid(self):
         if "ORDER" not in self.statements:
@@ -353,6 +440,15 @@ for q in qs2:
 #         "INSERT INTO employee VALUES (7, 'No Columns', 'RnD', 3000);",  # Invalid: Columns not specified
 #         "INSERT INTO employee (id, name, department) VALUES ();",  # Invalid: Empty values
 #     ]
+
+    update_test_queries = [
+        "UPDATE employee SET salary=6000",  # Valid
+        "UPDATE employee SET salary=6000",  # Invalid: Missing WHERE clause
+        "UPDATE unknown_table SET location='HQ' WHERE name='IT'",  # Invalid: Table does not exist
+        "UPDATE employee SET salary=6000 AND department='RnD'",  # Invalid: Missing WHERE keyword
+        "UPDATE employee SET salary=6000 WHERE position='Manager'",  # Invalid: Invalid attribute
+        "UPDATE employee SET salary=6000 WHERE department='RnD' AND salary > 5000",  # Invalid: Multiple conditions
+    ]
 
 #     # for query in delete_test_queries:
 #     #     print(f"Processing query: {query}")
