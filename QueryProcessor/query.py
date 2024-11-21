@@ -182,9 +182,89 @@ class Query:
         print("\033[92mSuccess: Your UPDATE query is valid.\033[0m")
         return True
 
-    def isFromValid():
-        # TODO
-        pass
+    def isFromValid(self, attributes):
+        # Check if there is a FROM statement
+        if "FROM" not in self.statements:
+            return Exception("There is no FROM Statement")
+
+        # regex for FROM clause
+        FROM = r'[Ff][Rr][Oo][Mm]'
+        JOIN = r'[Jj][Oo][Ii][Nn]'
+        NATURAL_JOIN = r'[Nn][Aa][Tt][Uu][Rr][Aa][Ll]\s+[Jj][Oo][Ii][Nn]'
+        ON = r'[Oo][Nn]'
+        AS = r'[Aa][Ss]'
+
+        TABLE = ALIAS = r'[A-Za-z_][A-Za-z0-9_]*'
+        COLUMNNAME = r'[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*'
+
+        # TABLE((\s+AS)?\s+ALIAS)?
+        TABLENAME = rf'{TABLE}((\s+{AS})?\s+{ALIAS})?'
+        # JOIN\s+TABLENAME(\s+ON\s+COLUMNNAME\s*=\s*COLUMNNAME)?
+        JOIN_CLAUSE = rf'{JOIN}\s+{TABLENAME}(\s+{ON}\s+{COLUMNNAME}\s*=\s*{COLUMNNAME})?'
+        # NATURAL_JOIN\s+TABLENAME
+        NATURAL_JOIN_CLAUSE = rf'{NATURAL_JOIN}\s+{TABLENAME}'
+        # ^\s*FROM\s+TABLENAME(\s*,\s*TABLENAME|\s+JOIN|\s+NATURAL_JOIN)*$
+        FROM_CLAUSE = rf'^\s*{FROM}\s+{TABLENAME}(\s*,\s*{TABLENAME}|\s+{JOIN_CLAUSE}|\s+{NATURAL_JOIN_CLAUSE})*\s*$'
+
+        from_pattern = FROM_CLAUSE
+
+        def validate_from_clause(sql_from_clause):
+            return bool(re.match(from_pattern, sql_from_clause.strip()))
+
+        # if the FROM clause is not valid        
+        if not validate_from_clause(self.statements["FROM"]):
+            return Exception("Invalid FROM Statement")
+        
+        # if the FROM clause is valid
+        # check if the table exists or the column exists
+        # map the renaming table into the dictionary
+        token = self.statements["FROM"].replace(',',' , ').split()
+        self.rename_from[token[1]] = token[1]
+        i = 2
+        while i < len(token):
+            if token[i].upper() == "JOIN":
+                if token[i+1].upper() == "NATURAL":
+                    if token[i+2] in attributes:
+                        self.rename_from[token[i+2]] = token[i+2]
+                        i += 3
+                    else:
+                        return Exception("Table does not exist")
+                else:
+                    if token[i+1] in attributes:
+                        self.rename_from[token[i+1]] = token[i+1]
+                        i += 2
+                    else:
+                        return Exception("Table does not exist")
+            elif token[i] == ',':
+                if token[i+1] in attributes:
+                    self.rename_from[token[i+1]] = token[i+1]
+                    i += 2
+                else:
+                    return Exception("Table does not exist")
+            elif token[i].upper() == "AS":
+                self.rename_from[token[i+1]] = token[i-1]
+                i += 2
+            elif token[i].upper() == "ON":
+                # NEED COLUMN NAME
+                # if token[i+2] == "=":
+                #     table1, column1 = token[i+1].split('.')
+                #     table2, column2 = token[i+3].split('.')
+                #     if (table1 in self.rename_from and table2 in self.rename_from):
+                #         table1 = self.rename_from[table1]
+                #         table2 = self.rename_from[table2]
+                #         if column1 in table1 and column2 in table2:
+                #             i += 4
+                #         else:
+                #             return Exception("Column does not exist")
+                #     else:
+                #         return Exception("Table does not exist")
+                # else:
+                #     return Exception("Did you mean: =")
+                i += 4
+            else:
+                self.rename_from[token[i]] = token[i-1]
+                i += 1
+        return True
 
     def isWhereValid(self, valid_tables):
         where_statement = self.statements["WHERE"]
