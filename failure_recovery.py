@@ -4,50 +4,15 @@ from typing import Optional, Union, Literal
 import time
 import threading
 
+
 @dataclass
 class RecoverCriteria:
     transaction_id: Optional[int] = None
     timestamp: Optional[datetime] = None
 
+
 StatusType = Union[Literal["commit"], Literal["abort"]]
 
-@dataclass
-class LogEntry:
-    transaction_id: Optional[int]
-    timestamp: datetime
-    log_type: str
-    is_ended: bool
-    status: Optional[str]
-    table: Optional[str]
-    column: Optional[str]
-    row: Optional[str]
-    old_value: Optional[str]
-    new_value: Optional[str]
-
-    @classmethod
-    def from_dict(cls, log_dict: dict):
-        """
-        Create a LogEntry object from a dictionary
-        
-        :param log_dict: Dictionary containing log entry information
-        :return: LogEntry object
-        """
-        # Convert timestamp string to datetime object
-        timestamp = datetime.strptime(log_dict['timestamp'], "%Y-%m-%d %H:%M:%S") \
-            if log_dict['timestamp'] else None
-        
-        return cls(
-            transaction_id=log_dict.get('transaction_id'),
-            timestamp=timestamp,
-            log_type=log_dict.get('log_type'),
-            is_ended=log_dict.get('is_ended', False),
-            status=log_dict.get('status'),
-            table=log_dict.get('table'),
-            column=log_dict.get('column'),
-            row=log_dict.get('row'),
-            old_value=log_dict.get('old_value'),
-            new_value=log_dict.get('new_value')
-        )
 
 class FailureRecovery:
     def __init__(self, buffer_size=1000, interval=300):
@@ -60,8 +25,7 @@ class FailureRecovery:
         self.checkpoint_thread.daemon = True
         self.checkpoint_thread.start()
         self.log_file = "log.txt"
-        # ASUMSI INI STATE DARI QUERY PROCESSING
-        self.current_state = {}
+        self.undo_log = []
 
     def start_transaction(self, transaction_id: int):
         log_entry = {
@@ -126,66 +90,50 @@ class FailureRecovery:
         print("Save")
         self._write_to_txt()
 
-    def redo():
-        pass
+    def undo(self):
+        n_baris = 5 # asumsi yang diundo 5 baris
+        try:
+            log_entries = self._load_log_entries()
+            for _ in range (min(n_baris, len(log_entries))):
+                self.undo_log.append(log_entries.pop())
 
-    # Example usage
-    def _load_log_entries(self) -> list[LogEntry]:
+
+            with open(self.log_file, 'w') as f:
+                for entry in log_entries:
+                    f.write(entry + '\n')
+            print("UNDO success")
+            print(self.undo_log)
+        except Exception as e:
+            print(f"Error during undo: {e}")
+    
+    def redo(self):
+        try:
+            if not self.undo_log:
+                print("Tidak ada log untuk redo.")
+                return
+
+            with open(self.log_file, 'a') as f:
+                for entry in reversed(self.undo_log):
+                    f.write(entry + '\n')
+
+            print("REDO success")
+        except Exception as e:
+            print(f"Error during redo: {e}")
+    
+
+
+    def _load_log_entries(self) -> list:
         """
-        Load log entries from the log file and parse them into LogEntry objects
+        Load log entries from the log file
         
-        :return: List of LogEntry objects
+        :return: List of log entries
         """
         try:
             with open(self.log_file, 'r') as f:
-                # Assuming log entries are stored as dictionaries (e.g., in JSON format)
-                log_dicts = [eval(line.strip()) for line in f]  # Replace with json.loads() in real-world scenario
-                log_entries = [LogEntry.from_dict(log_dict) for log_dict in log_dicts]
+                log_entries = [line.strip() for line in f]  # Read each line and remove whitespace
                 return log_entries
         except FileNotFoundError:
             return []
-    
-    def execute_recovery_query(self, log_entry: dict):
-        """
-        Execute a recovery query based on the log entry
-        
-        :param log_entry: Log entry to be recovered
-        """
-        operation = log_entry.get('operation')
-        key = log_entry.get('key')
-        value = log_entry.get('value')
-        
-        if operation == 'INSERT':
-            # Undo an insert by removing the key
-            if key in self.current_state:
-                del self.current_state[key]
-        elif operation == 'UPDATE':
-            # Revert to the previous value
-            if 'previous_value' in log_entry:
-                self.current_state[key] = log_entry['previous_value']
-        elif operation == 'DELETE':
-            # Restore a deleted entry
-            self.current_state[key] = value
-
-    def _meets_recovery_criteria(log_entry: LogEntry, criteria: RecoverCriteria):
-        """
-        Check if a log entry meets the recovery criteria
-        
-        :param log_entry: LogEntry object to check
-        :param criteria: RecoverCriteria to match against
-        :return: Boolean indicating if criteria are met
-        """
-        # Check transaction_id if specified in criteria
-        if criteria.transaction_id is not None and \
-        log_entry.transaction_id != criteria.transaction_id:
-            return False
-        
-        # Check timestamp if specified in criteria
-        if criteria.timestamp is not None and \
-        log_entry.timestamp != criteria.timestamp:
-            return False
-        
-        return True
 
     def recover(self, criteria: RecoverCriteria):
 
@@ -195,16 +143,9 @@ class FailureRecovery:
         # reverse from latest as first item
         log_entries.reverse()
 
-        for log_entry in log_entries:
-            # Check recovery criteria
-            if not self._meets_recovery_criteria(log_entry, criteria):
-                break
-            
-            # Execute recovery query
-            self.execute_recovery_query(log_entry)
         
-        print("Recovery process completed.")
-        print("Recovered database state:", self.query_processor.current_state)
+
+        pass
 
     def _write_to_txt(self):
         try:
@@ -265,4 +206,6 @@ if __name__ == "__main__":
         time.sleep(2)
 
     recovery.end_transaction(1, "commit")
-
+    print("\nPerforming Undo Operation:")
+    recovery.undo()
+    recovery.redo()
