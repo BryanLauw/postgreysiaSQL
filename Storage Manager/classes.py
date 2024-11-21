@@ -127,7 +127,7 @@ class StorageEngine:
         hasil_operasi = []
         for kondisi in data_retrieval.conditions:
             for row in hasil_cross:
-                if not kondisi.evaluate(row[kondisi.column]):
+                if kondisi.evaluate(row[kondisi.column]):
                     hasil_operasi.append(row)
 
         # lalu ambil hanya kolom yang diinginkan
@@ -140,8 +140,34 @@ class StorageEngine:
     def write_block(self, data_write:DataWrite):
         pass
 
-    def delete_block(self, data_deletion:DataDeletion):
-        pass
-    
+    def delete_block(self, data_deletion:DataDeletion, database_name:str) -> int:
+        # error handling
+        if database_name not in self.blocks:
+            return Exception(f"Tidak ada database dengan nama {database_name}")  
+        if data_deletion.table not in self.blocks[database_name]:
+            return Exception(f"Tidak ada tabel dengan nama {data_deletion.table}")
+        column_tabel_query = []
+        for kolom in self.blocks[database_name][data_deletion.table]["columns"]:
+            column_tabel_query.append(kolom["name"])
+        if data_deletion.conditions:
+            for kondisi in data_deletion.conditions:
+                if kondisi.column not in column_tabel_query:
+                    return Exception(f"Tidak ada kolom dengan nama {kondisi.column}")
+                
+        # seharusnya tidak ada error di sini
+        data_baru = []
+        affected_row = 0
+        for kondisi in data_deletion.conditions:
+            for row in self.blocks[database_name][data_deletion.table]["values"]:
+                if not kondisi.evaluate(row[kondisi.column]):
+                    data_baru.append(row)
+                else:
+                    affected_row += 1
+            self.blocks[database_name][data_deletion.table]["values"] = data_baru
+            data_baru = []
+        print(f"Data berhasil dihapus, {affected_row} baris dihapus")
+
+        return affected_row
+
     def debug(self):
         print(self.blocks)
