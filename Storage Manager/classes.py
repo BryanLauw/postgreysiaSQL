@@ -10,6 +10,20 @@ class Condition:
         else:
             self.operation = "!"
         self.operand = operand
+    
+    def evaluate(self, item:int|str):
+        if self.operation == "=":
+            return item == self.operand
+        elif self.operation == "<>":
+            return item != self.operand
+        elif self.operation == ">":
+            return item > self.operand
+        elif self.operation == ">=":
+            return item >= self.operand
+        elif self.operation == "<":
+            return item < self.operand
+        else:
+            return item <= self.operand
 
 class DataRetrieval:
     def __init__(self, table:list[str], column:list[str], conditions:list[Condition]) -> None:
@@ -78,20 +92,50 @@ class StorageEngine:
         return Exception(f"Tidak ada database dengan nama {database_name}")
 
     def read_block(self, data_retrieval:DataRetrieval, database_name:str) -> dict|Exception:
+
+        # error handling
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")
         for tabel in data_retrieval.table:
             if tabel not in self.blocks[database_name]:
                 return Exception(f"Tidak ada tabel dengan nama {tabel}")
-        result = []
-        temp_values = []
+        column_tabel_query = []
+        for tabel in data_retrieval.table:
+            for kolom in self.blocks[database_name][tabel]["columns"]:
+                column_tabel_query.append(kolom["name"])
+        for kolom in data_retrieval.column:
+            if kolom not in column_tabel_query:
+                return Exception(f"Tidak ada kolom dengan nama {kolom}")
+        if data_retrieval.conditions:
+            for kondisi in data_retrieval.conditions:
+                if kondisi.column not in column_tabel_query:
+                    return Exception(f"Tidak ada kolom dengan nama {kondisi.column}")
+
+        # di bawah ini, udah pasti tidak ada error dari input
+
+        # cross terlebih dahulu dari tabel-tabel yang dipilih
+        hasil_cross = self.blocks[database_name][data_retrieval.table[0]]["values"]
+        for tabel_lainnya in data_retrieval.table[1:]:
+            temp = self.blocks[database_name][tabel_lainnya]["values"]
+            temp_hasil = []
+            for row_hasil_cross in hasil_cross:
+                for row_hasil_temp in temp:
+                    temp_hasil.append({**row_hasil_cross, **row_hasil_temp})
+            hasil_cross = temp_hasil
+
+        # lalu hapus data dari hasil_cross yang tidak memenuhi kondisi
+        hasil_operasi = []
+        for kondisi in data_retrieval.conditions:
+            for row in hasil_cross:
+                if not kondisi.evaluate(row[kondisi.column]):
+                    hasil_operasi.append(row)
+
+        # lalu ambil hanya kolom yang diinginkan
+        hasil_akhir = [{key: d[key] for key in data_retrieval.column if key in d} for d in hasil_operasi]
+
+        # return akhir
+        return hasil_akhir
         
-        if data_retrieval.condition:
-            pass
-        else:
-            for block in self.blocks:
-                for record in block.records:
-                    pass
 
     def write_block(self, data_write:DataWrite):
         pass
