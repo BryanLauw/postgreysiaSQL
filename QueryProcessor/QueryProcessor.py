@@ -1,5 +1,7 @@
-from ConcurrencyControlManager.main import *
-from QueryOptimizer.main import *
+from ..ConcurrencyControlManager.main import *
+from ..QueryOptimizer.main import *
+from ..FailureRecovery.failure_recovery import *
+from ..StorageManager.classes import *
 
 # temp class
 class Condition:
@@ -44,8 +46,8 @@ class QueryProcessor:
         self.parsedQuery = None
         self.qo = QueryOptimizer()
         self.cc = ConcurrencyControlManager()
-        # sm = StorageManager()
-        # rm = RecoveryManager()
+        sm = StorageEngine()
+        rm = FailureRecovery()
         pass
 
     def execute_query(self, query : str):
@@ -63,6 +65,7 @@ class QueryProcessor:
             print("Executing query: " + query)
             if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
                 self.current_transactionId = self.cc.begin_transaction()
+                # self.rm.start_transaction(self.current_transactionId)
                 
             elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
                 self.cc.end_transaction(self.current_transactionId)
