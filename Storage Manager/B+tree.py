@@ -68,6 +68,42 @@ class BPlusTree:
             if value < key:
                 return i
         return len(node.keys)
+    
+
+    def search(self,value):
+        return self._search_recursive(self.root, value)
+    
+    def _search_recursive(self,node : BTreeNode,value):
+        if node.is_leaf:
+            return value in node.keys
+        
+        for i, key in enumerate(node.keys):
+            if value < key:
+                return self._search_recursive(node.children[i],value)
+            
+
+        return self._search_recursive(node.children[-1], value)
+
+    def search_range(self, start, end):
+        current_leaf = self.root
+        while not current_leaf.is_leaf:
+            for i, key in enumerate(current_leaf.keys):
+                if start < key:
+                    current_leaf = current_leaf.children[i]
+                    break
+            else:
+                current_leaf = current_leaf.children[-1]
+        
+        result = []
+        while current_leaf:
+            for value in current_leaf.keys:
+                if start <= value <= end:
+                    result.append(value)
+                elif value > end:
+                    return result
+            current_leaf = current_leaf.next
+        
+        return result
 
     def print_tree(self, node=None, prefix="", is_last=True):
         if node is None:
@@ -104,22 +140,24 @@ class BPlusTree:
         print("None")
 
 
-def main():
-    tree = BPlusTree(order=5)
+# def main():
+#     tree = BPlusTree(order=5)
     
-    values = [10, 20, 5, 15, 25, 30, 8, 12, 7, 18, 22, 35, 40, 50, 55, 60]
+#     values = [10, 20, 5, 15, 25, 30, 8, 12, 7, 18, 22, 35, 40, 50, 55, 60]
     
-    for value in values:
-        print(f"\nInserting {value}")
-        tree.insert(value)
+#     for value in values:
+#         print(f"\nInserting {value}")
+#         tree.insert(value)
         
-        print("\nTree Structure:")
-        tree.print_tree()
+#         print("\nTree Structure:")
+#         tree.print_tree()
         
-        tree.print_leaf_chain()
+#         tree.print_leaf_chain()
         
-        print("\n" + "-" * 50)
+#         print("\n" + "-" * 50)
+
+#     print(tree.search_range(10,20))
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

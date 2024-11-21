@@ -51,6 +51,14 @@ class Statistic:
         self.f_r = f_r
         self.V_a_r = V_a_r
 
+    @staticmethod
+    def print_statistics(self):
+        print(f"Number of tuples in relation r: {self.n_r}")
+        print(f"Number of blocks containing tuples of r: {self.b_r}")
+        print(f"Size of tuple of r : {self.l_r}")
+        print(f"Blocking Factor : {self.b_r}")
+        print(f"Number of distinct values that appear in r for attribute A: {self.V_a_r}")
+
 class StorageEngine:
     def __init__(self) -> None:
         try:
@@ -136,6 +144,43 @@ class StorageEngine:
         # return akhir
         return hasil_akhir
         
+    def get_stats(self, database_name:str , table_name: str, block_size=4096) -> Statistic | Exception:
+        if database_name not in self.blocks:
+            return Exception(f"Tidak ada database dengan nama {database_name}")
+        if table_name not in self.blocks[database_name]:
+            return Exception(f"Tidak ada table dengan nama {table_name}")
+        
+        table = self.blocks[database_name][table_name]
+        rows = table["values"]
+        columns = table["columns"]
+
+        # 1. nr
+        nr = len(rows)
+
+        # 2. lr
+        type_size = {
+        "INTEGER": 4,  # byte integer
+        "TEXT": 50,  #misal max string lenth 50 char
+        "FLOAT" : 4
+        }
+
+        lr = sum(type_size.get(col["type"], 0) for col in columns)
+
+        # 3. fr
+        fr = block_size // lr if lr > 0 else 0
+
+        # 4. number of blocks
+        br = (nr + fr -1) // fr if fr > 0 else 0
+
+        # 5. V(A,r)
+        V_a_r = {}
+
+        for col in columns:
+            attribute = col["name"]
+            V_a_r[attribute] = len(set(row[attribute] for row in rows if attribute in row))
+
+        return Statistic(n_r=nr, b_r=br, l_r=lr, f_r=fr, V_a_r=V_a_r)
+
 
     def write_block(self, data_write:DataWrite):
         pass
