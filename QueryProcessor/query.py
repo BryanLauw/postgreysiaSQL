@@ -98,6 +98,7 @@ class Query:
             return False
 
         table_name = match.group(1)
+        self.rename_from[table_name] = table_name
         set_clause = match.group(2)
 
         if table_name not in valid_tables:
@@ -126,9 +127,55 @@ class Query:
         # TODO
         pass
 
-    def isWhereValid():
-        # TODO
-        pass
+    def isWhereValid(self, valid_tables, table_attributes):
+        where_statement = self.statements["WHERE"]
+        if (len(self.rename_from) == 1):
+            where_regex = r"^[Ww][Hh][Ee][Rr][Ee]\s+(\(*(\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*))(\s+([Aa][Nn][Dd]|[Oo][Rr])\s+(\(*(\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*)))*$"
+        else:
+            where_regex = r"^[Ww][Hh][Ee][Rr][Ee]\s+(\(*(\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*))(\s+([Aa][Nn][Dd]|[Oo][Rr])\s+(\(*(\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*)))*$"
+        
+        match = re.fullmatch(where_regex, where_statement)
+        stack = 0
+        flag = True
+
+        # Check parentheses matching
+        for char in where_statement:
+            if char == '(':
+                stack += 1
+            elif char == ')':
+                if stack == 0:
+                    flag = False
+                    break
+                stack -= 1
+        
+        flag = flag and (stack == 0)
+        if not match:
+            raise Exception("Kesalahan sintaks pada klausa WHERE.")
+        if not flag:
+            raise Exception("Tanda kurung tidak seimbang.")
+        
+        if len(self.rename_from) == 1:
+            table_groups = re.findall(r"((\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?))", where_statement)
+            
+        else:
+            table_groups = re.findall(r"((\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?))", where_statement)
+        comparisons = [(group[1], group[3]) for group in table_groups]  # Extract attributes and RHS value
+
+        for v in comparisons:
+            v = v[0]
+            if len(self.rename_from) == 1:
+                table, attr = v.split('.')
+                if table not in valid_tables:
+                    raise Exception(f"Nama tabel {table} tidak valid.")
+                if attr not in table_attributes.get(table, []):
+                    raise Exception(f"Atribut {attr} tidak valid pada tabel {table}.")
+            else:
+                attr = v
+                first_key, first_value = list(self.rename_from.items())[0]
+                if attr not in table_attributes.get(first_value, []):
+                    raise Exception(f"Atribut {attr} tidak valid pada tabel {first_value}.")
+        
+        return True
 
     def isOrderValid(self):
         if "ORDER" not in self.statements:
