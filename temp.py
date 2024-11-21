@@ -1,179 +1,183 @@
+import csv
+import logging
 from dataclasses import dataclass
-from typing import Union, Optional
-from enum import Enum, auto
-import json
-import time
 from datetime import datetime
-
-class RecoveryCriteriaType(Enum):
-    TIMESTAMP = auto()
-    TRANSACTION_ID = auto()
+from typing import Optional, List, Dict, Any
 
 @dataclass
-class RecoverCriteria:
-    """
-    Represents the criteria for database recovery
-    """
-    type: RecoveryCriteriaType
-    value: Union[float, str]  # Timestamp or Transaction ID
+class LogEntry:
+    transaction_id: int
+    timestamp: datetime
+    operation: str
+    status: Optional[str]
+    table: Optional[str]
+    column: Optional[str]
+    row: Optional[int]
+    old_value: Optional[str]
+    new_value: Optional[str]
 
-class QueryProcessor:
-    """
-    Simulated query processor for database recovery
-    """
-    def __init__(self):
-        self.current_state = {}
+    @classmethod
+    def from_list(cls, log_data: List[str]):
+        """
+        Create a LogEntry object from a list of log data
+        
+        :param log_data: List containing log entry information
+        :return: LogEntry object
+        """
+        # Ensure the log data has the correct number of elements
+        if len(log_data) < 9:
+            raise ValueError(f"Insufficient log data: {log_data}")
+        
+        try:
+            return cls(
+                transaction_id=int(log_data[0]),
+                timestamp=datetime.strptime(log_data[1], "%Y-%m-%d %H:%M:%S"),
+                operation=log_data[2],
+                status=log_data[3] if log_data[3] != 'None' else None,
+                table=log_data[4] if log_data[4] != 'None' else None,
+                column=log_data[5] if log_data[5] != 'None' else None,
+                row=int(log_data[6]) if log_data[6] != 'None' else None,
+                old_value=log_data[7] if log_data[7] != 'None' else None,
+                new_value=log_data[8] if log_data[8] != 'None' else None
+            )
+        except (ValueError, IndexError) as e:
+            logging.error(f"Error parsing log entry: {log_data}")
+            raise
+
+class RecoveryExecutor:
+    def __init__(self, current_state: Dict[str, Dict[int, str]]):
+        """
+        Initialize the recovery executor with the current state
+        
+        :param current_state: Current state dictionary 
+        Structure: {table_name: {row_id: value}}
+        """
+        self.current_state = current_state
+        self.logger = logging.getLogger(self.__class__.__name__)
     
-    def execute_recovery_query(self, log_entry: dict):
+    def execute_recovery_query(self, log_entry: LogEntry) -> bool:
         """
         Execute a recovery query based on the log entry
         
-        :param log_entry: Log entry to be recovered
-        """
-        operation = log_entry.get('operation')
-        key = log_entry.get('key')
-        value = log_entry.get('value')
-        
-        if operation == 'INSERT':
-            # Undo an insert by removing the key
-            if key in self.current_state:
-                del self.current_state[key]
-        elif operation == 'UPDATE':
-            # Revert to the previous value
-            if 'previous_value' in log_entry:
-                self.current_state[key] = log_entry['previous_value']
-        elif operation == 'DELETE':
-            # Restore a deleted entry
-            self.current_state[key] = value
-
-class WriteAheadLogger:
-    def __init__(self, log_file: str):
-        """
-        Initialize the Write-Ahead Logger for recovery
-        
-        :param log_file: Path to the write-ahead log file
-        """
-        self.log_file = log_file
-        self.query_processor = QueryProcessor()
-    
-    def _load_log_entries(self) -> list:
-        """
-        Load log entries from the log file
-        
-        :return: List of log entries
+        :param log_entry: LogEntry to be recovered
+        :return: Boolean indicating if recovery was successful
         """
         try:
-            with open(self.log_file, 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return []
-    
-    def recover(self, criteria: RecoverCriteria) -> None:
-        """
-        Recover the database state based on specified criteria
-        
-        :param criteria: Recovery criteria (timestamp or transaction ID)
-        """
-        # Load all log entries
-        log_entries = self._load_log_entries()
-        
-        # Reverse the log entries to process from latest to earliest
-        log_entries.reverse() # TODO: OPTIMIZED FOR LARGE FILES
-        
-        for log_entry in log_entries:
-            # Check recovery criteria
-            if not self._meets_recovery_criteria(log_entry, criteria):
-                break
+            # Validate required fields
+            if not log_entry.table or log_entry.row is None:
+                self.logger.error(f"Invalid log entry: missing table or row. Entry: {log_entry}")
+                return False
             
-            # Execute recovery query
-            self.query_processor.execute_recovery_query(log_entry)
+            # Logging for traceability
+            self.logger.info(f"Recovering operation: {log_entry.operation} for {log_entry.table}.{log_entry.row}")
+            
+            # Ensure the table exists in current state
+            if log_entry.table not in self.current_state:
+                self.current_state[log_entry.table] = {}
+            
+            if log_entry.operation == 'INSERT':
+                # Undo an insert by removing the row
+                if log_entry.row in self.current_state[log_entry.table]:
+                    del self.current_state[log_entry.table][log_entry.row]
+                    self.logger.debug(f"Removed row {log_entry.row} from {log_entry.table}")
+            
+            elif log_entry.operation == 'UPDATE':
+                # Revert to the previous value
+                if log_entry.old_value is not None:
+                    self.current_state[log_entry.table][log_entry.row] = log_entry.old_value
+                    self.logger.debug(f"Reverted {log_entry.table}.{log_entry.row} to: {log_entry.old_value}")
+                else:
+                    self.logger.error(f"Cannot recover UPDATE: no old value for {log_entry.table}.{log_entry.row}")
+                    return False
+            
+            elif log_entry.operation == 'DELETE':
+                # Restore a deleted entry
+                if log_entry.old_value is not None:
+                    self.current_state[log_entry.table][log_entry.row] = log_entry.old_value
+                    self.logger.debug(f"Restored deleted row {log_entry.row} in {log_entry.table} with value: {log_entry.old_value}")
+                else:
+                    self.logger.error(f"Cannot recover DELETE: no value for {log_entry.table}.{log_entry.row}")
+                    return False
+            
+            else:
+                # Unknown operation or transaction_start
+                if log_entry.operation != 'transaction_start':
+                    self.logger.warning(f"Unhandled operation: {log_entry.operation}")
+                return True
+            
+            return True
         
-        print("Recovery process completed.")
-        print("Recovered database state:", self.query_processor.current_state)
-    
-    def _meets_recovery_criteria(self, log_entry: dict, criteria: RecoverCriteria) -> bool:
-        """
-        Check if a log entry meets the recovery criteria
-        
-        :param log_entry: Log entry to check
-        :param criteria: Recovery criteria
-        :return: Boolean indicating if criteria is met
-        """
-        if criteria.type == RecoveryCriteriaType.TIMESTAMP:
-            # Compare log entry timestamp with criteria timestamp
-            entry_timestamp = log_entry.get('timestamp')
-            return entry_timestamp is not None and entry_timestamp >= criteria.value
-        
-        elif criteria.type == RecoveryCriteriaType.TRANSACTION_ID:
-            # Compare log entry transaction ID with criteria transaction ID
-            entry_transaction_id = log_entry.get('transaction_id')
-            return entry_transaction_id is not None and entry_transaction_id >= criteria.value
-        
-        return False
-    
-    def write_log_entry(self, operation: str, key: str, value: any, 
-                        previous_value: Optional[any] = None, 
-                        transaction_id: Optional[str] = None):
-        """
-        Write a new entry to the write-ahead log
-        
-        :param operation: Type of operation (INSERT, UPDATE, DELETE)
-        :param key: Key of the entry
-        :param value: New value
-        :param previous_value: Previous value (for UPDATE operations)
-        :param transaction_id: Optional transaction ID
-        """
-        # Load existing log entries
-        log_entries = self._load_log_entries()
-        
-        # Create log entry
-        log_entry = {
-            'timestamp': time.time(),
-            'operation': operation,
-            'key': key,
-            'value': value,
-            'transaction_id': transaction_id or str(time.time_ns())
-        }
-        
-        # Add previous value for UPDATE operations
-        if previous_value is not None:
-            log_entry['previous_value'] = previous_value
-        
-        # Append new entry
-        log_entries.append(log_entry)
-        
-        # Write updated log
-        with open(self.log_file, 'w') as f:
-            json.dump(log_entries, f, indent=2)
+        except Exception as e:
+            self.logger.error(f"Error during recovery: {str(e)}", exc_info=True)
+            return False
 
-# Demonstration of recovery process
+def load_log_entries_from_csv(file_path: str) -> List[LogEntry]:
+    """
+    Load log entries from a CSV file
+    
+    :param file_path: Path to the log file
+    :return: List of LogEntry objects
+    """
+    log_entries = []
+    try:
+        with open(file_path, 'r') as f:
+            # Use csv reader to handle potential commas in values
+            csv_reader = csv.reader(f)
+            for row in csv_reader:
+                try:
+                    log_entry = LogEntry.from_list(row)
+                    log_entries.append(log_entry)
+                except ValueError as e:
+                    logging.error(f"Skipping invalid log entry: {row}")
+    except FileNotFoundError:
+        logging.error(f"Log file not found: {file_path}")
+    
+    return log_entries
+
+# Demonstration
 def main():
-    # Create logger
-    logger = WriteAheadLogger('recovery_log.json')
-    
-    # Simulate database operations
-    logger.write_log_entry('INSERT', 'user_1', {'name': 'Alice', 'score': 100})
-    logger.write_log_entry('INSERT', 'user_2', {'name': 'Bob', 'score': 85})
-    logger.write_log_entry('UPDATE', 'user_1', 
-                            {'name': 'Alice', 'score': 120}, 
-                            previous_value={'name': 'Alice', 'score': 100})
-    logger.write_log_entry('DELETE', 'user_2', None)
-    
-    # Recover to a specific timestamp
-    current_time = time.time()
-    recovery_criteria = RecoverCriteria(
-        type=RecoveryCriteriaType.TIMESTAMP, 
-        value=current_time - 10  # Recover to state 10 seconds ago
+    # Setup logging
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    print("Initiating Recovery Process...")
-    logger.recover(recovery_criteria)
+    # Initial state (simulating a database-like structure)
+    current_state = {
+        'users': {
+            0: 'Initial Edbert1',
+            1: 'Initial Edbert3',
+            2: 'Initial name 2',
+            3: 'Initial name 3',
+            4: 'Initial name 4'
+        }
+    }
     
-    # Alternatively, recover by transaction ID
-    recovery_criteria = RecoverCriteria(
-        type=RecoveryCriteriaType.TRANSACTION_ID, 
-        value='some_specific_transaction_id'
-    )
+    # Create recovery executor
+    recovery_executor = RecoveryExecutor(current_state)
+    
+    # Load log entries (replace with your actual log file path)
+    log_entries = [
+        ['1', '2024-11-21 20:17:05', 'transaction_start', 'None', 'None', 'None', 'None', 'None', 'None'],
+        ['0', '2024-11-21 20:17:05', 'DELETE', 'None', 'users', 'name', '0', 'Edbert1', 'None'],
+        ['1', '2024-11-21 20:17:06', 'DELETE', 'None', 'users', 'name', '1', 'Edbert3', 'None'],
+        ['2', '2024-11-21 20:17:07', 'INSERT', 'None', 'users', 'name', '2', 'old_name_2', 'new_name_2'],
+        ['3', '2024-11-21 20:17:08', 'UPDATE', 'None', 'users', 'name', '3', 'old_name_3', 'new_name_3'],
+        ['4', '2024-11-21 20:17:09', 'INSERT', 'None', 'users', 'name', '4', 'old_name_4', 'new_name_4']
+    ]
+    
+    # Convert raw log entries to LogEntry objects
+    parsed_log_entries = [LogEntry.from_list(entry) for entry in log_entries]
+    
+    # Execute recovery for each log entry
+    print("Initial State:", current_state)
+    
+    for log_entry in parsed_log_entries:
+        success = recovery_executor.execute_recovery_query(log_entry)
+        print(f"Recovery {'successful' if success else 'failed'} for entry: {log_entry}")
+    
+    # Print final state
+    print("\nFinal State:", current_state)
 
 if __name__ == '__main__':
     main()
