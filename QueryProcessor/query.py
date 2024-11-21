@@ -10,12 +10,11 @@ class Query:
         self.statements = {} # statement
         self.rename_select = {} # rename map for select statement 
         self.rename_from = {} # rename map for from statement 
+        
         # TODO
 
         # parse, trim, and uppercase all syntax
-        temp_parsed_data = query.split(" ")
-        for i in range(temp_parsed_data.count('')):
-            temp_parsed_data.remove('')
+        temp_parsed_data = query.split()
         for i in range(len(temp_parsed_data)):
             if(temp_parsed_data[i].upper() in syntaxes):
                 temp_parsed_data[i] = temp_parsed_data[i].upper()        
@@ -55,20 +54,76 @@ class Query:
             return columns
         return []
     
+
+    # def isSelectValid(self, tables):
+        # tables is table[]
+        #
+        # structure table
+        # nameToAttr: map (str,str[])
+        # select_pattern = r"""
+        #     ^\s*SELECT\s+
+        #     (
+        #         \*|                                 # Match wildcard '*'
+        #         (
+                
+        #             [a-zA-Z][a-zA-Z0-9_]+(\.[a-zA-Z][a-zA-Z0-9_]+)?  # Match <attribute> or <table>.<attribute>
+        #             (\s+AS\s+[a-zA-Z][a-zA-Z0-9_]+)?         # Optional alias
+        #             (\s*,\s*[a-zA-Z][a-zA-Z0-9_]+(\.[a-zA-Z][a-zA-Z0-9_]+)?(\s+AS\s+[a-zA-Z][a-zA-Z0-9_]+)?)*
+        #         )
+        #     )\s*$
+        # """
+
+        # if "SELECT" not in self.statements:
+        #     raise Exception("Tidak ada Select Statement")
+        
+        # if re.match(select_pattern, self.statements["SELECT"], re.IGNORECASE | re.VERBOSE):
+        #     temp_rename = self.map_name_select(self.statements["SELECT"])
+        #     for atr in temp_rename:
+        #         if len(atr) > 1:
+        #             self.rename_select[atr[0]] = atr[1]
+        #         # Handle <table>.<attribute> as valid
+        #         if atr[0] != '*' and not (
+        #             atr[0] in attributes or
+        #             # any(atr[0].split(".")[0] in tables and atr[0].split(".")[1] in tables[atr[0].split(".")[0]])
+        #         ):
+        #             return False
+        #     return True
+        
+        # return False
+
     def isSelectValid(self, attributes):
-        select_pattern = r"^\s*SELECT\s+(\*|([a-zA-Z0-9_]+(\s+AS\s+[a-zA-Z0-9_]+)?(\s*,\s*[a-zA-Z0-9_]+(\s+AS\s+[a-zA-Z0-9_]+)?)*)\s*)\s*$"
+        # print(self.statements["SELECT"])
+        # Update the regex pattern to include <table>.<attribute> format
+        select_pattern = r"""
+            ^\s*SELECT\s+
+            (
+                \*|                                 # Match wildcard '*'
+                (
+                
+                    [a-zA-Z][a-zA-Z0-9_]+(\.[a-zA-Z][a-zA-Z0-9_]+)?  # Match <attribute> or <table>.<attribute>
+                    (\s+AS\s+[a-zA-Z][a-zA-Z0-9_]+)?         # Optional alias
+                    (\s*,\s*[a-zA-Z][a-zA-Z0-9_]+(\.[a-zA-Z][a-zA-Z0-9_]+)?(\s+AS\s+[a-zA-Z][a-zA-Z0-9_]+)?)*
+                )
+            )\s*$
+        """
 
         if "SELECT" not in self.statements:
-            return Exception("Tidak ada Select Statement")
-        if re.match(select_pattern, self.statements["SELECT"], re.IGNORECASE):
+            raise Exception("Tidak ada Select Statement")
+        
+        if re.match(select_pattern, self.statements["SELECT"], re.IGNORECASE | re.VERBOSE):
             temp_rename = self.map_name_select(self.statements["SELECT"])
             for atr in temp_rename:
-                if(len(atr) > 1):
-                    self.rename_select[atr[0]] = atr[1]         
-                if atr[0] != '*' and atr[0] not in attributes:
-                    return False
+                if len(atr) > 1:
+                    self.rename_select[atr[0]] = atr[1]
+                # Handle <table>.<attribute> as valid
+                if atr[0] != '*' and not (atr[0] in attributes):
+                    if not (atr[0].split(".")[0] == "table" and atr[0].split(".")[1] in attributes):
+                    # any(atr[0].split(".")[0] == "table" and atr[0].split(".")[1] in attributes)
+                        return False
             return True
+        
         return False
+
 
     def isBeginValid(self):
         if len(self.statements) == 1 and "BEGIN" in self.statements and (self.statements["BEGIN"] == "BEGIN" or self.statements["BEGIN"] == "BEGIN TRANSACTION"):
@@ -85,17 +140,188 @@ class Query:
             return True
         return False
 
-    def isUpdateValid():
-        # TODO
-        pass
+    def isUpdateValid(self, valid_tables):
+        if "WHERE" not in self.statements:
+            print ("Error: Missing 'WHERE' clause. Avoid updating all rows accidentally.")
+            return False
 
-    def isFromValid():
-        # TODO
-        pass
 
-    def isWhereValid():
-        # TODO
-        pass
+        update_pattern = r"^\s*UPDATE\s+(\w+)\s+SET\s+(.*?)\s*$"
+        match = re.match(update_pattern, self.statements["UPDATE"], re.IGNORECASE)
+        if not match:
+            print ("Invalid UPDATE query")
+            return False
+
+        table_name = match.group(1)
+        self.rename_from[table_name] = table_name
+        set_clause = match.group(2)
+
+        if table_name not in valid_tables:
+            print (f"Table '{table_name}' does not exist")
+            return False
+
+        attributes = valid_tables[table_name]
+        assignments = [assign.strip() for assign in set_clause.split(',')]
+
+        for assignment in assignments:
+            attr_match = re.match(r"(\w+)\s*=", assignment)
+            if not attr_match:
+                print ("Invalid SET clause")
+                return False
+            attr_name = attr_match.group(1)
+            if attr_name not in attributes:
+                print (f"Attribute '{attr_name}' does not exist in table '{table_name}'")
+                return False
+            
+        try:
+            self.isWhereValid(valid_tables)
+        except Exception as e:
+            print(e)
+            return False   
+
+        print("\033[92mSuccess: Your UPDATE query is valid.\033[0m")
+        return True
+
+    def isFromValid(self, attributes):
+        # Check if there is a FROM statement
+        if "FROM" not in self.statements:
+            return Exception("There is no FROM Statement")
+
+        # regex for FROM clause
+        FROM = r'[Ff][Rr][Oo][Mm]'
+        JOIN = r'[Jj][Oo][Ii][Nn]'
+        NATURAL_JOIN = r'[Nn][Aa][Tt][Uu][Rr][Aa][Ll]\s+[Jj][Oo][Ii][Nn]'
+        ON = r'[Oo][Nn]'
+        AS = r'[Aa][Ss]'
+
+        TABLE = ALIAS = r'[A-Za-z_][A-Za-z0-9_]*'
+        COLUMNNAME = r'[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*'
+
+        # TABLE((\s+AS)?\s+ALIAS)?
+        TABLENAME = rf'{TABLE}((\s+{AS})?\s+{ALIAS})?'
+        # JOIN\s+TABLENAME(\s+ON\s+COLUMNNAME\s*=\s*COLUMNNAME)?
+        JOIN_CLAUSE = rf'{JOIN}\s+{TABLENAME}(\s+{ON}\s+{COLUMNNAME}\s*=\s*{COLUMNNAME})?'
+        # NATURAL_JOIN\s+TABLENAME
+        NATURAL_JOIN_CLAUSE = rf'{NATURAL_JOIN}\s+{TABLENAME}'
+        # ^\s*FROM\s+TABLENAME(\s*,\s*TABLENAME|\s+JOIN|\s+NATURAL_JOIN)*$
+        FROM_CLAUSE = rf'^\s*{FROM}\s+{TABLENAME}(\s*,\s*{TABLENAME}|\s+{JOIN_CLAUSE}|\s+{NATURAL_JOIN_CLAUSE})*\s*$'
+
+        from_pattern = FROM_CLAUSE
+
+        def validate_from_clause(sql_from_clause):
+            return bool(re.match(from_pattern, sql_from_clause.strip()))
+
+        # if the FROM clause is not valid        
+        if not validate_from_clause(self.statements["FROM"]):
+            return Exception("Invalid FROM Statement")
+        
+        # if the FROM clause is valid
+        # check if the table exists or the column exists
+        # map the renaming table into the dictionary
+        token = self.statements["FROM"].replace(',',' , ').split()
+        self.rename_from[token[1]] = token[1]
+        i = 2
+        while i < len(token):
+            if token[i].upper() == "JOIN":
+                if token[i+1].upper() == "NATURAL":
+                    if token[i+2] in attributes:
+                        self.rename_from[token[i+2]] = token[i+2]
+                        i += 3
+                    else:
+                        return Exception("Table does not exist")
+                else:
+                    if token[i+1] in attributes:
+                        self.rename_from[token[i+1]] = token[i+1]
+                        i += 2
+                    else:
+                        return Exception("Table does not exist")
+            elif token[i] == ',':
+                if token[i+1] in attributes:
+                    self.rename_from[token[i+1]] = token[i+1]
+                    i += 2
+                else:
+                    return Exception("Table does not exist")
+            elif token[i].upper() == "AS":
+                self.rename_from[token[i+1]] = token[i-1]
+                i += 2
+            elif token[i].upper() == "ON":
+                # NEED COLUMN NAME
+                # if token[i+2] == "=":
+                #     table1, column1 = token[i+1].split('.')
+                #     table2, column2 = token[i+3].split('.')
+                #     if (table1 in self.rename_from and table2 in self.rename_from):
+                #         table1 = self.rename_from[table1]
+                #         table2 = self.rename_from[table2]
+                #         if column1 in table1 and column2 in table2:
+                #             i += 4
+                #         else:
+                #             return Exception("Column does not exist")
+                #     else:
+                #         return Exception("Table does not exist")
+                # else:
+                #     return Exception("Did you mean: =")
+                i += 4
+            else:
+                self.rename_from[token[i]] = token[i-1]
+                i += 1
+        return True
+
+    def isWhereValid(self, valid_tables):
+        where_statement = self.statements["WHERE"]
+        if (len(self.rename_from) > 1):
+            where_regex = r"^[Ww][Hh][Ee][Rr][Ee]\s+(\(*(\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*))(\s+([Aa][Nn][Dd]|[Oo][Rr])\s+(\(*(\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*)))*$"
+        else:
+            where_regex = r"^[Ww][Hh][Ee][Rr][Ee]\s+(\(*(\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*))(\s+([Aa][Nn][Dd]|[Oo][Rr])\s+(\(*(\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*)))*$"
+        
+        match = re.fullmatch(where_regex, where_statement)
+        stack = 0
+        flag = True
+
+        # Check parentheses matching
+        for char in where_statement:
+            if char == '(':
+                stack += 1
+            elif char == ')':
+                if stack == 0:
+                    flag = False
+                    break
+                stack -= 1
+        
+        flag = flag and (stack == 0)
+        if not match:
+            raise Exception("Kesalahan sintaks pada klausa WHERE.")
+        if not flag:
+            raise Exception("Tanda kurung tidak seimbang.")
+        
+        if len(self.rename_from) > 1:
+            table_groups = re.findall(r"((\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?))", where_statement)
+            
+        else:
+            table_groups = re.findall(r"((\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?))", where_statement)
+        comparisons = [(group[1], group[3]) for group in table_groups]  # Extract attributes and RHS value
+
+        for v in comparisons:
+            v = v[0]
+            if len(self.rename_from) > 1:
+                table_alias, attr = v.split('.')
+                table = self.rename_from.get(table_alias)
+                if table == None:
+                    raise Exception(f"Tidak ada {table_alias}.")
+                
+                if table not in valid_tables:
+                    raise Exception(f"Nama tabel {table} tidak valid.")
+                
+                valid_attributes = valid_tables[table]
+                if attr not in valid_tables.get(valid_attributes, []):
+                    raise Exception(f"Atribut {attr} tidak valid pada tabel {table}.")
+            else:
+                attr = v
+                first_key, first_value = list(self.rename_from.items())[0]
+                valid_attributes = valid_tables[first_value]
+                if attr not in valid_tables.get(valid_attributes, []):
+                    raise Exception(f"Atribut {attr} tidak valid pada tabel {first_value}.")
+        
+        return True
 
     def isOrderValid(self):
         if "ORDER" not in self.statements:
@@ -197,13 +423,14 @@ class Query:
         print("Rename Map (SELECT):", self.rename_select)
         print("Rename Map (FROM):", self.rename_from)
 
-
+    def printResult():
+        pass
     def out(self):
         print(self.statements)
 
 
 # testing
-test_tables = ["id", "name", "data", "age"]
+test_tables = ["id", "name", "data", "age","table.id"]
 # test = Query("select id, name                      FROM data AS WHERE id=\"1\"")
 queries = [
     "SELECT id", # True
@@ -228,7 +455,10 @@ qs2 = [
     # "select id as id2, name",
     # "select id , name as boleh",
     # "select id , name as ",
-    "select id, name as boleh ",
+    "select table.id, name as boleh ",
+    "select table.asdas",
+    "select name ",
+    "select id,name ",
     "select *, name ",
     "select * ",
 ]
@@ -248,12 +478,13 @@ test_queries = [
 
 # test = Query(qs2[0])
 # print(test.isBeginValid())
-# for q in qs2:
-#     test = Query(q)
-#     # test.out()
-#     # print(test.isFromValid(test_tables))
-#     print(test.isSelectValid(test_tables))
-#     print("Columns and renaming:", test.rename_select)
+
+for q in qs2:
+    test = Query(q)
+    # test.out()
+    # print(test.isFromValid(test_tables))
+    print(test.isSelectValid(test_tables))
+    # print("Columns and renaming:", test.rename_select)
 
 # for query in test_queries:
 #     test = Query(query)
@@ -262,48 +493,57 @@ test_queries = [
 #     print("ORDER BY Valid:", test.isOrderValid())
 #     print("LIMIT Valid:", test.isLimitValid())
 
-if __name__ == "__main__":
-    valid_tables = {
-        "employee": ["id", "name", "department", "salary"],
-        "department": ["id", "name", "location"],
-        "project": ["id", "name", "deadline"],
-        "task": ["id", "status", "priority"]
-    }
+# if __name__ == "__main__":
+#     valid_tables = {
+#         "employee": ["id", "name", "department", "salary"],
+#         "department": ["id", "name", "location"],
+#         "project": ["id", "name", "deadline"],
+#         "task": ["id", "status", "priority"]
+#     }
 
-    delete_test_queries = [
-        "DELETE FROM employee WHERE department='RnD'",  # Valid
-        "DELETE FROM employee",  # Invalid: Missing WHERE clause
-        "DELETE FROM unknown_table WHERE department='RnD'",  # Invalid: Table does not exist
-        "DELETE FROM employee WHERE department='RnD' AND salary > 1000",  # Invalid: Multiple conditions
-        "DELETE employee WHERE department='RnD'",  # Invalid: Missing 'FROM'
-        "DELETE FROM employee WHERE department='RnD'",  # Invalid: Missing semicolon
-        "DELETE FROM department WHERE location='HQ'",  # Valid
-        "DELETE FROM task WHERE status='completed' OR priority='high'",  # Invalid: Multiple conditions
-        "DELETE FROM employee WHERE position='Manager'",  # Invalid: Invalid attribute
+#     delete_test_queries = [
+#         "DELETE FROM employee WHERE department='RnD'",  # Valid
+#         "DELETE FROM employee",  # Invalid: Missing WHERE clause
+#         "DELETE FROM unknown_table WHERE department='RnD'",  # Invalid: Table does not exist
+#         "DELETE FROM employee WHERE department='RnD' AND salary > 1000",  # Invalid: Multiple conditions
+#         "DELETE employee WHERE department='RnD'",  # Invalid: Missing 'FROM'
+#         "DELETE FROM employee WHERE department='RnD'",  # Invalid: Missing semicolon
+#         "DELETE FROM department WHERE location='HQ'",  # Valid
+#         "DELETE FROM task WHERE status='completed' OR priority='high'",  # Invalid: Multiple conditions
+#         "DELETE FROM employee WHERE position='Manager'",  # Invalid: Invalid attribute
+#     ]
+
+#     insert_test_queries = [
+#         "INSERT INTO employee (id, name, department, salary) VALUES (1, 'John Doe', 'RnD', 5000);",  # Valid
+#         "INSERT INTO employee (id, name, department) VALUES (2, 'Jane Doe', 'HR', 4000);",  # Valid
+#         "INSERT INTO unknown_table (id, name) VALUES (1, 'Unknown');",  # Invalid: Table does not exist
+#         "INSERT INTO employee (id, name) VALUES (3);",  # Invalid: Mismatch between columns and values
+#         "INSERT employee (id, name) VALUES (4, 'Test');",  # Invalid: Missing 'INTO'
+#         "INSERT INTO employee (id, name department) VALUES (5, 'Error', 'RnD');",  # Invalid: Missing comma between columns
+#         "INSERT INTO employee (id, name, department) VALUE (6, 'Missing', 'RnD');",  # Invalid: Typo 'VALUE' instead of 'VALUES'
+#         "INSERT INTO employee VALUES (7, 'No Columns', 'RnD', 3000);",  # Invalid: Columns not specified
+#         "INSERT INTO employee (id, name, department) VALUES ();",  # Invalid: Empty values
+#     ]
+
+    update_test_queries = [
+        "UPDATE employee SET salary=6000 WHERE department='RnD'",  # Valid
+        "UPDATE employee SET salary=6000",  # Invalid: Missing WHERE clause
+        "UPDATE unknown_table SET location='HQ' WHERE name='IT'",  # Invalid: Table does not exist
+        "UPDATE employee SET salary=6000 AND department='RnD'",  # Invalid: Missing WHERE keyword
+        "UPDATE employee SET salary=6000 WHERE position='Manager'",  # Invalid: Invalid attribute
+        "UPDATE employee SET salary=6000 WHERE department='RnD' AND salary > 5000",  # Invalid: Multiple conditions
     ]
 
-    insert_test_queries = [
-        "INSERT INTO employee (id, name, department, salary) VALUES (1, 'John Doe', 'RnD', 5000);",  # Valid
-        "INSERT INTO employee (id, name, department) VALUES (2, 'Jane Doe', 'HR', 4000);",  # Valid
-        "INSERT INTO unknown_table (id, name) VALUES (1, 'Unknown');",  # Invalid: Table does not exist
-        "INSERT INTO employee (id, name) VALUES (3);",  # Invalid: Mismatch between columns and values
-        "INSERT employee (id, name) VALUES (4, 'Test');",  # Invalid: Missing 'INTO'
-        "INSERT INTO employee (id, name department) VALUES (5, 'Error', 'RnD');",  # Invalid: Missing comma between columns
-        "INSERT INTO employee (id, name, department) VALUE (6, 'Missing', 'RnD');",  # Invalid: Typo 'VALUE' instead of 'VALUES'
-        "INSERT INTO employee VALUES (7, 'No Columns', 'RnD', 3000);",  # Invalid: Columns not specified
-        "INSERT INTO employee (id, name, department) VALUES ();",  # Invalid: Empty values
-    ]
+#     # for query in delete_test_queries:
+#     #     print(f"Processing query: {query}")
+#     #     test = Query(query)
+#     #     test.debug_parse() 
+#     #     print(test.isDeleteValid(valid_tables))
+#     #     print("-" * 80)
 
-    # for query in delete_test_queries:
-    #     print(f"Processing query: {query}")
-    #     test = Query(query)
-    #     test.debug_parse() 
-    #     print(test.isDeleteValid(valid_tables))
-    #     print("-" * 80)
-
-    for query in insert_test_queries:
-        print(f"Processing query: {query}")
-        test = Query(query)
-        test.debug_parse()
-        print(test.isInsertValid(valid_tables))
-        print("-" * 80)
+#     for query in insert_test_queries:
+#         print(f"Processing query: {query}")
+#         test = Query(query)
+#         test.debug_parse()
+#         print(test.isInsertValid(valid_tables))
+#         print("-" * 80)
