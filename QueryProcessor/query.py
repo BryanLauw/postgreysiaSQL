@@ -85,9 +85,42 @@ class Query:
             return True
         return False
 
-    def isUpdateValid():
-        # TODO
-        pass
+    def isUpdateValid(self, valid_tables):
+        if "WHERE" not in self.statements:
+            print ("Error: Missing 'WHERE' clause. Avoid updating all rows accidentally.")
+            return False
+
+
+        update_pattern = r"^\s*UPDATE\s+(\w+)\s+SET\s+(.*?)\s*$"
+        match = re.match(update_pattern, self.statements["UPDATE"], re.IGNORECASE)
+        if not match:
+            print ("Invalid UPDATE query")
+            return False
+
+        table_name = match.group(1)
+        set_clause = match.group(2)
+
+        if table_name not in valid_tables:
+            print (f"Table '{table_name}' does not exist")
+            return False
+
+        attributes = valid_tables[table_name]
+        assignments = [assign.strip() for assign in set_clause.split(',')]
+
+        for assignment in assignments:
+            attr_match = re.match(r"(\w+)\s*=", assignment)
+            if not attr_match:
+                print ("Invalid SET clause")
+                return False
+            attr_name = attr_match.group(1)
+            if attr_name not in attributes:
+                print (f"Attribute '{attr_name}' does not exist in table '{table_name}'")
+                return False
+            
+        #TODO: Validasi WHERE clause    
+
+        print("\033[92mSuccess: Your UPDATE query is valid.\033[0m")
+        return True
 
     def isFromValid():
         # TODO
@@ -292,6 +325,15 @@ if __name__ == "__main__":
         "INSERT INTO employee (id, name, department) VALUE (6, 'Missing', 'RnD');",  # Invalid: Typo 'VALUE' instead of 'VALUES'
         "INSERT INTO employee VALUES (7, 'No Columns', 'RnD', 3000);",  # Invalid: Columns not specified
         "INSERT INTO employee (id, name, department) VALUES ();",  # Invalid: Empty values
+    ]
+
+    update_test_queries = [
+        "UPDATE employee SET salary=6000",  # Valid
+        "UPDATE employee SET salary=6000",  # Invalid: Missing WHERE clause
+        "UPDATE unknown_table SET location='HQ' WHERE name='IT'",  # Invalid: Table does not exist
+        "UPDATE employee SET salary=6000 AND department='RnD'",  # Invalid: Missing WHERE keyword
+        "UPDATE employee SET salary=6000 WHERE position='Manager'",  # Invalid: Invalid attribute
+        "UPDATE employee SET salary=6000 WHERE department='RnD' AND salary > 5000",  # Invalid: Multiple conditions
     ]
 
     # for query in delete_test_queries:
