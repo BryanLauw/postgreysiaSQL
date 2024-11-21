@@ -24,6 +24,7 @@ class FailureRecovery:
         self.checkpoint_thread = threading.Thread(target=self._periodic_checkpoint, args=(self.interval,))
         self.checkpoint_thread.daemon = True
         self.checkpoint_thread.start()
+        self.log_file = "log.txt"
 
     def start_transaction(self, transaction_id: int):
         log_entry = {
@@ -88,7 +89,32 @@ class FailureRecovery:
         print("Save")
         self._write_to_txt()
 
+    def redo():
+        pass
+
+    def _load_log_entries(self) -> list:
+        """
+        Load log entries from the log file
+        
+        :return: List of log entries
+        """
+        try:
+            with open(self.log_file, 'r') as f:
+                log_entries = [line.strip() for line in f]  # Read each line and remove whitespace
+                return log_entries
+        except FileNotFoundError:
+            return []
+
     def recover(self, criteria: RecoverCriteria):
+
+        # first read all log entries
+        log_entries = self._load_log_entries()
+
+        # reverse from latest as first item
+        log_entries.reverse()
+
+        
+
         pass
 
     def _write_to_txt(self):
@@ -97,7 +123,7 @@ class FailureRecovery:
                 if not self.buffer:
                     return
 
-                with open("log.txt", "a") as logfile:
+                with open(self.log_file, "a") as logfile:
                     for log_entry in self.buffer:
                         log_entry_str = ",".join([
                             str(log_entry.get("transaction_id", "")),
