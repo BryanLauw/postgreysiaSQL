@@ -3,8 +3,10 @@ from QueryOptimizer.main import *
 
 class QueryProcessor:
     def __init__(self):
-        qo = QueryOptimizer()
-        cc = ConcurrencyControlManager()
+        self.current_transactionId = None
+        self.parsedQuery = None
+        self.qo = QueryOptimizer()
+        self.cc = ConcurrencyControlManager()
         # sm = StorageManager()
         # rm = RecoveryManager()
         pass
@@ -23,15 +25,21 @@ class QueryProcessor:
         for query in queries:
             print("Executing query: " + query)
             if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
-                pass
+                self.current_transactionId = self.cc.begin_transaction()
+                
             elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
-                pass
+                self.cc.end_transaction(self.current_transactionId)
+                self.current_transactionId = None
+            
             elif(query.upper() == "END TRANSACTION"):
-                pass
+                self.cc.end_transaction(self.current_transactionId)
+                self.current_transactionId = None
+
             elif(query.upper() == "PRINT"):
                 self.printResult(tables, rows)
+            
             else:
-                pass
+                self.parsedQuery = self.qo.parse_query(query)
     
     def ParsedQueryToDataRetrieval():
         pass
