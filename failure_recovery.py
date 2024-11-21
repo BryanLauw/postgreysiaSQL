@@ -18,7 +18,7 @@ class FailureRecovery:
         self.log.append(log_entry)
 
     def save_checkpoint(self):
-        self.write_to_csv()
+        self.write_to_txt()
 
     def write_to_txt(self):
         try:
