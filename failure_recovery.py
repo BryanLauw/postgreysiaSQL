@@ -25,6 +25,8 @@ class FailureRecovery:
         self.checkpoint_thread.daemon = True
         self.checkpoint_thread.start()
         self.log_file = "log.txt"
+        # ASUMSI INI STATE DARI QUERY PROCESSING
+        self.current_state = {}
 
     def start_transaction(self, transaction_id: int):
         log_entry = {
@@ -104,6 +106,28 @@ class FailureRecovery:
                 return log_entries
         except FileNotFoundError:
             return []
+    
+    def execute_recovery_query(self, log_entry: dict):
+        """
+        Execute a recovery query based on the log entry
+        
+        :param log_entry: Log entry to be recovered
+        """
+        operation = log_entry.get('operation')
+        key = log_entry.get('key')
+        value = log_entry.get('value')
+        
+        if operation == 'INSERT':
+            # Undo an insert by removing the key
+            if key in self.current_state:
+                del self.current_state[key]
+        elif operation == 'UPDATE':
+            # Revert to the previous value
+            if 'previous_value' in log_entry:
+                self.current_state[key] = log_entry['previous_value']
+        elif operation == 'DELETE':
+            # Restore a deleted entry
+            self.current_state[key] = value
 
     def recover(self, criteria: RecoverCriteria):
 
@@ -113,9 +137,16 @@ class FailureRecovery:
         # reverse from latest as first item
         log_entries.reverse()
 
+        for log_entry in log_entries:
+            # Check recovery criteria
+            if not self._meets_recovery_criteria(log_entry, criteria):
+                break
+            
+            # Execute recovery query
+            self.execute_recovery_query(log_entry)
         
-
-        pass
+        print("Recovery process completed.")
+        print("Recovered database state:", self.query_processor.current_state)
 
     def _write_to_txt(self):
         try:
