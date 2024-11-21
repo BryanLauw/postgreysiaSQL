@@ -1,6 +1,43 @@
 from ConcurrencyControlManager.main import *
 from QueryOptimizer.main import *
 
+# temp class
+class Condition:
+    def __init__(self, column: str, operation: str, operand: Union[str, int]):
+        self.column = column
+        self.operation = operation
+        self.operand = operand
+    
+    def __repr__(self):
+        return f"Condition(column={self.column}, operation={self.operation}, operand={self.operand})"
+
+class DataRetrieval:
+    def __init__(self, table: str, columns: List[str], conditions: List[Condition]):
+        self.table = table
+        self.columns = columns
+        self.conditions = conditions
+
+    def __repr__(self):
+        return f"DataRetrieval(table={self.table}, columns={self.columns}, conditions={self.conditions})"
+
+class DataWrite:
+    def __init__(self, table: str, column: List[str], conditions: List[Condition], new_value: List[str]):
+        self.table = table
+        self.column = column
+        self.conditions = conditions
+        self.new_value = new_value
+
+    def __repr__(self):
+        return f"DataWrite(table={self.table}, column={self.column}, conditions={self.conditions}, new_value={self.new_value})"
+
+class DataDeletion:
+    def __init__(self, table: str, conditions: List[Condition]):
+        self.table = table
+        self.conditions = conditions
+
+    def __repr__(self):
+        return f"DataDeletion(table={self.table}, conditions={self.conditions})"
+    
 class QueryProcessor:
     def __init__(self):
         self.current_transactionId = None
@@ -41,14 +78,78 @@ class QueryProcessor:
             else:
                 self.parsedQuery = self.qo.parse_query(query)
     
-    def ParsedQueryToDataRetrieval():
-        pass
+    def ParsedQueryToDataRetrieval(parsed_query: ParsedQuery) -> DataRetrieval:
+        if parsed_query.query_tree.type == "JOIN":
+            joined_tables = [
+                child.val for child in parsed_query.query_tree.childs if child.type == "TABLE"
+            ]
+            table = joined_tables  
+        else:
+            table = parsed_query.query_tree.val  
 
-    def ParsedQueryToDataWrite():
-        pass
+        columns = [
+            child.val for child in parsed_query.query_tree.childs if child.type == "COLUMN"
+        ]
+        conditions = [
+            Condition(
+                column=cond.childs[0].val,
+                operation=cond.childs[1].val,
+                operand=cond.childs[2].val
+            )
+            for cond in parsed_query.query_tree.childs if cond.type == "CONDITION"
+        ]
 
-    def ParsedQueryToDataDeletion():
-        pass
+        return DataRetrieval(table=table, columns=columns, conditions=conditions)
+
+    def ParsedQueryToDataWrite(parsed_query: ParsedQuery) -> DataWrite:
+        if parsed_query.query_tree.type == "JOIN":
+            raise ValueError("DataWrite cannot be applied to JOIN operations.")
+
+        table = parsed_query.query_tree.val
+
+        columns = [
+            child.val for child in parsed_query.query_tree.childs if child.type == "COLUMN"
+        ]
+        values = [
+            child.val for child in parsed_query.query_tree.childs if child.type not in ["COLUMN", "CONDITION"]
+        ]
+
+        def infer_type(value: str):
+            if value.startswith(("'", '"')) and value.endswith(("'", '"')):
+                return value.strip("'\"")
+            try:
+                if '.' in value:
+                    return float(value) 
+                return int(value) 
+            except ValueError:
+                return value 
+
+        new_values = [infer_type(value) for value in values]
+
+        conditions = [
+            Condition(
+                column=cond.childs[0].val,
+                operation=cond.childs[1].val,
+                operand=cond.childs[2].val
+            )
+            for cond in parsed_query.query_tree.childs if cond.type == "CONDITION"
+        ]
+
+        return DataWrite(table=table, column=columns, conditions=conditions, new_value=new_values)
+
+    def ParsedQueryToDataDeletion(parsed_query: ParsedQuery) -> DataDeletion:
+        data_deletion = DataDeletion(
+            table=parsed_query.query_tree.val,
+            conditions=[
+                Condition(
+                    column=cond.childs[0].val,
+                    operation=cond.childs[1].val,
+                    operand=cond.childs[2].val
+                )
+                for cond in parsed_query.query_tree.childs if cond.type == "CONDITION"
+            ]
+        )
+        return data_deletion
 
     def printResult(self,column, data):
         # Determine the maximum width of each column
