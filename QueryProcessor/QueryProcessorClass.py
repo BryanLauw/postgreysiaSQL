@@ -1,7 +1,10 @@
+from ConcurrencyControlManager.main import *
+from QueryOptimizer.main import *
+
 class QueryProcessor:
     def __init__(self):
-        # qo = QueryOptimizer()
-        # cc = ConcurrencyController()
+        qo = QueryOptimizer()
+        cc = ConcurrencyControlManager()
         # sm = StorageManager()
         # rm = RecoveryManager()
         pass
