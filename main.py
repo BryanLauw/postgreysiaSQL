@@ -1,4 +1,4 @@
-from QueryProcessor.QueryProcessorClass import QueryProcessor
+from QueryProcessor.QueryProcessor import QueryProcessor
 
 queryProcessor = QueryProcessor()
 
