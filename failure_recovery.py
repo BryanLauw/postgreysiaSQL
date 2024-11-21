@@ -4,15 +4,50 @@ from typing import Optional, Union, Literal
 import time
 import threading
 
-
 @dataclass
 class RecoverCriteria:
     transaction_id: Optional[int] = None
     timestamp: Optional[datetime] = None
 
-
 StatusType = Union[Literal["commit"], Literal["abort"]]
 
+@dataclass
+class LogEntry:
+    transaction_id: Optional[int]
+    timestamp: datetime
+    log_type: str
+    is_ended: bool
+    status: Optional[str]
+    table: Optional[str]
+    column: Optional[str]
+    row: Optional[str]
+    old_value: Optional[str]
+    new_value: Optional[str]
+
+    @classmethod
+    def from_dict(cls, log_dict: dict):
+        """
+        Create a LogEntry object from a dictionary
+        
+        :param log_dict: Dictionary containing log entry information
+        :return: LogEntry object
+        """
+        # Convert timestamp string to datetime object
+        timestamp = datetime.strptime(log_dict['timestamp'], "%Y-%m-%d %H:%M:%S") \
+            if log_dict['timestamp'] else None
+        
+        return cls(
+            transaction_id=log_dict.get('transaction_id'),
+            timestamp=timestamp,
+            log_type=log_dict.get('log_type'),
+            is_ended=log_dict.get('is_ended', False),
+            status=log_dict.get('status'),
+            table=log_dict.get('table'),
+            column=log_dict.get('column'),
+            row=log_dict.get('row'),
+            old_value=log_dict.get('old_value'),
+            new_value=log_dict.get('new_value')
+        )
 
 class FailureRecovery:
     def __init__(self, buffer_size=1000, interval=300):
@@ -94,15 +129,18 @@ class FailureRecovery:
     def redo():
         pass
 
-    def _load_log_entries(self) -> list:
+    # Example usage
+    def _load_log_entries(self) -> list[LogEntry]:
         """
-        Load log entries from the log file
+        Load log entries from the log file and parse them into LogEntry objects
         
-        :return: List of log entries
+        :return: List of LogEntry objects
         """
         try:
             with open(self.log_file, 'r') as f:
-                log_entries = [line.strip() for line in f]  # Read each line and remove whitespace
+                # Assuming log entries are stored as dictionaries (e.g., in JSON format)
+                log_dicts = [eval(line.strip()) for line in f]  # Replace with json.loads() in real-world scenario
+                log_entries = [LogEntry.from_dict(log_dict) for log_dict in log_dicts]
                 return log_entries
         except FileNotFoundError:
             return []
@@ -128,6 +166,26 @@ class FailureRecovery:
         elif operation == 'DELETE':
             # Restore a deleted entry
             self.current_state[key] = value
+
+    def _meets_recovery_criteria(log_entry: LogEntry, criteria: RecoverCriteria):
+        """
+        Check if a log entry meets the recovery criteria
+        
+        :param log_entry: LogEntry object to check
+        :param criteria: RecoverCriteria to match against
+        :return: Boolean indicating if criteria are met
+        """
+        # Check transaction_id if specified in criteria
+        if criteria.transaction_id is not None and \
+        log_entry.transaction_id != criteria.transaction_id:
+            return False
+        
+        # Check timestamp if specified in criteria
+        if criteria.timestamp is not None and \
+        log_entry.timestamp != criteria.timestamp:
+            return False
+        
+        return True
 
     def recover(self, criteria: RecoverCriteria):
 
