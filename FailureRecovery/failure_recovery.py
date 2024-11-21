@@ -24,6 +24,8 @@ class FailureRecovery:
         self.checkpoint_thread = threading.Thread(target=self._periodic_checkpoint, args=(self.interval,))
         self.checkpoint_thread.daemon = True
         self.checkpoint_thread.start()
+        self.log_file = "log.txt"
+        self.undo_log = []
 
     def start_transaction(self, transaction_id: int):
         log_entry = {
@@ -88,7 +90,61 @@ class FailureRecovery:
         print("Save")
         self._write_to_txt()
 
+    def undo(self):
+        n_baris = 5 # asumsi yang diundo 5 baris
+        try:
+            log_entries = self._load_log_entries()
+            for _ in range (min(n_baris, len(log_entries))):
+                self.undo_log.append(log_entries.pop())
+
+
+            with open(self.log_file, 'w') as f:
+                for entry in log_entries:
+                    f.write(entry + '\n')
+            print("UNDO success")
+            print(self.undo_log)
+        except Exception as e:
+            print(f"Error during undo: {e}")
+    
+    def redo(self):
+        try:
+            if not self.undo_log:
+                print("Tidak ada log untuk redo.")
+                return
+
+            with open(self.log_file, 'a') as f:
+                for entry in reversed(self.undo_log):
+                    f.write(entry + '\n')
+
+            print("REDO success")
+        except Exception as e:
+            print(f"Error during redo: {e}")
+    
+
+
+    def _load_log_entries(self) -> list:
+        """
+        Load log entries from the log file
+        
+        :return: List of log entries
+        """
+        try:
+            with open(self.log_file, 'r') as f:
+                log_entries = [line.strip() for line in f]  # Read each line and remove whitespace
+                return log_entries
+        except FileNotFoundError:
+            return []
+
     def recover(self, criteria: RecoverCriteria):
+
+        # first read all log entries
+        log_entries = self._load_log_entries()
+
+        # reverse from latest as first item
+        log_entries.reverse()
+
+        
+
         pass
 
     def _write_to_txt(self):
@@ -97,7 +153,7 @@ class FailureRecovery:
                 if not self.buffer:
                     return
 
-                with open("log.txt", "a") as logfile:
+                with open(self.log_file, "a") as logfile:
                     for log_entry in self.buffer:
                         log_entry_str = ",".join([
                             str(log_entry.get("transaction_id", "")),
@@ -147,7 +203,9 @@ if __name__ == "__main__":
             new_value=f"new_name_{i}",
         )
         print("Write log")
-        time.sleep(2)
+        time.sleep()
 
     recovery.end_transaction(1, "commit")
-
+    print("\nPerforming Undo Operation:")
+    recovery.undo()
+    recovery.redo()
