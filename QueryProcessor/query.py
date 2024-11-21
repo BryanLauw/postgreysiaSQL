@@ -3,8 +3,8 @@ import re
 class Query:
     def __init__(self, query):
 
-        syntaxes = ["SELECT","UPDATE","AS","FROM","JOIN","WHERE","ORDER","LIMIT","BEGIN","COMMIT","END","TRANSACTION"]
-        syntaxes_statement = ["SELECT","UPDATE","FROM","WHERE","ORDER","LIMIT","BEGIN","COMMIT","END"]
+        syntaxes = ["SELECT", "UPDATE", "AS", "FROM", "JOIN", "WHERE", "ORDER", "LIMIT", "BEGIN", "COMMIT", "END", "TRANSACTION", "DELETE"]
+        syntaxes_statement = ["SELECT", "UPDATE", "FROM", "WHERE", "ORDER", "LIMIT", "BEGIN", "COMMIT", "END", "DELETE"]
         
         # atribut
         self.statements = {} # statement
@@ -129,6 +129,38 @@ class Query:
                 return False 
             return True
         return False
+    
+    def isDeleteValid(self, valid_tables):
+        if "DELETE" not in self.statements or "FROM" not in self.statements:
+            return "Error: Missing or incorrect 'DELETE FROM' clause."
+
+        from_clause = self.statements["FROM"]
+        table_name_match = re.match(r"FROM\s+(\w+)", from_clause, re.IGNORECASE)
+        if not table_name_match:
+            return "Error: Unable to identify the table name in your DELETE query."
+
+        table_name = table_name_match.group(1)
+        if table_name not in valid_tables:
+            return f"Error: The table '{table_name}' does not exist in the database."
+
+        if "WHERE" not in self.statements:
+            return "Error: Missing 'WHERE' clause. Avoid deleting all rows accidentally."
+
+        where_clause = self.statements["WHERE"]
+        where_pattern = r"WHERE\s+([\w.]+)\s*(=|>|<|>=|<=|!=|<>)\s*.+"
+        if not re.match(where_pattern, where_clause, re.IGNORECASE):
+            return "Error: Invalid syntax in 'WHERE' clause."
+
+        attribute_match = re.search(where_pattern, where_clause, re.IGNORECASE)
+        if attribute_match:
+            attribute = attribute_match.group(1)
+            if table_name in valid_tables and attribute not in valid_tables[table_name]:
+                return f"Error: The attribute '{attribute}' is not valid for the table '{table_name}'."
+
+        if re.search(r"(AND|OR)", where_clause, re.IGNORECASE):
+            return "Error: DELETE query must contain only one condition in the WHERE clause."
+
+        return "Success: Your DELETE query is valid."
 
     def debug_parse(self):
         print("Parsed Statements:")
@@ -195,9 +227,36 @@ test_queries = [
 #     print(test.isSelectValid(test_tables))
 #     print("Columns and renaming:", test.rename_select)
 
-for query in test_queries:
-    test = Query(query)
-    print(f"Processing query: {query}")
-    test.debug_parse()  
-    print("ORDER BY Valid:", test.isOrderValid())
-    print("LIMIT Valid:", test.isLimitValid())
+# for query in test_queries:
+#     test = Query(query)
+#     print(f"Processing query: {query}")
+#     test.debug_parse()  
+#     print("ORDER BY Valid:", test.isOrderValid())
+#     print("LIMIT Valid:", test.isLimitValid())
+
+if __name__ == "__main__":
+    valid_tables = {
+        "employee": ["id", "name", "department", "salary"],
+        "department": ["id", "name", "location"],
+        "project": ["id", "name", "deadline"],
+        "task": ["id", "status", "priority"]
+    }
+
+    delete_test_queries = [
+        "DELETE FROM employee WHERE department='RnD'",  # Valid
+        "DELETE FROM employee",  # Invalid: Missing WHERE clause
+        "DELETE FROM unknown_table WHERE department='RnD'",  # Invalid: Table does not exist
+        "DELETE FROM employee WHERE department='RnD' AND salary > 1000",  # Invalid: Multiple conditions
+        "DELETE employee WHERE department='RnD'",  # Invalid: Missing 'FROM'
+        "DELETE FROM employee WHERE department='RnD'",  # Invalid: Missing semicolon
+        "DELETE FROM department WHERE location='HQ'",  # Valid
+        "DELETE FROM task WHERE status='completed' OR priority='high'",  # Invalid: Multiple conditions
+        "DELETE FROM employee WHERE position='Manager'",  # Invalid: Invalid attribute
+    ]
+
+    for query in delete_test_queries:
+        print(f"Processing query: {query}")
+        test = Query(query)
+        test.debug_parse() 
+        print(test.isDeleteValid(valid_tables))
+        print("-" * 80)
