@@ -18,17 +18,20 @@ class QueryProcessor:
             ['4', 'filbert'],
             ['5', 'bryan']
         ]
-        print("Executing query: " + query)
-        if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
-            pass
-        elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
-            pass
-        elif(query.upper() == "END TRANSACTION"):
-            pass
-        elif(query.upper() == "PRINT"):
-            self.printResult(tables, rows)
-        else:
-            pass
+        
+        queries = self.parse_query(query)
+        for query in queries:
+            print("Executing query: " + query)
+            if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
+                pass
+            elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
+                pass
+            elif(query.upper() == "END TRANSACTION"):
+                pass
+            elif(query.upper() == "PRINT"):
+                self.printResult(tables, rows)
+            else:
+                pass
     
     def ParsedQueryToDataRetrieval():
         pass
@@ -58,18 +61,6 @@ class QueryProcessor:
 
         # Print the bottom border
         print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
-
-
-        queries = self.parse_query(query)
-        for query in queries:
-            if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
-                pass
-            elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
-                pass
-            elif(query.upper() == "END TRANSACTION"):
-                pass
-            else:
-                pass
 
 
     def parse_query(self, query : str):
