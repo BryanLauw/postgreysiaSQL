@@ -127,9 +127,9 @@ class Query:
         # TODO
         pass
 
-    def isWhereValid(self, valid_tables, table_attributes):
+    def isWhereValid(self, valid_tables):
         where_statement = self.statements["WHERE"]
-        if (len(self.rename_from) == 1):
+        if (len(self.rename_from) > 1):
             where_regex = r"^[Ww][Hh][Ee][Rr][Ee]\s+(\(*(\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*))(\s+([Aa][Nn][Dd]|[Oo][Rr])\s+(\(*(\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*)))*$"
         else:
             where_regex = r"^[Ww][Hh][Ee][Rr][Ee]\s+(\(*(\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*))(\s+([Aa][Nn][Dd]|[Oo][Rr])\s+(\(*(\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?)(\)*)))*$"
@@ -154,7 +154,7 @@ class Query:
         if not flag:
             raise Exception("Tanda kurung tidak seimbang.")
         
-        if len(self.rename_from) == 1:
+        if len(self.rename_from) > 1:
             table_groups = re.findall(r"((\w+\.\w+)\s*(=|<>|>|<|>=|<=)\s*('[^']*'|\d+(\.\d+)?))", where_statement)
             
         else:
@@ -163,16 +163,23 @@ class Query:
 
         for v in comparisons:
             v = v[0]
-            if len(self.rename_from) == 1:
-                table, attr = v.split('.')
+            if len(self.rename_from) > 1:
+                table_alias, attr = v.split('.')
+                table = self.rename_from.get(table_alias)
+                if table == None:
+                    raise Exception(f"Tidak ada {table_alias}.")
+                
                 if table not in valid_tables:
                     raise Exception(f"Nama tabel {table} tidak valid.")
-                if attr not in table_attributes.get(table, []):
+                
+                valid_attributes = valid_tables[table]
+                if attr not in valid_tables.get(valid_attributes, []):
                     raise Exception(f"Atribut {attr} tidak valid pada tabel {table}.")
             else:
                 attr = v
                 first_key, first_value = list(self.rename_from.items())[0]
-                if attr not in table_attributes.get(first_value, []):
+                valid_attributes = valid_tables[first_value]
+                if attr not in valid_tables.get(valid_attributes, []):
                     raise Exception(f"Atribut {attr} tidak valid pada tabel {first_value}.")
         
         return True
