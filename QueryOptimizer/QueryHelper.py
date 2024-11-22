@@ -1,4 +1,5 @@
 from QueryTree import ParsedQuery, QueryTree
+import re
 
 class QueryHelper:
     @staticmethod
@@ -11,12 +12,36 @@ class QueryHelper:
         for token in from_tokens:
             if " AS " in token:
                 table, alias = map(str.strip, token.split(" AS "))
-                alias_map[alias] = table
+                alias_map[alias.split()[0]] = table
             elif " " in token:  # Implicit alias
                 parts = token.split()
                 alias_map[parts[1]] = parts[0]
         return alias_map
+    
+    @staticmethod
+    def remove_aliases(from_clause: list) -> list:
+        """
+        Removes aliases from the FROM clause. Keeps only the table names.
+        Handles both individual tables and join clauses in the form of a list.
+        """
+        def strip_alias(from_str: str) -> str:
+            cleaned_str = re.sub(r"\s+as\s+\w+\s*", " ", from_str, flags=re.IGNORECASE)
+            return cleaned_str
 
+        # Process each token in the FROM clause
+        return [strip_alias(token) if token.upper() not in ["JOIN", "ON", "NATURAL"] else token for token in from_clause]
+
+
+    @staticmethod
+    def rewrite_with_alias(expression: str, alias_map: dict) -> str:
+        """
+        Rewrite column references in the expression using table aliases.
+        For example, 's.a' becomes 'students.a' based on alias_map {'s': 'students'}.
+        """
+        for alias, table in alias_map.items():
+            expression = expression.replace(alias + ".", table + ".")
+        return expression
+    
     @staticmethod
     def remove_excessive_whitespace(query: str):
         words = query.split()

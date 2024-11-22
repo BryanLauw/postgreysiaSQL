@@ -19,22 +19,25 @@ class OptimizationEngine:
         # Extract aliases and rewrite columns
         if "FROM" in query_components_value:
             alias_map = QueryHelper.extract_table_aliases(query_components_value["FROM"])
-            query_components_value["FROM"] = self.__remove_aliases(query_components_value["FROM"])
             
-            # Rewrite SELECT and WHERE with resolved aliases
+            query_components_value["FROM"] = QueryHelper.remove_aliases(query_components_value["FROM"])
+            
+            query_components_value["FROM"] = [
+                    QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value["FROM"]
+                ]
+            
             if "SELECT" in query_components_value:
                 query_components_value["SELECT"] = [
-                    self.__rewrite_with_alias(attr, alias_map) for attr in query_components_value["SELECT"]
+                    QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value["SELECT"]
                 ]
             if "WHERE" in query_components_value:
-                query_components_value["WHERE"] = self.__rewrite_with_alias(
+                query_components_value["WHERE"] = QueryHelper.rewrite_with_alias(
                     query_components_value["WHERE"], alias_map
                 )
+        # print(query_components_value)
 
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree, query)
-
-
     
     def strip_alias(table: str) -> str:
         if " AS " in table:
@@ -100,39 +103,13 @@ class OptimizationEngine:
         # Placeholder for query cost estimation
         pass
 
-    def __rewrite_with_alias(self, expression: str, alias_map: dict) -> str:
-        """
-        Rewrite column references in the expression using table aliases.
-        For example, 's.a' becomes 'students.a' based on alias_map {'s': 'students'}.
-        """
-        for alias, table in alias_map.items():
-            if expression.startswith(alias + "."):
-                return expression.replace(alias + ".", table + ".")
-        return expression
-    
-    def __remove_aliases(self, from_clause: list) -> list:
-        """
-        Removes aliases from the FROM clause. Keeps only the table names.
-        Handles both individual tables and join clauses in the form of a list.
-        """
-        def strip_alias(table: str) -> str:
-            # Remove explicit alias (AS s) or implicit alias (space-separated)
-            if " AS " in table:
-                return table.split(" AS ")[0].strip()
-            elif " " in table:  # Implicit alias without 'AS'
-                return table.split()[0].strip()
-            return table.strip()
-
-        # Process each token in the FROM clause
-        return [strip_alias(token) if token.upper() not in ["JOIN", "ON", "NATURAL"] else token for token in from_clause]
-
 
 
 if __name__ == "__main__":
     new = OptimizationEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.a, s.b FROM students AS s WHERE s.a = 1"
+    select_query = "SELECT s.a, s.b FROM students AS s JOIN st ON s.id=st.id WHERE s.a = 1"
     print(select_query)
     parsed_query = new.parse_query(select_query)
     print(parsed_query)
