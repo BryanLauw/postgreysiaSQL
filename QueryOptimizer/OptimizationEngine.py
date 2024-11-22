@@ -18,6 +18,13 @@ class OptimizationEngine:
 
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree, query)
+    
+    def strip_alias(table: str) -> str:
+        if " AS " in table:
+            return table.split(" AS ")[0].strip()
+        elif " " in table:  # Implicit alias without 'AS'
+            return table.split()[0].strip()
+        return table.strip()
 
     def __build_query_tree(self, components: dict) -> QueryTree:
 
