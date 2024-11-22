@@ -4,22 +4,22 @@ q0 SELECT q1 DELETE q26 UPDATE q33
 q1 <X> q2
 q2 , q1 FROM q3
 q3 <X> q4
-q4 AS q5 NATURAL q7 JOIN q8 WHERE q16 <X> q6
+q4 AS q5 NATURAL q7 JOIN q8 WHERE q16 , q3 <X> q6
 q5 <X> q6
-q6 NATURAL q7 JOIN q8 WHERE q16
+q6 NATURAL q7 JOIN q8 WHERE q16 , q3
 q7 JOIN q3
 q8 <X> q9
 q9 AS q14 ON q10 <X> q15
 q10 <X> q11
 q11 = q12
 q12 <X> q13
-q13 JOIN q8 NATURAL q7 WHERE q16 <MO> q12
+q13 JOIN q8 NATURAL q7 WHERE q16 , q3 <MO> q12
 q14 <X> q15
 q15 ON q10
 q16 <X> q17
 q17 <CO> q18
 q18 <X> q19
-q19 ORDER q20 <MO> q18
+q19 ORDER q20 <MO> q18 AND q16 OR q16
 q20 BY q21
 q21 <X> q22
 q23 LIMIT q24
@@ -30,7 +30,7 @@ q28 WHERE q29
 q29 <X> q30
 q30 <CO> q31 
 q31 <X> q32
-q32 <MO> q31
+q32 <MO> q31 AND q29 OR q29
 q33 <X> q34
 q34 SET q35
 q35 <X> q36
