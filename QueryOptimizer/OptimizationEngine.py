@@ -20,9 +20,13 @@ class OptimizationEngine:
         return ParsedQuery(query_tree, query)
 
     def __build_query_tree(self, components: dict) -> QueryTree:
-        print(components)
+
         root = QueryTree(type="ROOT")
         top = root
+
+        if "FROM" in components:
+            from_tokens = components["FROM"]
+            alias_map = QueryHelper.extract_table_aliases(from_tokens)
 
         if "LIMIT" in components:
             limit_tree = QueryTree(type="LIMIT", val=components["LIMIT"])
@@ -37,10 +41,12 @@ class OptimizationEngine:
             top = order_by_tree
         
         if "SELECT" in components:
-            select_tree = QueryTree(type="SELECT", val=components['SELECT'])
-            top.add_child(select_tree)
-            select_tree.add_parent(top)
-            top = select_tree
+            for attribute in components['SELECT']:
+                rewritten_attribute = self.__rewrite_with_alias(attribute, alias_map)
+                select_tree = QueryTree(type="SELECT", val=rewritten_attribute)
+                top.add_child(select_tree)
+                select_tree.add_parent(top)
+                top = select_tree
                 
         if "UPDATE" in components:
             where_tree = QueryTree(type="UPDATE", val=components["UPDATE"])
@@ -55,7 +61,8 @@ class OptimizationEngine:
         #     top = where_tree
         
         if "WHERE" in components:
-            where_tree = QueryTree(type="WHERE", val=components["WHERE"])
+            rewritten_where = self.__rewrite_with_alias(components["WHERE"], alias_map)
+            where_tree = QueryTree(type="WHERE", val=rewritten_where)
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
@@ -75,12 +82,21 @@ class OptimizationEngine:
         # Placeholder for query cost estimation
         pass
 
+    def __rewrite_with_alias(self, expression: str, alias_map: dict) -> str:
+        """
+        Rewrite column references in the expression using table aliases.
+        """
+        for alias, table in alias_map.items():
+            if expression.startswith(alias + "."):
+                return expression.replace(alias + ".", table + ".")
+        return expression
+
 
 if __name__ == "__main__":
     new = OptimizationEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT a, b FROM students"
+    select_query = "SELECT s.a, s.b FROM students AS s WHERE s.a = 1"
     print(select_query)
     parsed_query = new.parse_query(select_query)
     print(parsed_query)

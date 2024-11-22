@@ -1,6 +1,21 @@
 from QueryTree import ParsedQuery, QueryTree
 
 class QueryHelper:
+    @staticmethod
+    def extract_table_aliases(from_tokens: list) -> dict:
+        """
+        Extract table aliases from the FROM clause.
+        Returns a dictionary mapping aliases to table names.
+        """
+        alias_map = {}
+        for token in from_tokens:
+            if " AS " in token:
+                table, alias = map(str.strip, token.split(" AS "))
+                alias_map[alias] = table
+            elif " " in token:  # Implicit alias
+                parts = token.split()
+                alias_map[parts[1]] = parts[0]
+        return alias_map
 
     @staticmethod
     def remove_excessive_whitespace(query: str):
