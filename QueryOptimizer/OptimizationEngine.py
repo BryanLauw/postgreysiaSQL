@@ -11,9 +11,9 @@ class OptimizationEngine:
             QueryHelper.normalize_string(query).upper()
         )
 
-        if not self.QueryParser.check_valid_syntax(normalized_query):
+        if(not self.QueryParser.check_valid_syntax(normalized_query)):
             return False
-
+        
         query_components_value = self.QueryParser.get_components_values(normalized_query)
 
         # Extract aliases and rewrite columns
@@ -42,7 +42,7 @@ class OptimizationEngine:
     def strip_alias(table: str) -> str:
         if " AS " in table:
             return table.split(" AS ")[0].strip()
-        elif " " in table:  # Implicit alias without 'AS'
+        elif " " in table:
             return table.split()[0].strip()
         return table.strip()
 
@@ -50,6 +50,10 @@ class OptimizationEngine:
 
         root = QueryTree(type="ROOT")
         top = root
+
+        if "FROM" in components:
+            from_tokens = components["FROM"]
+            alias_map = QueryHelper.extract_table_aliases(from_tokens)
 
         if "LIMIT" in components:
             limit_tree = QueryTree(type="LIMIT", val=components["LIMIT"])
@@ -65,7 +69,8 @@ class OptimizationEngine:
         
         if "SELECT" in components:
             for attribute in components['SELECT']:
-                select_tree = QueryTree(type="SELECT", val=attribute)
+                rewritten_attribute = self.__rewrite_with_alias(attribute, alias_map)
+                select_tree = QueryTree(type="SELECT", val=rewritten_attribute)
                 top.add_child(select_tree)
                 select_tree.add_parent(top)
                 top = select_tree
@@ -83,13 +88,14 @@ class OptimizationEngine:
         #     top = where_tree
         
         if "WHERE" in components:
-            where_tree = QueryTree(type="WHERE", val=components["WHERE"])
+            rewritten_where = self.__rewrite_with_alias(components["WHERE"], alias_map)
+            where_tree = QueryTree(type="WHERE", val=rewritten_where)
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
         
         if "FROM" in components:
-            join_tree = QueryHelper.build_join_tree(components["FROM"])
+            join_tree = QueryHelper.build_join_tree(components["FROM"], alias_map)
             top.add_child(join_tree)
             join_tree.add_parent(top)
 
