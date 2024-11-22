@@ -40,7 +40,9 @@ class QueryHelper:
         For example, 's.a' becomes 'students.a' based on alias_map {'s': 'students'}.
         """
         for alias, table in alias_map.items():
-            expression = expression.replace(alias + ".", table + ".")
+            pattern = rf"(?<!\w){re.escape(alias)}\."
+            replacement = table + "."
+            expression = re.sub(pattern, replacement, expression)
         return expression
     
     @staticmethod
@@ -56,8 +58,13 @@ class QueryHelper:
 
         for token in from_clause:
             if " AS " in token:
-                table, alias = map(str.strip, token.split(" AS "))
-                alias_map[alias.split()[0]] = table
+                splitted = token.split(" AS ")
+                splitted_len = len(splitted)
+                for i in range(splitted_len-1):
+                    table = splitted[i].split()[-1]
+                    alias = splitted[i+1].split()[0]
+                    alias_map[alias] = table
+                    
         return alias_map
 
     @staticmethod
