@@ -100,7 +100,6 @@ class StorageEngine:
         return Exception(f"Tidak ada database dengan nama {database_name}")
 
     def read_block(self, data_retrieval:DataRetrieval, database_name:str) -> dict|Exception:
-
         # error handling
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")
@@ -143,7 +142,76 @@ class StorageEngine:
 
         # return akhir
         return hasil_akhir
+
+    def write_block(self, data_write: DataWrite, database_name: str) -> int | Exception:
+        if database_name not in self.blocks:
+            return Exception(f"Tidak ada database dengan nama {database_name}")
+        if data_write.table not in self.blocks[database_name]:
+            return Exception(f"Tidak ada tabel dengan nama {data_write.table}")
+        column_tabel_query = [col["name"] for col in self.blocks[database_name][data_write.table]["columns"]]
+        if data_write.conditions:
+            for kondisi in data_write.conditions:
+                if kondisi.column not in column_tabel_query:
+                    return Exception(f"Tidak ada kolom dengan nama {kondisi.column}")
+        if not all(key in column_tabel_query for key in data_write.column):
+            return Exception(f"Beberapa kolom yang akan diubah tidak ada di tabel {data_write.table}")
+
+        # Tidak ada error, lanjutkan proses
+        affected_rows = 0
+        data_baru = []
         
+        for row in self.blocks[database_name][data_write.table]["values"]:
+            update_row = False
+            if data_write.conditions:
+                # Cek apakah row memenuhi semua kondisi
+                update_row = all(kondisi.evaluate(row[kondisi.column]) for kondisi in data_write.conditions)
+            else:
+                # Jika tidak ada kondisi, semua baris akan diupdate
+                update_row = True
+
+            # Update nilai jika memenuhi kondisi
+            if update_row:
+                for col, value in zip(data_write.column, data_write.new_value):
+                    row[col] = value
+                affected_rows += 1
+
+            data_baru.append(row)
+        
+        # Update data di tabel
+        self.blocks[database_name][data_write.table]["values"] = data_baru
+        self.save()
+        print(f"Data berhasil diupdate, {affected_rows} baris diubah")
+        return affected_rows
+
+
+    def delete_block(self, data_deletion:DataDeletion, database_name:str) -> int:
+        # error handling
+        if database_name not in self.blocks:
+            return Exception(f"Tidak ada database dengan nama {database_name}")  
+        if data_deletion.table not in self.blocks[database_name]:
+            return Exception(f"Tidak ada tabel dengan nama {data_deletion.table}")
+        column_tabel_query = []
+        for kolom in self.blocks[database_name][data_deletion.table]["columns"]:
+            column_tabel_query.append(kolom["name"])
+        if data_deletion.conditions:
+            for kondisi in data_deletion.conditions:
+                if kondisi.column not in column_tabel_query:
+                    return Exception(f"Tidak ada kolom dengan nama {kondisi.column}")
+                
+        # seharusnya tidak ada error di sini
+        data_baru = []
+        affected_row = 0
+        for kondisi in data_deletion.conditions:
+            for row in self.blocks[database_name][data_deletion.table]["values"]:
+                if not kondisi.evaluate(row[kondisi.column]):
+                    data_baru.append(row)
+                else:
+                    affected_row += 1
+            self.blocks[database_name][data_deletion.table]["values"] = data_baru
+            data_baru = []
+        print(f"Data berhasil dihapus, {affected_row} baris dihapus")
+
+        return affected_row
     def get_stats(self, database_name:str , table_name: str, block_size=4096) -> Statistic | Exception:
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")
@@ -180,39 +248,6 @@ class StorageEngine:
             V_a_r[attribute] = len(set(row[attribute] for row in rows if attribute in row))
 
         return Statistic(n_r=nr, b_r=br, l_r=lr, f_r=fr, V_a_r=V_a_r)
-
-
-    def write_block(self, data_write:DataWrite):
-        pass
-
-    def delete_block(self, data_deletion:DataDeletion, database_name:str) -> int:
-        # error handling
-        if database_name not in self.blocks:
-            return Exception(f"Tidak ada database dengan nama {database_name}")  
-        if data_deletion.table not in self.blocks[database_name]:
-            return Exception(f"Tidak ada tabel dengan nama {data_deletion.table}")
-        column_tabel_query = []
-        for kolom in self.blocks[database_name][data_deletion.table]["columns"]:
-            column_tabel_query.append(kolom["name"])
-        if data_deletion.conditions:
-            for kondisi in data_deletion.conditions:
-                if kondisi.column not in column_tabel_query:
-                    return Exception(f"Tidak ada kolom dengan nama {kondisi.column}")
-                
-        # seharusnya tidak ada error di sini
-        data_baru = []
-        affected_row = 0
-        for kondisi in data_deletion.conditions:
-            for row in self.blocks[database_name][data_deletion.table]["values"]:
-                if not kondisi.evaluate(row[kondisi.column]):
-                    data_baru.append(row)
-                else:
-                    affected_row += 1
-            self.blocks[database_name][data_deletion.table]["values"] = data_baru
-            data_baru = []
-        print(f"Data berhasil dihapus, {affected_row} baris dihapus")
-
-        return affected_row
 
     def debug(self):
         print(self.blocks)
