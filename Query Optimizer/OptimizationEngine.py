@@ -37,11 +37,10 @@ class OptimizationEngine:
             top = order_by_tree
         
         if "SELECT" in components:
-            for attribute in components['SELECT']:
-                select_tree = QueryTree(type="SELECT", val=attribute)
-                top.add_child(select_tree)
-                select_tree.add_parent(top)
-                top = select_tree
+            select_tree = QueryTree(type="SELECT", val=components['SELECT'])
+            top.add_child(select_tree)
+            select_tree.add_parent(top)
+            top = select_tree
                 
         if "UPDATE" in components:
             where_tree = QueryTree(type="UPDATE", val=components["UPDATE"])
