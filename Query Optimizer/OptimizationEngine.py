@@ -1,45 +1,20 @@
+from QueryParser import QueryParser
 from QueryTree import ParsedQuery, QueryTree
 from QueryHelper import *
 
 class OptimizationEngine:
     def __init__(self):
-        pass
+        self.QueryParser = QueryParser("dfa.txt")
 
     def parse_query(self, query: str) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
             QueryHelper.normalize_string(query).upper()
         )
 
-        components = ["SELECT", "UPDATE", "DELETE", "FROM", "SET", "WHERE", "ORDER BY", "LIMIT"]
-
-        query_components_value = {}
-
-        i = 0
-        while i < len(components):
-            idx_first_comp = normalized_query.find(components[i])
-            if idx_first_comp == -1:
-                i += 1
-                continue
-
-            if i == len(components) - 1:  # Last component (LIMIT)
-                query_components_value[components[i]] = QueryHelper.extract_value(
-                    query, components[i], ""
-                )
-                break
-
-            j = i + 1
-            idx_second_comp = normalized_query.find(components[j])
-            while idx_second_comp == -1 and j < len(components) - 1:
-                j += 1
-                idx_second_comp = normalized_query.find(components[j])
-
-            query_components_value[components[i]] = QueryHelper.extract_value(
-                query, components[i], "" if idx_second_comp == -1 else components[j]
-            )
-
-            i += 1
-
-        print(f"query_components_value: {query_components_value}") # testing
+        if(not self.QueryParser.check_valid_syntax(normalized_query)):
+            return False
+        
+        query_components_value = self.QueryParser.get_components_values(normalized_query)
 
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree, query)
@@ -112,10 +87,10 @@ if __name__ == "__main__":
     print(parsed_query)
 
     # Test UPDATE query
-    update_query = "UPDATE employee SET salary = salary * 1.1 WHERE salary > 1000"
-    print(update_query)
-    parsed_update_query = new.parse_query(update_query)
-    print(parsed_update_query)
+    # update_query = "UPDATE employee SET salary = salary * 1.1 WHERE salary > 1000"
+    # print(update_query)
+    # parsed_update_query = new.parse_query(update_query)
+    # print(parsed_update_query)
 
     # #Test DELETE query
     # delete_query = "DELETE FROM employees WHERE salary < 3000"
