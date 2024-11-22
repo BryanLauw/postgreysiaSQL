@@ -11,35 +11,18 @@ class OptimizationEngine:
             QueryHelper.normalize_string(query).upper()
         )
 
-        if not self.QueryParser.check_valid_syntax(normalized_query):
+        if(not self.QueryParser.check_valid_syntax(normalized_query)):
             return False
-
+        
         query_components_value = self.QueryParser.get_components_values(normalized_query)
-
-        # Extract aliases and rewrite columns
-        if "FROM" in query_components_value:
-            alias_map = QueryHelper.extract_table_aliases(query_components_value["FROM"])
-            query_components_value["FROM"] = self.__remove_aliases(query_components_value["FROM"])
-            
-            # Rewrite SELECT and WHERE with resolved aliases
-            if "SELECT" in query_components_value:
-                query_components_value["SELECT"] = [
-                    self.__rewrite_with_alias(attr, alias_map) for attr in query_components_value["SELECT"]
-                ]
-            if "WHERE" in query_components_value:
-                query_components_value["WHERE"] = self.__rewrite_with_alias(
-                    query_components_value["WHERE"], alias_map
-                )
 
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree, query)
-
-
     
     def strip_alias(table: str) -> str:
         if " AS " in table:
             return table.split(" AS ")[0].strip()
-        elif " " in table:  # Implicit alias without 'AS'
+        elif " " in table:
             return table.split()[0].strip()
         return table.strip()
 
@@ -47,6 +30,10 @@ class OptimizationEngine:
 
         root = QueryTree(type="ROOT")
         top = root
+
+        if "FROM" in components:
+            from_tokens = components["FROM"]
+            alias_map = QueryHelper.extract_table_aliases(from_tokens)
 
         if "LIMIT" in components:
             limit_tree = QueryTree(type="LIMIT", val=components["LIMIT"])
@@ -62,7 +49,8 @@ class OptimizationEngine:
         
         if "SELECT" in components:
             for attribute in components['SELECT']:
-                select_tree = QueryTree(type="SELECT", val=attribute)
+                rewritten_attribute = self.__rewrite_with_alias(attribute, alias_map)
+                select_tree = QueryTree(type="SELECT", val=rewritten_attribute)
                 top.add_child(select_tree)
                 select_tree.add_parent(top)
                 top = select_tree
@@ -80,13 +68,14 @@ class OptimizationEngine:
         #     top = where_tree
         
         if "WHERE" in components:
-            where_tree = QueryTree(type="WHERE", val=components["WHERE"])
+            rewritten_where = self.__rewrite_with_alias(components["WHERE"], alias_map)
+            where_tree = QueryTree(type="WHERE", val=rewritten_where)
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
         
         if "FROM" in components:
-            join_tree = QueryHelper.build_join_tree(components["FROM"])
+            join_tree = QueryHelper.build_join_tree(components["FROM"], alias_map)
             top.add_child(join_tree)
             join_tree.add_parent(top)
 
@@ -103,36 +92,23 @@ class OptimizationEngine:
     def __rewrite_with_alias(self, expression: str, alias_map: dict) -> str:
         """
         Rewrite column references in the expression using table aliases.
-        For example, 's.a' becomes 'students.a' based on alias_map {'s': 'students'}.
         """
-        for alias, table in alias_map.items():
-            if expression.startswith(alias + "."):
-                return expression.replace(alias + ".", table + ".")
-        return expression
-    
-    def __remove_aliases(self, from_clause: list) -> list:
-        """
-        Removes aliases from the FROM clause. Keeps only the table names.
-        Handles both individual tables and join clauses in the form of a list.
-        """
-        def strip_alias(table: str) -> str:
-            # Remove explicit alias (AS s) or implicit alias (space-separated)
-            if " AS " in table:
-                return table.split(" AS ")[0].strip()
-            elif " " in table:  # Implicit alias without 'AS'
-                return table.split()[0].strip()
-            return table.strip()
-
-        # Process each token in the FROM clause
-        return [strip_alias(token) if token.upper() not in ["JOIN", "ON", "NATURAL"] else token for token in from_clause]
-
+        tokens = expression.split()
+        rewritten_tokens = []
+        for token in tokens:
+            if "." in token:
+                alias, column = token.split(".", 1)
+                if alias in alias_map:
+                    token = f"{alias_map[alias]}.{column}"
+            rewritten_tokens.append(token)
+        return " ".join(rewritten_tokens)
 
 
 if __name__ == "__main__":
     new = OptimizationEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.a, s.b FROM students AS s WHERE s.a = 1"
+    select_query = "SELECT s.a, t.b FROM students AS s JOIN teachers AS t ON t.i = s.i JOIN bibim AS b ON b.i = s.i WHERE s.a = 1"
     print(select_query)
     parsed_query = new.parse_query(select_query)
     print(parsed_query)
