@@ -16,15 +16,15 @@ class OptimizationEngine:
         
         query_components_value = self.QueryParser.get_components_values(normalized_query)
 
-        # Extract aliases and rewrite columns
         if "FROM" in query_components_value:
             alias_map = QueryHelper.extract_table_aliases(query_components_value["FROM"])
             
             query_components_value["FROM"] = QueryHelper.remove_aliases(query_components_value["FROM"])
             
+            print(alias_map)
             query_components_value["FROM"] = [
-                    QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value["FROM"]
-                ]
+                QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value["FROM"]
+            ]
             
             if "SELECT" in query_components_value:
                 query_components_value["SELECT"] = [
@@ -34,7 +34,7 @@ class OptimizationEngine:
                 query_components_value["WHERE"] = QueryHelper.rewrite_with_alias(
                     query_components_value["WHERE"], alias_map
                 )
-        # print(query_components_value)
+        print(query_components_value)
 
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree, query)
@@ -53,7 +53,6 @@ class OptimizationEngine:
 
         if "FROM" in components:
             from_tokens = components["FROM"]
-            alias_map = QueryHelper.extract_table_aliases(from_tokens)
 
         if "LIMIT" in components:
             limit_tree = QueryTree(type="LIMIT", val=components["LIMIT"])
@@ -69,8 +68,7 @@ class OptimizationEngine:
         
         if "SELECT" in components:
             for attribute in components['SELECT']:
-                rewritten_attribute = self.__rewrite_with_alias(attribute, alias_map)
-                select_tree = QueryTree(type="SELECT", val=rewritten_attribute)
+                select_tree = QueryTree(type="SELECT", val=attribute)
                 top.add_child(select_tree)
                 select_tree.add_parent(top)
                 top = select_tree
@@ -88,14 +86,13 @@ class OptimizationEngine:
         #     top = where_tree
         
         if "WHERE" in components:
-            rewritten_where = self.__rewrite_with_alias(components["WHERE"], alias_map)
-            where_tree = QueryTree(type="WHERE", val=rewritten_where)
+            where_tree = QueryTree(type="WHERE", val=components["WHERE"])
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
         
         if "FROM" in components:
-            join_tree = QueryHelper.build_join_tree(components["FROM"], alias_map)
+            join_tree = QueryHelper.build_join_tree(components["FROM"])
             top.add_child(join_tree)
             join_tree.add_parent(top)
 
