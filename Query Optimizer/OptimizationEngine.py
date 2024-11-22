@@ -20,7 +20,7 @@ class OptimizationEngine:
         return ParsedQuery(query_tree, query)
 
     def __build_query_tree(self, components: dict) -> QueryTree:
-
+        print(components)
         root = QueryTree(type="ROOT")
         top = root
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     new = OptimizationEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT a, b FROM students JOIN teacher ON students.id = teacher.id JOIN teacher ON students.id = teacher.id WHERE a > 1 ORDER BY apalah LIMIT 10"
+    select_query = "SELECT a, b FROM students"
     print(select_query)
     parsed_query = new.parse_query(select_query)
     print(parsed_query)
