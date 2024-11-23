@@ -7,12 +7,7 @@ class OptimizationEngine:
         self.QueryParser = QueryParser("dfa.txt")
 
     def __validate_aliases(self, query_components: dict, alias_map: dict):
-        """
-        Validate that all aliases used in query components exist in the alias map.
-        Raises an exception if any undefined alias is detected.
-        """
         def find_aliases(expression: str) -> set:
-            """Find all aliases in an expression (e.g., SELECT, WHERE)."""
             aliases = set()
             tokens = expression.split()
             for token in tokens:
@@ -42,6 +37,7 @@ class OptimizationEngine:
         normalized_query = QueryHelper.remove_excessive_whitespace(
             QueryHelper.normalize_string(query).upper()
         )
+        print("normalized", normalized_query)
 
         if(not self.QueryParser.check_valid_syntax(normalized_query)):
             return False
@@ -52,6 +48,7 @@ class OptimizationEngine:
 
         i = 0
         while i < len(components):
+            # print(i, "query component", query_components_value)
             idx_first_comp = normalized_query.find(components[i])
             if idx_first_comp == -1:
                 i += 1
@@ -142,11 +139,11 @@ class OptimizationEngine:
         #     top = where_tree
         
         if "WHERE" in components:
-            where_tree = QueryTree(type="WHERE", val=components["WHERE"])
+            where_tree = QueryHelper.parse_where_clause(components["WHERE"])
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
-        
+
         if "FROM" in components:
             join_tree = QueryHelper.build_join_tree(components["FROM"])
             top.add_child(join_tree)
@@ -167,7 +164,7 @@ if __name__ == "__main__":
     new = OptimizationEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE a > 1"
+    select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5"
     print(select_query)
     parsed_query = new.parse_query(select_query)
     print(parsed_query)
