@@ -13,15 +13,44 @@ class OptimizationEngine:
 
         if(not self.QueryParser.check_valid_syntax(normalized_query)):
             return False
-        
-        query_components_value = self.QueryParser.get_components_values(normalized_query)
+
+        components = ["SELECT", "UPDATE", "DELETE", "FROM", "SET", "WHERE", "ORDER BY", "LIMIT"]
+
+        query_components_value = {}
+
+        i = 0
+        while i < len(components):
+            idx_first_comp = normalized_query.find(components[i])
+            if idx_first_comp == -1:
+                i += 1
+                continue
+
+            if i == len(components) - 1:  # Last component (LIMIT)
+                query_components_value[components[i]] = QueryHelper.extract_value(
+                    query, components[i], ""
+                )
+                break
+
+            j = i + 1
+            idx_second_comp = normalized_query.find(components[j])
+            while idx_second_comp == -1 and j < len(components) - 1:
+                j += 1
+                idx_second_comp = normalized_query.find(components[j])
+
+            query_components_value[components[i]] = QueryHelper.extract_value(
+                query, components[i], "" if idx_second_comp == -1 else components[j]
+            )
+
+            i += 1
+
+        print(f"query_components_value: {query_components_value}") # testing
 
         if "FROM" in query_components_value:
             alias_map = QueryHelper.extract_table_aliases(query_components_value["FROM"])
             
             query_components_value["FROM"] = QueryHelper.remove_aliases(query_components_value["FROM"])
             
-            print(alias_map)
+            print("alias map", alias_map)
             query_components_value["FROM"] = [
                 QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value["FROM"]
             ]
@@ -38,21 +67,11 @@ class OptimizationEngine:
 
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree, query)
-    
-    def strip_alias(table: str) -> str:
-        if " AS " in table:
-            return table.split(" AS ")[0].strip()
-        elif " " in table:
-            return table.split()[0].strip()
-        return table.strip()
 
     def __build_query_tree(self, components: dict) -> QueryTree:
 
         root = QueryTree(type="ROOT")
         top = root
-
-        if "FROM" in components:
-            from_tokens = components["FROM"]
 
         if "LIMIT" in components:
             limit_tree = QueryTree(type="LIMIT", val=components["LIMIT"])
@@ -107,12 +126,11 @@ class OptimizationEngine:
         pass
 
 
-
 if __name__ == "__main__":
     new = OptimizationEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.a, s.b FROM students AS s JOIN st ON s.id=st.id WHERE s.a = 1"
+    select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE a > 1"
     print(select_query)
     parsed_query = new.parse_query(select_query)
     print(parsed_query)
