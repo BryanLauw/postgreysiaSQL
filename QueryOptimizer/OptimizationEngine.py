@@ -6,6 +6,38 @@ class OptimizationEngine:
     def __init__(self):
         self.QueryParser = QueryParser("dfa.txt")
 
+    def __validate_aliases(self, query_components: dict, alias_map: dict):
+        """
+        Validate that all aliases used in query components exist in the alias map.
+        Raises an exception if any undefined alias is detected.
+        """
+        def find_aliases(expression: str) -> set:
+            """Find all aliases in an expression (e.g., SELECT, WHERE)."""
+            aliases = set()
+            tokens = expression.split()
+            for token in tokens:
+                if "." in token:  # Check for alias usage (e.g., s.a)
+                    alias = token.split(".")[0]
+                    aliases.add(alias)
+            return aliases
+
+        used_aliases = set()
+
+        if "SELECT" in query_components:
+            for attr in query_components["SELECT"]:
+                used_aliases.update(find_aliases(attr))
+        if "WHERE" in query_components:
+            used_aliases.update(find_aliases(query_components["WHERE"]))
+        if "FROM" in query_components:
+            for token in query_components["FROM"]:
+                if "." in token:
+                    used_aliases.update(find_aliases(token))
+
+        # Find undefined aliases
+        undefined_aliases = used_aliases - set(alias_map.keys())
+        if undefined_aliases:
+            raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
+
     def parse_query(self, query: str) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
             QueryHelper.normalize_string(query).upper()
@@ -49,6 +81,11 @@ class OptimizationEngine:
             alias_map = QueryHelper.extract_table_aliases(query_components_value["FROM"])
             
             query_components_value["FROM"] = QueryHelper.remove_aliases(query_components_value["FROM"])
+
+            # Validate aliases in SELECT, WHERE, and FROM clauses
+            undefined_aliases = self.__validate_aliases(query_components_value, alias_map)
+            if undefined_aliases:
+                raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
             
             print("alias map", alias_map)
             query_components_value["FROM"] = [
@@ -134,6 +171,15 @@ if __name__ == "__main__":
     print(select_query)
     parsed_query = new.parse_query(select_query)
     print(parsed_query)
+
+    try:
+        invalid_query = "SELECT x.a FROM students AS s"
+        print(invalid_query)
+        parsed_query = new.parse_query(invalid_query)
+        print(parsed_query)
+    except ValueError as e:
+        print(e)
+
 
     # Test UPDATE query
     # update_query = "UPDATE employee SET salary = salary * 1.1 WHERE salary > 1000"
