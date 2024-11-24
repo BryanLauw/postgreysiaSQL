@@ -11,7 +11,7 @@ class OptimizationEngine:
             aliases = set()
             tokens = expression.split()
             for token in tokens:
-                if "." in token:  # Check for alias usage (e.g., s.a)
+                if "." in token:  # Check for alias usage
                     alias = token.split(".")[0]
                     aliases.add(alias)
             return aliases
@@ -142,7 +142,7 @@ class OptimizationEngine:
             where_tree = QueryHelper.parse_where_clause(components["WHERE"])
             top.add_child(where_tree)
             where_tree.add_parent(top)
-            top = where_tree
+            top = select_tree
 
         if "FROM" in components:
             join_tree = QueryHelper.build_join_tree(components["FROM"])
@@ -177,6 +177,17 @@ if __name__ == "__main__":
     except ValueError as e:
         print(e)
 
+    where_clause = "students.a > 'aku' AND teacher.b = 'abc'"
+    attribute_types = {
+        "students.a": "integer",
+        "teacher.b": "varchar",
+    }
+
+    try:
+        QueryHelper.validate_comparisons(where_clause, attribute_types)
+        print("All comparisons are valid!")
+    except ValueError as e:
+        print(f"Validation error: {e}")
 
     # Test UPDATE query
     # update_query = "UPDATE employee SET salary = salary * 1.1 WHERE salary > 1000"

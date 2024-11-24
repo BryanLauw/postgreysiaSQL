@@ -4,10 +4,6 @@ import re
 class QueryHelper:
     @staticmethod
     def extract_table_aliases(from_tokens: list) -> dict:
-        """
-        Extract table aliases from the FROM clause.
-        Returns a dictionary mapping aliases to table names.
-        """
         alias_map = {}
         for token in from_tokens:
             if " AS " in token:
@@ -20,10 +16,6 @@ class QueryHelper:
     
     @staticmethod
     def remove_aliases(from_clause: list) -> list:
-        """
-        Removes aliases from the FROM clause. Keeps only the table names.
-        Handles both individual tables and join clauses in the form of a list.
-        """
         def strip_alias(from_str: str) -> str:
             cleaned_str = re.sub(r"\s+as\s+\w+\s*", " ", from_str, flags=re.IGNORECASE)
             return cleaned_str
@@ -34,10 +26,6 @@ class QueryHelper:
 
     @staticmethod
     def rewrite_with_alias(expression: str, alias_map: dict) -> str:
-        """
-        Rewrite column references in the expression using table aliases.
-        For example, 's.a' becomes 'students.a' based on alias_map {'s': 'students'}.
-        """
         for alias, table in alias_map.items():
             pattern = rf"(?<!\w){re.escape(alias)}\."
             replacement = table + "."
@@ -61,10 +49,6 @@ class QueryHelper:
 
     @staticmethod
     def extract_FROM(values: str):
-        """
-        Extract FROM clause and split by JOIN operations. 
-        Returns a list of tables and JOIN expressions.
-        """
         arr_joins = []
         values_parsed = values.split()
         element = ""
@@ -194,3 +178,49 @@ class QueryHelper:
             return join_node
         
         return QueryHelper.__build_explicit_join(query_tree=join_node, join_tokens=join_tokens)
+    
+    # Define supported types and compatible comparisons
+    SUPPORTED_TYPES = {"integer", "float", "char", "varchar"}
+    COMPATIBLE_TYPES = {
+        "integer": {"integer", "float"},
+        "float": {"integer", "float"},
+        "char": {"char", "varchar"},
+        "varchar": {"char", "varchar"},
+    }
+
+    @staticmethod
+    def validate_comparisons(where_clause: str, attribute_types: dict):
+        # Regex to find comparisons
+        comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
+        matches = re.findall(comparison_pattern, where_clause)
+
+        for left_attr, operator, right_attr in matches:
+            left_type = attribute_types.get(left_attr)
+            right_type = attribute_types.get(right_attr)
+
+            # Handle literal values
+            if left_type is None:
+                left_type = QueryHelper.infer_literal_type(left_attr)
+            if right_type is None:
+                right_type = QueryHelper.infer_literal_type(right_attr)
+
+            # Check if both types are supported
+            if left_type not in QueryHelper.SUPPORTED_TYPES or right_type not in QueryHelper.SUPPORTED_TYPES:
+                raise ValueError(f"Unsupported data type(s) in comparison: {left_attr} ({left_type}) and {right_attr} ({right_type})")
+
+            # Check compatibility of the types
+            if right_type not in QueryHelper.COMPATIBLE_TYPES.get(left_type, {}):
+                raise ValueError(f"Incompatible types in comparison: {left_attr} ({left_type}) and {right_attr} ({right_type})")
+
+    @staticmethod
+    def infer_literal_type(value: str) -> str:
+        if value.isdigit():
+            return "integer"
+        try:
+            float(value)
+            return "float"
+        except ValueError:
+            pass
+        if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
+            return "varchar"
+        raise ValueError(f"Unknown literal type for value: {value}")
