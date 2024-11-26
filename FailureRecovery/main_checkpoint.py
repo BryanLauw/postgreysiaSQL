@@ -2,29 +2,9 @@
 from datetime import datetime
 from typing import Optional, List
 from dataclasses import dataclass
+from main_log_entry import LogEntry
 import threading
 import logging
-
-@dataclass
-class LogEntry:
-    """
-    Represents a single entry in the log. (object)
-
-    Attributes:
-        timestamp (datetime): The datetime when the log entry was created.
-        operation_id (int): The unique identifier for the operation.
-        event (str): The type of event being logged (e.g., "START", "COMMIT", "ABORT", "Object Value").
-        object_value (Optional[str]): The value of the object being modified (if applicable).
-        old_value (Optional[str]): The old value of the object (if applicable).
-        new_value (Optional[str]): The new value of the object (if applicable).
-    """
-    timestamp: datetime
-    operation_id: int
-    event: str
-    object_value: Optional[str] = None
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
-
 
 class Checkpoint:
     def __init__(self, log_file:str="log_kel.log", interval: int = 10):

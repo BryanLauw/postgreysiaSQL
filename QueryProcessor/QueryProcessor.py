@@ -1,6 +1,6 @@
 from ..ConcurrencyControlManager.main import *
 from ..QueryOptimizer.main import *
-from ..FailureRecovery.failure_recovery import *
+from ..FailureRecovery import *
 from ..StorageManager.classes import *
 
 # temp class

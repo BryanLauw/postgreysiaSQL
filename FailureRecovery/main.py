@@ -155,10 +155,12 @@ class FailureRecovery:
 
         # TODO: TAMBAHAN, ini tanya yang system failure teh pake recovercriteria?
         
-        # undo
-
         # redo
-    
+        self.recovery.redo(self.buffer_log_entries)
+
+        # undo
+        self.recovery.undo(self.buffer_log_entries)
+
     def _stop(self):
         """
         Stop the background checkpoint thread.
@@ -199,7 +201,7 @@ if __name__ == "__main__":
         {"id": 0, "event": "START"},
         {"id": 0, "event": "DATA", "object_value": "B", "old_value": "2000", "new_value": "2050"},
         {"id": 1, "event": "START"},
-        {"id": None, "event": "CHECKPOINT", "object_value": "[0,1]"}, # simulate checkpoint
+        {"id": None, "event": "CHECKPOINT", "object_value": "{0,1}"}, # simulate checkpoint
         {"id": 1, "event": "DATA", "object_value": "C", "old_value": "700", "new_value": "600"},
         {"id": 1, "event": "COMMIT"},
         {"id": 2, "event": "START"},

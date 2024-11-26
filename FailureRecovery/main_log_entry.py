@@ -13,18 +13,26 @@ class LogEntry:
 
     Attributes:
         timestamp (datetime): The datetime when the log entry was created.
-        transaction_id (int): The unique identifier for the transaction.
-        event (str): The type of event being logged (e.g., "START", "COMMIT", "ABORT", "DATA").
+        transaction_id (int): The unique identifier for the operation.
+        event (str): The type of event being logged (e.g., "START", "COMMIT", "ABORT", "Object Value").
         object_value (Optional[str]): The value of the object being modified (if applicable).
         old_value (Optional[str]): The old value of the object (if applicable).
         new_value (Optional[str]): The new value of the object (if applicable).
     """
-    timestamp: datetime
-    transaction_id: int
-    event: str
-    object_value: Optional[str] = None
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
+
+    def __init__(self, timestamp: datetime, transaction_id: int, event: str, object_value: Optional[str] = None, old_value: Optional[str] = None, new_value: Optional[str] = None):
+        self.timestamp: datetime = timestamp
+        self.transaction_id: int = transaction_id
+        self.event: str = event
+        
+        # TODO: BAHAS 3 ini butuh atau ga
+        # self.table: Optional[str]
+        # self.column: Optional[str]
+        # self.row: Optional[int]
+
+        self.object_value: Optional[str] = object_value
+        self.old_value: Optional[str] = old_value
+        self.new_value: Optional[str] = new_value
 
     def meets_recovery_criteria(self, criteria: RecoverCriteria) -> bool:
         """

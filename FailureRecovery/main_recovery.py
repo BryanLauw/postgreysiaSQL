@@ -25,7 +25,13 @@ class Recovery:
         self.undo_list: Set[str] = set()
 
     def rollback(self, buffer_log_entries: List[LogEntry], list_transaction_id: List[str]):
-        
+        """
+        Function to do Rollback. Interchangeable with UNDO
+
+        params:
+            buffer_log_entries(List[LogEntry]): buffer of the log entry
+            list_transaction_id(List[str]): list of transaction id that affected (need to be reversed)
+        """
         # start checking from buffer
         temp = buffer_log_entries[::-1] # reverse list
         
@@ -69,6 +75,9 @@ class Recovery:
         - if Start found, then remove from undo list
 
         Prerequisite: `self.redo()`
+
+        params:
+            buffer_log_entries(List[LogEntry]): buffer of the log entry
         """
         self.rollback(buffer_log_entries, self.undo_list)
         self.undo_list.clear()
@@ -81,7 +90,11 @@ class Recovery:
         - Read Active Transaction List --> Undo List
         - If start instruction found, Add to Undo List
         - if commit / abort found, remove from Undo List
+        
         No Log Written
+        
+        params:
+            buffer_log_entries(List[LogEntry]): buffer of the log entry
         """
         
         # find latest checkpoint
@@ -108,7 +121,7 @@ class Recovery:
             self.logger.info("SEND to ??? on REDO function")
 
         # move to latest buffer
-        for x in buffer_log_entries:
+        for i in range(len(buffer_log_entries)):
             if (temp[i].event == "START"):
                 self.undo_list.add(temp[i].transaction_id)
             elif (temp[i].event in ["COMMIT", "ABORT"]): # TODO: if you want, performance tuning. Tapi ini better readability
@@ -151,7 +164,7 @@ class Recovery:
                 
                 for line in lines:
                     # parse each line first
-
+                    print(line, type(line))
                     log_entry = self._parse_line_to_log_entry(line)
 
                     temp.append(log_entry)
@@ -159,9 +172,10 @@ class Recovery:
         except FileNotFoundError:
             return []
     
-    def _parse_line_to_log_entry(line: str) -> LogEntry:
+    def _parse_line_to_log_entry(self, log_line: str) -> LogEntry:
+
         # First, extract the list if it exists
-        list_match = re.search(r'\[.*?\]', log_line)
+        list_match = re.search(r'\{.*?\}', log_line)
         list_str = list_match.group(0) if list_match else None
         
         # Remove the list from the original line for splitting
@@ -206,7 +220,7 @@ class Recovery:
             new_value = parts[5].strip()
         
         # Case when compensation log read
-        if (parts[4] and not parts[5]):
+        if (parts[4] and len(parts) == 5):
             old_value = None
             new_value = parts[4]
         
