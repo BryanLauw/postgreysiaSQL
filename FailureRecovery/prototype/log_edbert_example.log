@@ -1,0 +1,7 @@
+1,2024-11-21 20:17:05,transaction_start,None,None,None,None,None,None
+0,2024-11-21 20:17:05,INSERT,None,users,name,0,Edbert1,None
+3,2024-11-21 20:17:06,INSERT,None,users,name,3,Edbert2,None
+2,2024-11-21 20:17:07,INSERT,None,users,name,2,Edbert3,None
+2,2024-11-21 20:17:08,DELETE,None,users,name,2,Edbert3,None
+3,2024-11-21 20:17:09,DELETE,None,users,name,3,Edbert2,None
+4,2024-11-21 20:17:10,DELETE,None,users,name,4,Edbert1,None
