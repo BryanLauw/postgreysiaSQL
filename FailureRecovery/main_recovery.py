@@ -21,20 +21,25 @@ class Recovery:
         self.log_file = log_file
         self.logger = logger
 
-    def rollback(self, buffer_log_entries: List[LogEntry], log_entry: LogEntry):
+        # init undo list
+        self.undo_list: Set[str] = set()
+
+    def rollback(self, buffer_log_entries: List[LogEntry], list_transaction_id: List[str]):
         
         # start checking from buffer
         temp = buffer_log_entries[::-1] # reverse list
-        # print(temp, len(temp))
+        
         # find the start
         isFound = False
         for x in temp:
-            if (x.transaction_id == log_entry.transaction_id):
+            if not list_transaction_id:  # If the list is empty, no need to proceed
+                break
+            if (x.transaction_id in list_transaction_id):
                 if x.event == "START":
                     # stop since we already found it
+                    list_transaction_id.remove(x.transaction_id)
                     isFound = True
                     break
-                print(x)
                 self._reverse_query_executor(x)
         
 
@@ -44,15 +49,76 @@ class Recovery:
         
         # not found. Read from file log
         temp = self._load_log_entries()
+        temp = temp[::-1]
         
         for x in temp:
-            if (x.transaction_id == log_entry.transaction_id):
+            if not list_transaction_id:  # If the list is empty, no need to proceed
+                break
+            if (x.transaction_id in list_transaction_id):
                 if x.event == "START":
                     # stop since we already found it
                     isFound = True
                     break
-                print(x)
                 self._reverse_query_executor(x)
+    
+    def undo(self, buffer_log_entries: List[LogEntry]):
+        """
+        Function to undo phase.
+        - Have Transaction in undo list
+        - While undo list not empty, move backward.
+        - if Start found, then remove from undo list
+
+        Prerequisite: `self.redo()`
+        """
+        self.rollback(buffer_log_entries, self.undo_list)
+        self.undo_list.clear()
+        
+
+    def redo(self, buffer_log_entries: List[LogEntry]):
+        """
+        Function to redo phase.
+        - Find latest Checkpoint
+        - Read Active Transaction List --> Undo List
+        - If start instruction found, Add to Undo List
+        - if commit / abort found, remove from Undo List
+        No Log Written
+        """
+        
+        # find latest checkpoint
+        temp = self._load_log_entries()
+
+        checkpointIdx = -1
+        # for loop dari bawah ke atas
+        for i in range(len(temp)-1, -1, -1):
+            if (temp[i].event == "CHECKPOINT"):
+                self.undo_list = temp[i].object_value
+                checkpointIdx = i
+                break
+        
+        # move from checkpoint to latest in log file
+        for i in range(checkpointIdx, len(temp)):
+            if (temp[i].event == "START"):
+                self.undo_list.add(temp[i].transaction_id)
+            elif (temp[i].event in ["COMMIT", "ABORT"]): # TODO: if you want, performance tuning. Tapi ini better readability
+                self.undo_list.remove(temp[i].transaction_id)
+            
+            # TODO: SEND TO ????
+            # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
+
+            self.logger.info("SEND to ??? on REDO function")
+
+        # move to latest buffer
+        for x in buffer_log_entries:
+            if (temp[i].event == "START"):
+                self.undo_list.add(temp[i].transaction_id)
+            elif (temp[i].event in ["COMMIT", "ABORT"]): # TODO: if you want, performance tuning. Tapi ini better readability
+                self.undo_list.remove(temp[i].transaction_id)
+
+            # TODO: SEND TO ????
+            # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
+
+            self.logger.info("SEND to ??? on REDO function")
+        
 
     def _write_log_entry(self, entry: LogEntry):
         """
@@ -60,7 +126,7 @@ class Recovery:
         """
         try:
             with open(self.log_file, 'a') as f:
-                f.write(f"EDBERT {entry.timestamp.isoformat(timespec='seconds')},{entry.transaction_id},{entry.event},{entry.object_value or ''},{entry.new_value or ''}\n")
+                f.write(f"{entry.timestamp.isoformat(timespec='seconds')},{entry.transaction_id},{entry.event},{entry.object_value or ''},{entry.new_value or ''}\n")
         except FileNotFoundError:
             return []
 

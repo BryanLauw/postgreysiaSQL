@@ -138,9 +138,9 @@ class FailureRecovery:
         Function to rollback , **DURING NORMAL OPERATION**
         """
         
-        # TODO: Yang di rollback hanya dibuffer aja atau semua ?
+        # TODO: Yang di rollback hanya dibuffer aja atau lgsg tulis stable storage ?
 
-        self.recovery.rollback(self.buffer_log_entries, log_entry)
+        self.recovery.rollback(self.buffer_log_entries, [log_entry.transaction_id])
 
     def recover(self, log_entry: LogEntry, criteria: RecoverCriteria):
         """
@@ -155,7 +155,9 @@ class FailureRecovery:
 
         # TODO: TAMBAHAN, ini tanya yang system failure teh pake recovercriteria?
         
-        # asumsi pertama 
+        # undo
+
+        # redo
     
     def _stop(self):
         """
