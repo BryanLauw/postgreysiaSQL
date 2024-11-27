@@ -89,10 +89,10 @@ class CheckpointManager:
 
                 with open(self.log_file, 'a') as f:
                     for entry in buffer:
-                        f.write(f"{entry.database_name},{entry.timestamp.isoformat(timespec='seconds')},{entry.transaction_id},{entry.event},{entry.object_value or ''},{entry.old_value or ''},{entry.new_value or ''}\n")
+                        f.write(f"{entry.timestamp.isoformat(timespec='seconds')},{entry.transaction_id},{entry.event},{entry.object_value or ''},{entry.old_value or ''},{entry.new_value or ''}\n")
                     
                     # checkpoint marker
-                    f.write(f"{entry.database_name},{datetime.now().isoformat(timespec='seconds')},,CHECKPOINT,{self.get_active_transactions()}\n")
+                    f.write(f"{datetime.now().isoformat(timespec='seconds')},,CHECKPOINT,{self.get_active_transactions()}\n")
                 
                 self.logger.info(f"Checkpoint written to {self.log_file}")
 

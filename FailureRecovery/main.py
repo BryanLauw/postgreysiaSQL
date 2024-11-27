@@ -88,7 +88,7 @@ class FailureRecovery:
         """
         self.buffer_log_entries.clear()
 
-    def write_log_entry(self, transaction_id: int, event: str, database_name: str, object_value: Optional[str]=None, old_value: Optional[str]= None, new_value: Optional[str] = None):
+    def write_log_entry(self, transaction_id: int, event: str, object_value: Optional[str]=None, old_value: Optional[str]= None, new_value: Optional[str] = None):
         """
         Write a new log entry to the buffer.
 
@@ -106,7 +106,6 @@ class FailureRecovery:
             timestamp=datetime.now(),
             transaction_id=transaction_id,
             event=event,
-            database_name=database_name,
             object_value=object_value,
             old_value=old_value,
             new_value=new_value
@@ -187,24 +186,23 @@ if __name__ == "__main__":
     #   Uncomment self._start_checkpoint_thread if run on real time    #
     # ---------------------------------------------------------------- #
     arr = [
-        {"id": 0, "database_name": "my_db", "event": "START"},
-        {"id": 0, "database_name": "my_db", "event": "DATA", "object_value": "B", "old_value": "2000", "new_value": "2050"},
-        {"id": 1, "database_name": "my_db", "event": "START"},
-        {"id": 1, "database_name": "my_db", "event": "DATA", "object_value": "C", "old_value": "700", "new_value": "600"},
-        {"id": 1, "database_name": "my_db", "event": "COMMIT"},
-        {"id": 2, "database_name": "my_db", "event": "START"},
-        {"id": 2, "database_name": "my_db", "event": "DATA", "object_value": "A", "old_value": "500", "new_value": "400"},
-        {"id": 0, "database_name": "my_db", "event": "ABORT"}, # NORMAL OPERATION ABORT
-        # {"id": 0, "database_name": "my_db", "event": "DATA", "object_value": "B", "new_value": "2000"},
-        # {"id": 2, "database_name": "my_db", "event": "DATA", "object_value": "A", "new_value": "500"},
-        {"id": 2, "database_name": "my_db", "event": "ABORT SYSTEM"}, # SIMULATE SYSTEM ABORT - testing aja. cape timing ctrl+c :V  Though Our Code handled SIGSEGV
+        {"id": 0, "event": "START"},
+        {"id": 0, "event": "DATA", "object_value": "B", "old_value": "2000", "new_value": "2050"},
+        {"id": 1, "event": "START"},
+        {"id": 1, "event": "DATA", "object_value": "C", "old_value": "700", "new_value": "600"},
+        {"id": 1, "event": "COMMIT"},
+        {"id": 2, "event": "START"},
+        {"id": 2, "event": "DATA", "object_value": "A", "old_value": "500", "new_value": "400"},
+        {"id": 0, "event": "ABORT"}, # NORMAL OPERATION ABORT
+        # {"id": 0, "event": "DATA", "object_value": "B", "new_value": "2000"},
+        # {"id": 2, "event": "DATA", "object_value": "A", "new_value": "500"},
+        {"id": 2, "event": "ABORT SYSTEM"}, # SIMULATE SYSTEM ABORT - testing aja. cape timing ctrl+c :V  Though Our Code handled SIGSEGV
     ]
 
     for x in arr:
         recovery.write_log_entry(
             x.get("id", ""),  # Default to an empty string if "id" is missing
             x.get("event", ""),  # Default to an empty string if "event" is missing
-            x.get("database_name", ""),  # Default to an empty string if "database_name" is missing
             x.get("object_value", ""),  # Default to an empty string if "object_value" is missing
             x.get("old_value", ""),  # Default to an empty string if "old_value" is missing
             x.get("new_value", "")  # Default to an empty string if "new_value" is missing
