@@ -1,4 +1,4 @@
-from ConcurrencyControlManager.main import *
+from ConcurrencyControlManager.ConcurrencyControlManager import *
 from QueryOptimizer.main import *
 from FailureRecovery.failure_recovery import *
 from StorageManager.classes import *
@@ -47,7 +47,7 @@ class QueryProcessor:
         self.qo = QueryOptimizer()
         self.cc = ConcurrencyControlManager()
         self.sm = StorageEngine()
-        rm = FailureRecovery()
+        self.rm = FailureRecovery()
         pass
 
     def execute_query(self, query : str):
@@ -65,7 +65,7 @@ class QueryProcessor:
             print("Executing query: " + query)
             if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
                 self.current_transactionId = self.cc.begin_transaction()
-                # self.rm.start_transaction(self.current_transactionId)
+                self.rm.start_transaction(self.current_transactionId)
                 
             elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
                 self.cc.end_transaction(self.current_transactionId)
@@ -202,6 +202,18 @@ class QueryProcessor:
             for child in tree.childs:
                 return self.__getTables(child)
 
+    def __makeCondition(self, tree: QueryTree) -> List[Condition]:
+        # Make Condition from Query Tree
+        cons = self.__getTables(tree)
+        ret = []
+        for con in cons:
+            if "." in con[0]:
+                column = con.split(".")[1]
+            else:
+                column = con
+            temp = Condition(column, con[1], con[2])
+            ret.append(temp)
+        return ret
 
     def __getData(self, data_retrieval: DataRetrieval, database: str) -> dict|Exception:
         # fetches the required rows of data from the storage manager
