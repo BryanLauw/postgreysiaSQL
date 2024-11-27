@@ -154,10 +154,11 @@ class Recovery:
             log_entry.timestamp,
             log_entry.transaction_id,
             log_entry.event,
+            log_entry.database_name, 
             log_entry.object_value,
             log_entry.old_value
         )
-        print(temp.timestamp, temp.transaction_id, temp.event, temp.object_value)
+        print(temp.database_name,temp.timestamp, temp.transaction_id, temp.event, temp.object_value)
         self.add_entry_to_buffer(temp)
         # TODO: SEND TO ????
         # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
@@ -200,13 +201,14 @@ class Recovery:
             raise ValueError(f"Invalid log entry format: {log_line}")
         
         # Parse timestamp
-        timestamp = datetime.fromisoformat(parts[0].replace('T', ' '))
+        database_name = parts[0]
+        timestamp = datetime.fromisoformat(parts[1].replace('T', ' '))
         
         # Parse transaction ID (handle None case)
-        transaction_id = int(parts[1]) if parts[1] and parts[1] != 'None' else None
+        transaction_id = int(parts[2]) if parts[2] and parts[2] != 'None' else None
         
         # Get event type
-        event = parts[2]
+        event = parts[3]
         
         # Initialize optional values
         object_value: Optional[Union[str, List]] = None
@@ -219,22 +221,23 @@ class Recovery:
                 object_value = ast.literal_eval(list_str)
             except (ValueError, SyntaxError):
                 object_value = list_str
-        elif len(parts) > 3 and parts[3] != 'LIST_PLACEHOLDER':
-            object_value = parts[3]
+        elif len(parts) > 4 and parts[4] != 'LIST_PLACEHOLDER':
+            object_value = parts[4]
         
         # Parse old and new values
-        if len(parts) > 4 and parts[4]:
-            old_value = parts[4]
-        
         if len(parts) > 5 and parts[5]:
-            new_value = parts[5].strip()
+            old_value = parts[5]
+        
+        if len(parts) > 6 and parts[6]:
+            new_value = parts[6].strip()
         
         # Case when compensation log read
-        if (len(parts) == 5 and parts[4]):
+        if (len(parts) == 6 and parts[5]):
             old_value = None
-            new_value = parts[4]
+            new_value = parts[5]
         
         return LogEntry(
+            database_name=database_name,
             timestamp=timestamp,
             transaction_id=transaction_id,
             event=event,
