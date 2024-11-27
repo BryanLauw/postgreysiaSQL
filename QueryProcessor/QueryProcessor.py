@@ -179,11 +179,11 @@ class QueryProcessor:
         queries = query.split(';')
         return [q.strip() for q in queries if q.strip()]
     
-    def removeAttribute(self, l: List) -> List[str]:
+    def __removeAttribute(self, l: List) -> List[str]:
         # removing attribute from <table>.<attribute> for all element in list
         
         # Example:
-        # removeAttribute(['students.a', 'teacher.b']) = ['students', 'teacher']
+        # __removeAttribute(['students.a', 'teacher.b']) = ['students', 'teacher']
 
         return [element.split('.')[0] for element in l]
 
@@ -195,7 +195,7 @@ class QueryProcessor:
         # getTables(select_query) = ['students', 'teacher']
 
         if tree.type.upper() == "SELECT": # This conditional is using "SELECT" because QueryTree does not have FROM type.
-            return self.removeAttribute(tree.val)
+            return self.__removeAttribute(tree.val)
         elif len(tree.childs) == 0:
             return ""
         else:
