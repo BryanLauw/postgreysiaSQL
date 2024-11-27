@@ -151,12 +151,15 @@ class Recovery:
             return
         
         temp = LogEntry(
-            log_entry.timestamp,
-            log_entry.transaction_id,
-            log_entry.event,
-            log_entry.database_name, 
-            log_entry.object_value,
-            log_entry.old_value
+            timestamp=log_entry.timestamp,
+            transaction_id=log_entry.transaction_id,
+            event=log_entry.event,
+            database_name=log_entry.database_name, 
+            object_value=log_entry.object_value,
+            old_value=log_entry.old_value,
+            column=log_entry.column,
+            row=log_entry.row,
+            table=log_entry.table 
         )
         print(temp.database_name,temp.timestamp, temp.transaction_id, temp.event, temp.object_value)
         self.add_entry_to_buffer(temp)
@@ -199,16 +202,20 @@ class Recovery:
         # Ensure we have at least 3 parts
         if len(parts) < 3:
             raise ValueError(f"Invalid log entry format: {log_line}")
+    
         
         # Parse timestamp
         database_name = parts[0]
-        timestamp = datetime.fromisoformat(parts[1].replace('T', ' '))
+        table = parts[1]
+        column = parts[2]
+        row = parts[3]
+        timestamp = datetime.fromisoformat(parts[4].replace('T', ' '))
         
         # Parse transaction ID (handle None case)
-        transaction_id = int(parts[2]) if parts[2] and parts[2] != 'None' else None
+        transaction_id = int(parts[5]) if parts[5] and parts[5] != 'None' else None
         
         # Get event type
-        event = parts[3]
+        event = parts[5]
         
         # Initialize optional values
         object_value: Optional[Union[str, List]] = None
@@ -221,20 +228,20 @@ class Recovery:
                 object_value = ast.literal_eval(list_str)
             except (ValueError, SyntaxError):
                 object_value = list_str
-        elif len(parts) > 4 and parts[4] != 'LIST_PLACEHOLDER':
-            object_value = parts[4]
+        elif len(parts) > 7 and parts[7] != 'LIST_PLACEHOLDER':
+            object_value = parts[7]
         
         # Parse old and new values
-        if len(parts) > 5 and parts[5]:
-            old_value = parts[5]
+        if len(parts) > 8 and parts[8]:
+            old_value = parts[8]
         
-        if len(parts) > 6 and parts[6]:
-            new_value = parts[6].strip()
+        if len(parts) > 9 and parts[9]:
+            new_value = parts[9].strip()
         
         # Case when compensation log read
-        if (len(parts) == 6 and parts[5]):
+        if (len(parts) == 9 and parts[8]):
             old_value = None
-            new_value = parts[5]
+            new_value = parts[8]
         
         return LogEntry(
             database_name=database_name,
@@ -243,5 +250,8 @@ class Recovery:
             event=event,
             object_value=object_value,
             old_value=old_value,
-            new_value=new_value
+            new_value=new_value,
+            column=column,
+            table=table,
+            row=row
         )
