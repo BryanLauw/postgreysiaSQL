@@ -178,3 +178,26 @@ class QueryProcessor:
     def parse_query(self, query : str):
         queries = query.split(';')
         return [q.strip() for q in queries if q.strip()]
+    
+    def removeAttribute(self, l: List) -> List[str]:
+        # removing attribute from <table>.<attribute> for all element in list
+        
+        # Example:
+        # removeAttribute(['students.a', 'teacher.b']) = ['students', 'teacher']
+
+        return [element.split('.')[0] for element in l]
+
+    def getTables(self,tree: QueryTree):
+        # get all tables needed from Query (not ParsedQuery)
+    
+        # Example:
+        # select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5"
+        # getTables(select_query) = ['students', 'teacher']
+
+        if tree.type.upper() == "SELECT": # This conditional is using "SELECT" because QueryTree does not have FROM type.
+            return self.removeAttribute(tree.val)
+        elif len(tree.childs) == 0:
+            return ""
+        else:
+            for child in tree.childs:
+                return self.getTables(child)
