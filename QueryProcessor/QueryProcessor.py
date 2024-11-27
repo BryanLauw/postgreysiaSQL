@@ -46,7 +46,7 @@ class QueryProcessor:
         self.parsedQuery = None
         self.qo = QueryOptimizer()
         self.cc = ConcurrencyControlManager()
-        sm = StorageEngine()
+        self.sm = StorageEngine()
         rm = FailureRecovery()
         pass
 
@@ -201,3 +201,21 @@ class QueryProcessor:
         else:
             for child in tree.childs:
                 return self.__getTables(child)
+
+
+    def getData(self, data_retrieval: DataRetrieval, database: str) -> dict|Exception:
+        # fetches the required rows of data from the storage manager
+        # and returns it as a dictionary
+
+        # Example:
+        # data_retrieval = DataRetrieval(table="students", 
+        #                                columns=["a"], 
+        #                                conditions=[Condition("a", ">", 1)])
+        # database = "database1"
+        # getData(data_retrieval, database) = {'a': [2, 3, 4, 5]}
+
+        try:
+            data = self.sm.read_block(data_retrieval, database)
+            return data
+        except Exception as e:
+            return e
