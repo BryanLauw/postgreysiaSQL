@@ -7,6 +7,8 @@ class BTreeNode:
         self.is_leaf = is_leaf
         self.next = None
         self.order = order
+        self.min_children = math.ceil(order / 2) 
+        self.min_key = math.ceil(order / 2) - 1
 
     def is_full(self):
         return len(self.keys) >= self.order - 1
@@ -285,30 +287,30 @@ class BPlusTree:
 
 
 
-# def main():
-#     tree = BPlusTree(order=4)
+def main():
+    tree = BPlusTree(order=4)
     
-#     values = [10, 20, 5, 15, 25, 30, 8, 12, 7, 18, 22, 35, 40, 50, 55, 60,33,56, 11, 19, 13, 57,58, 14,6,36,37,38,39]
+    values = [10, 20, 5, 15, 25, 30, 8, 12, 7, 18, 22, 35, 40, 50, 55, 60,33,56, 11, 19, 13, 57,58, 14,6,36,37,38,39]
     
-#     for i, value in enumerate(values):
-#         print(f"\nInserting {value}")
-#         tree.insert(value)
+    for i, value in enumerate(values):
+        print(f"\nInserting {value}")
+        tree.insert(value)
         
-#         print("\nTree Structure:")
-#         tree.print_tree()
+        print("\nTree Structure:")
+        tree.print_tree()
         
-#         tree.print_leaf_chain()
+        tree.print_leaf_chain()
 
-#         if (i > 5) : 
-#             print(tree.root.children)
+        if (i > 5) : 
+            print(tree.root.children)
         
-#         print("\n" + "-" * 50)
+        print("\n" + "-" * 50)
 
-#     print(tree.search_range(10,20))
+    print(tree.search_range(10,20))
 
-#     tree.delete(60)
-#     tree.delete(58)
-#     tree.print_tree()
+    # tree.delete(60)
+    tree.delete(58)
+    tree.print_tree()
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
