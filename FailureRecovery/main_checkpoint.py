@@ -49,19 +49,26 @@ class CheckpointManager:
         """
         The worker function that runs in the background thread and performs checkpoints.
         """
-        while not self.stop_checkpoint:
-            # simulate sleep for x seconds
-            for _ in range(self.checkpoint_interval):
-                if self.stop_checkpoint:
-                    return
-                time.sleep(1)
-            
-            # perform checkpoint
-            buffer = self.get_buffer()
-            if buffer:
-                self.perform_checkpoint()
 
-            self.logger.info(f"Checkpoint completed. Waiting for {self.checkpoint_interval} seconds before next checkpoint.")
+        next_checkpoint_time = time.time() + self.checkpoint_interval
+        while not self.stop_checkpoint:
+            # sleep time
+            sleep_time = max(0, next_checkpoint_time - time.time())
+            # simulate sleep for 1 seconds
+            if self.stop_checkpoint:
+                return
+            time.sleep(1)
+            time.sleep(min(1, sleep_time))
+            
+            if time.time() >= next_checkpoint_time:
+                # perform checkpoint
+                buffer = self.get_buffer()
+                if buffer:
+                    self.perform_checkpoint()
+
+                self.logger.info(f"Checkpoint completed. Waiting for {self.checkpoint_interval} seconds before next checkpoint.")
+                
+                next_checkpoint_time = time.time() + self.checkpoint_interval
 
     def perform_checkpoint(self):
         """
