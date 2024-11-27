@@ -176,42 +176,30 @@ class FailureRecovery:
         signal.raise_signal(signum)
 
 if __name__ == "__main__":
-    
 
     # Initiate main section of the program
-    log_file = "log_M.log" # log file name
+    log_file = "log_edbert.log" # log file name
     recovery = FailureRecovery(log_file, 10, 5)
 
     # ---------------------------------------------------------------- #
     #   SIMULATION - Only.                                             #
     #   Uncomment self._start_checkpoint_thread if run on real time    #
     # ---------------------------------------------------------------- #
-    arr_new = []
+    arr = [
+        {"id": 0, "event": "START"},
+        {"id": 0, "event": "DATA", "object_value": "{'db':'db_name','table':'table_a','column':'column_a'}", "old_value": "2000", "new_value": "2050"},
+        {"id": 1, "event": "START"},
+        {"id": 1, "event": "DATA", "object_value": "{'db':'db_name','table':'table_a','column':'column_a'}", "old_value": "700", "new_value": "600"},
+        {"id": 1, "event": "COMMIT"},
+        {"id": 2, "event": "START"},
+        {"id": 2, "event": "DATA", "object_value": "{'db':'db_name','table':'table_a','column':'column_a'}", "old_value": "500", "new_value": "400"},
+        {"id": 0, "event": "ABORT"}, # NORMAL OPERATION ABORT
+        # {"id": 0, "event": "DATA", "object_value": "B", "new_value": "2000"},
+        # {"id": 2, "event": "DATA", "object_value": "A", "new_value": "500"},
+        {"id": 2, "event": "ABORT SYSTEM"}, # SIMULATE SYSTEM ABORT - testing aja. cape timing ctrl+c :V  Though Our Code handled SIGSEGV
+    ]
 
-    # Generate new transactions starting from id 4
-    for i in range(0, 60):
-        # Start event
-        arr_new.append({"id": i, "event": "START"})
-        
-        # Random DATA event with object_value, old_value, new_value
-        object_value = random.choice(['A', 'B', 'C', 'D', 'E', 'F', 'G'])
-        old_value = random.randint(100, 1000)
-        new_value = random.randint(100, 1000)
-        arr_new.append({"id": i, "event": "DATA", "object_value": object_value, 
-                        "old_value": str(old_value), "new_value": str(new_value)})
-        
-        # Random COMMIT or ABORT event
-        if random.choice(['COMMIT', 'ABORT']) == 'COMMIT':
-            arr_new.append({"id": i, "event": "COMMIT"})
-        else:
-            arr_new.append({"id": i, "event": "ABORT"})
-        
-        # Simulate random ABORT SYSTEM event occasionally
-        if random.random() < 0.05:  # 5% chance of system abort
-            arr_new.append({"id": i, "event": "ABORT SYSTEM"})
-
-
-    for x in arr_new:
+    for x in arr:
         recovery.write_log_entry(
             x.get("id", ""),  # Default to an empty string if "id" is missing
             x.get("event", ""),  # Default to an empty string if "event" is missing
