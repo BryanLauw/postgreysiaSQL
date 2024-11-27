@@ -1,8 +1,8 @@
 class BTreeNode:
     def __init__(self, order, is_leaf=False):
         self.keys = []  # The keys stored in the node
-        self.values = []  # Pointers to the data or "buckets" of pointers
-        self.children = []  # Child pointers (used only for internal nodes)
+        self.values = []  # Pointers to the data or "buckets" of pointers , bucker if it is secondary index
+        self.children = []  # Child pointers used only for internal nodes
         self.is_leaf = is_leaf  # True if the node is a leaf node
         self.next = None  # Pointer to the next leaf node (for range queries)
         self.order = order  # Maximum number of children
@@ -17,11 +17,6 @@ class BPlusTree:
         self.order = order
 
     def insert(self, key, value):
-        """
-        Insert a key-value pair into the B+ Tree.
-        - `key`: The key to index (e.g., id or name).
-        - `value`: Pointer to the row (e.g., row index or memory address).
-        """
         result = self._insert_recursive(self.root, key, value)
         if isinstance(result, tuple):  # Root was split
             new_root = BTreeNode(self.order, is_leaf=False)
@@ -31,24 +26,20 @@ class BPlusTree:
 
     def _insert_recursive(self, node, key, value):
         if node.is_leaf:
-            # Handle insertion in the leaf node
             if key in node.keys:
-                # If key already exists, append value (handles secondary indexing)
                 index = node.keys.index(key)
                 if isinstance(node.values[index], list):
-                    node.values[index].append(value)  # Add to the bucket
+                    node.values[index].append(value) 
                 else:
-                    node.values[index] = [node.values[index], value]  # Convert to a list
+                    node.values[index] = [node.values[index], value] 
             else:
-                # Insert new key-value pair
                 node.keys.append(key)
                 node.values.append(value)
-                # Ensure keys are sorted
+
                 sorted_indices = sorted(range(len(node.keys)), key=lambda i: node.keys[i])
                 node.keys = [node.keys[i] for i in sorted_indices]
                 node.values = [node.values[i] for i in sorted_indices]
         else:
-            # Handle insertion in an internal node
             index = self._find_child_index(node, key)
             child_result = self._insert_recursive(node.children[index], key, value)
             
@@ -72,7 +63,6 @@ class BPlusTree:
             node.keys = node.keys[:mid]
             node.values = node.values[:mid]
 
-            # Update next pointers for leaf nodes
             new_node.next = node.next
             node.next = new_node
         else:
@@ -91,9 +81,6 @@ class BPlusTree:
         return len(node.keys)
 
     def search(self, key):
-        """
-        Search for a key in the B+ Tree and return its associated value(s).
-        """
         return self._search_recursive(self.root, key)
 
     def _search_recursive(self, node, key):
@@ -107,9 +94,6 @@ class BPlusTree:
             return self._search_recursive(node.children[index], key)
 
     def search_range(self, start, end):
-        """
-        Search for all keys in the range [start, end] and return their values.
-        """
         current_leaf = self.root
         while not current_leaf.is_leaf:
             for i, key in enumerate(current_leaf.keys):
