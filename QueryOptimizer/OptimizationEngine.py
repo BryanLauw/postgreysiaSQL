@@ -39,7 +39,7 @@ class OptimizationEngine:
         if undefined_aliases:
             raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
 
-    def parse_query(self, query: str) -> ParsedQuery:
+    def parse_query(self, query: str,database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
             QueryHelper.normalize_string(query).upper()
         )
@@ -178,13 +178,13 @@ if __name__ == "__main__":
     # Test SELECT query with JOIN
     select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5"
     print(select_query)
-    parsed_query = optim.parse_query(select_query)
+    parsed_query = optim.parse_query(select_query,"database1",storage.get_stats)
     print(parsed_query)
 
     try:
         invalid_query = "SELECT x.a FROM students AS s"
         print(invalid_query)
-        parsed_query = optim.parse_query(invalid_query)
+        parsed_query = optim.parse_query(invalid_query,"database1",storage.get_stats)
         print(parsed_query)
     except ValueError as e:
         print(e)
