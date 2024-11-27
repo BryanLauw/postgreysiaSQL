@@ -123,7 +123,7 @@ class QueryParser:
             cur_state_rules = self.transitions[cur_state]
             for rule in cur_state_rules:
                 rule_token = rule[0]
-                if((token == rule_token) or (rule_token == "<X>" and token.count('.')<=1 and token.replace('.','').isalnum()) or
+                if((token == rule_token) or (rule_token == "<X>" and re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', token.replace('.', '')) and token.count('.') <= 1) or
                    ((rule_token == "<N>" or rule_token == "<X>") and token.isnumeric()) or (rule_token == "<CO>" and token in self.CO) or
                    (rule_token == "<MO>" and token in self.MO)
                 ):

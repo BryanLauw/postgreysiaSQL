@@ -17,30 +17,31 @@ class OptimizationEngine:
             QueryHelper.normalize_string(query).upper()
         )
 
+        # Check Syntax
         normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
-        if(not normalized_query):
-            return False
 
         query_components_value = self.QueryParser.get_components_values(normalized_query)
-
         comp_with_attr = "FROM" if "FROM" in query_components_value else "UPDATE"
-        alias_map, table_arr = QueryHelper.extract_table_and_aliases(query_components_value[comp_with_attr])
-        undefined_aliases = QueryHelper.validate_aliases(query_components_value, alias_map)
-        print(query_components_value)
         
-        for comp in query_components_value:
-            if comp in ["SELECT","FROM"]:
-                query_components_value[comp] = [
-                    QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value[comp]
-                ]
-            else:
-                 query_components_value[comp] = QueryHelper.rewrite_with_alias(
-                     query_components_value[comp], alias_map
-                 )          
+        # Get list Tables and Aliases
+        alias_map, table_arr = QueryHelper.extract_table_and_aliases(query_components_value[comp_with_attr])
+        
+        # Remove alias
+        query_components_value[comp_with_attr] = QueryHelper.remove_aliases(query_components_value[comp_with_attr])
+        
+        # Validate wrong aliases
+        QueryHelper.validate_aliases(query_components_value, alias_map)
+        
+        table_statistics = QueryHelper.validate_tables(table_arr,database_name,get_stats)
+                
+        QueryHelper.rewrite_components_alias(query_components_value,alias_map)
+        
         print(query_components_value)
-            
-        # attributes_arr = QueryHelper.extract_attributes(query_components_value)
-
+        # print(table_statistics)
+        attributes_arr = QueryHelper.extract_attributes(query_components_value)
+        # print(attributes_arr)
+        
+        QueryHelper.validate_attributes(attributes_arr,table_statistics)
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree,normalized_query)
 
@@ -109,7 +110,7 @@ if __name__ == "__main__":
     storage = StorageEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5 order by s.a ASC"
+    select_query = "SELECT s.id, t.product_id FROM users AS s JOIN products AS t ON s.id = t.product_id, s.id = t.product_id  WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 order by s.id ASC"
     print(select_query)
     parsed_query = optim.parse_query(select_query,"database1",storage.get_stats)
     print(parsed_query)
@@ -134,11 +135,11 @@ if __name__ == "__main__":
     except ValueError as e:
         print(f"Validation error: {e}")
 
-    # Test UPDATE query
-    update_query = "UPDATE employee SET salary = salary + 1.1 - 5 WHERE salary > 1000"
-    print(update_query)
-    parsed_update_query = optim.parse_query(update_query, "database_sample", storage.get_stats)
-    print(parsed_update_query)
+    # # Test UPDATE query
+    # update_query = "UPDATE employee SET salary = salary + 1.1 - 5 WHERE salary > 1000"
+    # print(update_query)
+    # parsed_update_query = optim.parse_query(update_query, "database_sample", storage.get_stats)
+    # print(parsed_update_query)
 
     # #Test DELETE query
     # delete_query = "DELETE FROM employees WHERE salary < 3000"

@@ -1,6 +1,12 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from StorageManager.classes import Statistic, StorageEngine
+
 from QueryTree import ParsedQuery, QueryTree
 import re
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Callable
 
 class QueryHelper:
     @staticmethod
@@ -37,7 +43,6 @@ class QueryHelper:
             cleaned_str = re.sub(r"\s+as\s+\w+\s*", " ", from_str, flags=re.IGNORECASE)
             return cleaned_str
 
-        # Process each token in the FROM clause
         return [strip_alias(token) if token.upper() not in ["JOIN", "ON", "NATURAL"] else token for token in from_clause]
     
     @staticmethod
@@ -49,32 +54,16 @@ class QueryHelper:
         return expression
     
     @staticmethod
-    def validate_aliases(query_components: dict, alias_map: dict):
-        def find_aliases(expression: str) -> set:
-            aliases = set()
-            tokens = expression.split()
-            for token in tokens:
-                if "." in token:  # Check for alias usage
-                    alias = token.split(".")[0]
-                    aliases.add(alias)
-            return aliases
-
-        used_aliases = set()
-
-        if "SELECT" in query_components:
-            for attr in query_components["SELECT"]:
-                used_aliases.update(find_aliases(attr))
-        if "WHERE" in query_components:
-            used_aliases.update(find_aliases(query_components["WHERE"]))
-        if "FROM" in query_components:
-            for token in query_components["FROM"]:
-                if "." in token:
-                    used_aliases.update(find_aliases(token))
-
-        # Find undefined aliases
-        undefined_aliases = used_aliases - set(alias_map.keys())
-        if undefined_aliases:
-            raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
+    def rewrite_components_alias(query_components_value: Dict[str, Union[List[str],str]], alias_map: dict):
+        for comp in query_components_value:
+            if comp in ["SELECT","FROM"]:
+                query_components_value[comp] = [
+                    QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value[comp]
+                ]
+            else:
+                 query_components_value[comp] = QueryHelper.rewrite_with_alias(
+                     query_components_value[comp], alias_map
+                 )
     
     @staticmethod
     def extract_attributes(components_values: Dict[str, Union[List[str],str]]):
@@ -92,19 +81,18 @@ class QueryHelper:
             elif key == 'FROM':
                 for clause in components_values[key]:
                     tokens = clause.split()
-                    if tokens[0] == 'NATURAL' or tokens[1] == 'NATURAL':
-                        continue
                     try:
                         ON_idx = tokens.index('ON')
                         len_tokens = len(tokens)
                         for i in range(ON_idx+1,len_tokens):
-                            if tokens[i].count('.')<=1 and tokens[i].replace('.','').isalpha():
+                            if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', tokens[i].replace('.', '')) and tokens[i].count('.') <= 1:
                                 attributes_arr.append(tokens[i])
                     except ValueError:
                         continue
             elif key == 'SELECT':
                 attributes_arr.extend(components_values['SELECT'])
-                
+        
+        attributes_arr = list(filter(lambda item: item not in ("AND", "OR"), attributes_arr))
         return list(set(attributes_arr))
     
     @staticmethod
@@ -218,3 +206,57 @@ class QueryHelper:
         if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
             return "varchar"
         raise ValueError(f"Unknown literal type for value: {value}")
+    
+    @staticmethod
+    def validate_aliases(query_components: dict, alias_map: dict):
+        def find_aliases(expression: str) -> set:
+            aliases = set()
+            tokens = expression.split()
+            for token in tokens:
+                if "." in token:  # Check for alias usage
+                    alias = token.split(".")[0]
+                    aliases.add(alias)
+            return aliases
+
+        used_aliases = set()
+
+        if "SELECT" in query_components:
+            for attr in query_components["SELECT"]:
+                used_aliases.update(find_aliases(attr))
+        if "WHERE" in query_components:
+            used_aliases.update(find_aliases(query_components["WHERE"]))
+        if "FROM" in query_components:
+            for token in query_components["FROM"]:
+                if "." in token:
+                    used_aliases.update(find_aliases(token))
+
+        # Find undefined aliases
+        undefined_aliases = used_aliases - set(alias_map.keys())
+        if undefined_aliases:
+            raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
+    
+    @staticmethod
+    def validate_tables(table_arr: list[str], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
+        table_statistics = {}
+        for table in table_arr:
+            table_statistics[table] = get_stats(database_name,table.lower())
+        return table_statistics
+    
+    @staticmethod
+    def validate_attributes(attributes_arr: list[str],table_statistics: Dict[str, Statistic]):
+        print("SINI")
+        print(table_statistics["PRODUCTS"].V_a_r)
+        print(attributes_arr)
+        for index,attr in enumerate(attributes_arr):
+            if '.' in attr:
+                table, attribute = attr.split('.')
+                if attribute.lower() not in table_statistics[table].V_a_r:
+                    raise ValueError(f"{attribute} doesn't exist at table {table}")
+            else:
+                table_match = ""
+                for table in table_statistics:
+                    if attr.lower() in table_statistics[table].V_a_r:
+                        if table_match:
+                            raise ValueError(f"Ambiguous attribute: {attr}")
+                        table_match = table.upper()
+                        attributes_arr[index] = f"{table_match}.{attr}"
