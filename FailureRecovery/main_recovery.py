@@ -5,11 +5,13 @@ import logging
 import re
 import ast
 
+from main_util import write_log_entry_to_file
+
 class Recovery:
     """
     Class to handle recovery
     """
-    def __init__(self, log_file: str, logger: logging.Logger):
+    def __init__(self, log_file: str, logger: logging.Logger, add_entry_to_buffer):
         """
         Constructor. Initialize the Recovery Instance
 
@@ -21,8 +23,12 @@ class Recovery:
         self.log_file = log_file
         self.logger = logger
 
-        # init undo list
+        # init list
         self.undo_list: Set[str] = set()
+        self.compensation_log_list: List[LogEntry] = []
+
+        # callbacks
+        self.add_entry_to_buffer = add_entry_to_buffer
 
     def rollback(self, buffer_log_entries: List[LogEntry], list_transaction_id: List[str]):
         """
@@ -47,7 +53,6 @@ class Recovery:
                     isFound = True
                     break
                 self._reverse_query_executor(x)
-        
 
         # if not found, then check in the log
         if isFound:
@@ -66,6 +71,12 @@ class Recovery:
                     isFound = True
                     break
                 self._reverse_query_executor(x)
+        
+        # flush the log first then write compensation
+        # for x in self.compensation_log_list:
+        #     self.logger.info(f"{x.event} {x.object_value or ''}, {x.old_value or ''}, {x.new_value or ''}")
+        #     write_log_entry_to_file(self.log_file, x)
+        # self.compensation_log_list.clear()
     
     def undo(self, buffer_log_entries: List[LogEntry]):
         """
@@ -118,7 +129,7 @@ class Recovery:
             # TODO: SEND TO ????
             # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
 
-            self.logger.info("SEND to ??? on REDO function")
+            self.logger.info(f"SEND to ??? on REDO function, {temp[i]}")
 
         # move to latest buffer
         for i in range(len(buffer_log_entries)):
@@ -130,28 +141,28 @@ class Recovery:
             # TODO: SEND TO ????
             # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
 
-            self.logger.info("SEND to ??? on REDO function")
-        
-
-    def _write_log_entry(self, entry: LogEntry):
-        """
-        Write a new log entry to the log file.
-        """
-        try:
-            with open(self.log_file, 'a') as f:
-                f.write(f"{entry.timestamp.isoformat(timespec='seconds')},{entry.transaction_id},{entry.event},{entry.object_value or ''},{entry.new_value or ''}\n")
-        except FileNotFoundError:
-            return []
+            self.logger.info(f"SEND to ??? on REDO function {temp[i]}")
 
     def _reverse_query_executor(self, log_entry: LogEntry):
         
         # add compensation log
-        self._write_log_entry(log_entry)
-
+        # self.compensation_log_list.append(log_entry)
+        if log_entry.event == "ABORT":
+            return
+        
+        temp = LogEntry(
+            log_entry.timestamp,
+            log_entry.transaction_id,
+            log_entry.event,
+            log_entry.object_value,
+            log_entry.old_value
+        )
+        print(temp.timestamp, temp.transaction_id, temp.event, temp.object_value)
+        self.add_entry_to_buffer(temp)
         # TODO: SEND TO ????
         # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
 
-        self.logger.info("SEND to ??? REVERSED Query")
+        self.logger.info(f"SEND to ??? REVERSED Query {log_entry}")
 
     def _load_log_entries(self) -> List[LogEntry]:
         """
@@ -164,7 +175,6 @@ class Recovery:
                 
                 for line in lines:
                     # parse each line first
-                    print(line, type(line))
                     log_entry = self._parse_line_to_log_entry(line)
 
                     temp.append(log_entry)
@@ -220,7 +230,7 @@ class Recovery:
             new_value = parts[5].strip()
         
         # Case when compensation log read
-        if (parts[4] and len(parts) == 5):
+        if (len(parts) == 5 and parts[4]):
             old_value = None
             new_value = parts[4]
         
