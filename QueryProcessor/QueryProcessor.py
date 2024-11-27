@@ -46,7 +46,7 @@ class QueryProcessor:
         self.parsedQuery = None
         self.qo = QueryOptimizer()
         self.cc = ConcurrencyControlManager()
-        sm = StorageEngine()
+        self.sm = StorageEngine()
         rm = FailureRecovery()
         pass
 
@@ -179,25 +179,43 @@ class QueryProcessor:
         queries = query.split(';')
         return [q.strip() for q in queries if q.strip()]
     
-    def removeAttribute(self, l: List) -> List[str]:
+    def __removeAttribute(self, l: List) -> List[str]:
         # removing attribute from <table>.<attribute> for all element in list
         
         # Example:
-        # removeAttribute(['students.a', 'teacher.b']) = ['students', 'teacher']
+        # __removeAttribute(['students.a', 'teacher.b']) = ['students', 'teacher']
 
         return [element.split('.')[0] for element in l]
 
-    def getTables(self,tree: QueryTree):
+    def __getTables(self,tree: QueryTree):
         # get all tables needed from Query (not ParsedQuery)
     
         # Example:
         # select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5"
-        # getTables(select_query) = ['students', 'teacher']
+        # __getTables(select_query) = ['students', 'teacher']
 
         if tree.type.upper() == "SELECT": # This conditional is using "SELECT" because QueryTree does not have FROM type.
-            return self.removeAttribute(tree.val)
+            return self.__removeAttribute(tree.val)
         elif len(tree.childs) == 0:
             return ""
         else:
             for child in tree.childs:
-                return self.getTables(child)
+                return self.__getTables(child)
+
+
+    def __getData(self, data_retrieval: DataRetrieval, database: str) -> dict|Exception:
+        # fetches the required rows of data from the storage manager
+        # and returns it as a dictionary
+
+        # Example:
+        # data_retrieval = DataRetrieval(table="students", 
+        #                                columns=["a"], 
+        #                                conditions=[Condition("a", ">", 1)])
+        # database = "database1"
+        # getData(data_retrieval, database) = {'a': [2, 3, 4, 5]}
+
+        try:
+            data = self.sm.read_block(data_retrieval, database)
+            return data
+        except Exception as e:
+            return e
