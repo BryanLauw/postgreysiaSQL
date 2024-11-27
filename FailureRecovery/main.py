@@ -187,12 +187,12 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------- #
     arr = [
         {"id": 0, "event": "START"},
-        {"id": 0, "event": "DATA", "object_value": "B", "old_value": "2000", "new_value": "2050"},
+        {"id": 0, "event": "DATA", "object_value": "{'db':'db_name','table':'table_a','column':'column_a'}", "old_value": "2000", "new_value": "2050"},
         {"id": 1, "event": "START"},
-        {"id": 1, "event": "DATA", "object_value": "C", "old_value": "700", "new_value": "600"},
+        {"id": 1, "event": "DATA", "object_value": "{'db':'db_name','table':'table_a','column':'column_a'}", "old_value": "700", "new_value": "600"},
         {"id": 1, "event": "COMMIT"},
         {"id": 2, "event": "START"},
-        {"id": 2, "event": "DATA", "object_value": "A", "old_value": "500", "new_value": "400"},
+        {"id": 2, "event": "DATA", "object_value": "{'db':'db_name','table':'table_a','column':'column_a'}", "old_value": "500", "new_value": "400"},
         {"id": 0, "event": "ABORT"}, # NORMAL OPERATION ABORT
         # {"id": 0, "event": "DATA", "object_value": "B", "new_value": "2000"},
         # {"id": 2, "event": "DATA", "object_value": "A", "new_value": "500"},

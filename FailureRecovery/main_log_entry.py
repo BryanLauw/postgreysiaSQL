@@ -26,9 +26,13 @@ class LogEntry:
         self.event: str = event
         
         # TODO: BAHAS 3 ini butuh atau ga
-        # self.table: Optional[str]
-        # self.column: Optional[str]
-        # self.row: Optional[int]
+        if isinstance(object_value, dict):
+            if 'db' in object_value:
+                self.db: Optional[str] = object_value['db']
+            if 'table' in object_value:
+                self.table: Optional[str] = object_value['table'] 
+            if 'column' in object_value:
+                self.column: Optional[str] = object_value['column'] 
 
         self.object_value: Optional[str] = object_value
         self.old_value: Optional[str] = old_value

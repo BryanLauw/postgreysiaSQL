@@ -1,6 +1,14 @@
-2024-11-27T10:22:26,0,START,,,
-2024-11-27T10:22:29,0,DATA,B,2000,2050
-2024-11-27T10:22:35,1,START,,,
-2024-11-27T10:22:52,1,DATA,C,700,600
-2024-11-27T10:22:57,1,COMMIT,,,
-2024-11-27T10:22:57,,CHECKPOINT,{0}
+2024-11-27T23:03:55,0,START,,,
+2024-11-27T23:03:56,0,DATA,{'db':'db_name','table':'table_a','column':'column_a'},2000,2050
+2024-11-27T23:03:57,1,START,,,
+2024-11-27T23:03:58,1,DATA,{'db':'db_name','table':'table_a','column':'column_a'},700,600
+2024-11-27T23:03:59,1,COMMIT,,,
+2024-11-27T23:04:00,2,START,,,
+2024-11-27T23:04:01,,CHECKPOINT,{0, 2}
+2024-11-27T23:04:01,2,DATA,{'db':'db_name','table':'table_a','column':'column_a'},500,400
+2024-11-27T23:03:56,0,DATA,{'db': 'db_name', 'table': 'table_a', 'column': 'column_a'},2000,
+2024-11-27T23:04:02,0,ABORT,,,
+2024-11-27T23:03:56,0,DATA,{'db': 'db_name', 'table': 'table_a', 'column': 'column_a'},2000,
+2024-11-27T23:04:01,2,DATA,{'db':'db_name','table':'table_a','column':'column_a'},500,
+2024-11-27T23:04:03,2,ABORT SYSTEM,,,
+2024-11-27T23:04:05,,CHECKPOINT,{0, 2}

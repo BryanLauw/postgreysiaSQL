@@ -212,7 +212,6 @@ class Recovery:
         object_value: Optional[Union[str, List]] = None
         old_value = None
         new_value = None
-        
         # Parse the list if it exists
         if list_str:
             try:
