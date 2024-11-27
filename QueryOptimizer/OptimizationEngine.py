@@ -12,102 +12,32 @@ class OptimizationEngine:
     def __init__(self):
         self.QueryParser = QueryParser("dfa.txt")
 
-    def __validate_aliases(self, query_components: dict, alias_map: dict):
-        def find_aliases(expression: str) -> set:
-            aliases = set()
-            tokens = expression.split()
-            for token in tokens:
-                if "." in token:  # Check for alias usage
-                    alias = token.split(".")[0]
-                    aliases.add(alias)
-            return aliases
-
-        used_aliases = set()
-
-        if "SELECT" in query_components:
-            for attr in query_components["SELECT"]:
-                used_aliases.update(find_aliases(attr))
-        if "WHERE" in query_components:
-            used_aliases.update(find_aliases(query_components["WHERE"]))
-        if "FROM" in query_components:
-            for token in query_components["FROM"]:
-                if "." in token:
-                    used_aliases.update(find_aliases(token))
-
-        # Find undefined aliases
-        undefined_aliases = used_aliases - set(alias_map.keys())
-        if undefined_aliases:
-            raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
-
     def parse_query(self, query: str,database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
             QueryHelper.normalize_string(query).upper()
         )
-        print("normalized", normalized_query)
 
         normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
         if(not normalized_query):
             return False
 
-        components = ["SELECT", "UPDATE", "DELETE", "FROM", "SET", "WHERE", "ORDER BY", "LIMIT"]
+        query_components_value = self.QueryParser.get_components_values(normalized_query)
 
-        query_components_value = {}
-
-        i = 0
-        while i < len(components):
-            # print(i, "query component", query_components_value)
-            idx_first_comp = normalized_query.find(components[i])
-            if idx_first_comp == -1:
-                i += 1
-                continue
-
-            if i == len(components) - 1:  # Last component (LIMIT)
-                query_components_value[components[i]] = QueryHelper.extract_value(
-                    query, components[i], ""
-                )
-                break
-
-            j = i + 1
-            idx_second_comp = normalized_query.find(components[j])
-            while idx_second_comp == -1 and j < len(components) - 1:
-                j += 1
-                idx_second_comp = normalized_query.find(components[j])
-
-            query_components_value[components[i]] = QueryHelper.extract_value(
-                query, components[i], "" if idx_second_comp == -1 else components[j]
-            )
-
-            i += 1
-
-        print(f"query_components_value: {query_components_value}") # testing
-
-        if "FROM" in query_components_value:
-            alias_map = QueryHelper.extract_table_aliases(query_components_value["FROM"])
-            
-            query_components_value["FROM"] = QueryHelper.remove_aliases(query_components_value["FROM"])
-
-            # Validate aliases in SELECT, WHERE, and FROM clauses
-            undefined_aliases = self.__validate_aliases(query_components_value, alias_map)
-            if undefined_aliases:
-                raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
-            
-            print("alias map", alias_map)
-            query_components_value["FROM"] = [
-                QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value["FROM"]
-            ]
-            
-            if "SELECT" in query_components_value:
-                query_components_value["SELECT"] = [
-                    QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value["SELECT"]
+        comp_with_attr = "FROM" if "FROM" in query_components_value else "UPDATE"
+        alias_map, table_arr = QueryHelper.extract_table_and_aliases(query_components_value[comp_with_attr])
+        undefined_aliases = QueryHelper.validate_aliases(query_components_value, alias_map)
+        print(query_components_value)
+        
+        for comp in query_components_value:
+            if comp in ["SELECT","FROM"]:
+                query_components_value[comp] = [
+                    QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value[comp]
                 ]
-            if "WHERE" in query_components_value:
-                query_components_value["WHERE"] = QueryHelper.rewrite_with_alias(
-                    query_components_value["WHERE"], alias_map
-                )
-                            
-            # table_arr = QueryHelper.extract_tables(query_components_value["FROM"])
-        else:
-            table_arr = query_components_value['UPDATE']
+            else:
+                 query_components_value[comp] = QueryHelper.rewrite_with_alias(
+                     query_components_value[comp], alias_map
+                 )          
+        print(query_components_value)
             
         # attributes_arr = QueryHelper.extract_attributes(query_components_value)
 
@@ -115,7 +45,7 @@ class OptimizationEngine:
         return ParsedQuery(query_tree,normalized_query)
 
     def __build_query_tree(self, components: dict) -> QueryTree:
-
+        query_type = next(iter(components))
         root = QueryTree(type="ROOT")
         top = root
 
@@ -153,7 +83,10 @@ class OptimizationEngine:
             where_tree = QueryHelper.parse_where_clause(components["WHERE"])
             top.add_child(where_tree)
             where_tree.add_parent(top)
-            top = select_tree
+            if query_type == "SELECT":
+                top = select_tree
+            else:
+                top = where_tree
 
         if "FROM" in components:
             join_tree = QueryHelper.build_join_tree(components["FROM"])
@@ -176,7 +109,7 @@ if __name__ == "__main__":
     storage = StorageEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5"
+    select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5 order by s.a ASC"
     print(select_query)
     parsed_query = optim.parse_query(select_query,"database1",storage.get_stats)
     print(parsed_query)
@@ -202,10 +135,10 @@ if __name__ == "__main__":
         print(f"Validation error: {e}")
 
     # Test UPDATE query
-    # update_query = "UPDATE employee SET salary = salary + 1.1 - 5 WHERE salary > 1000"
-    # print(update_query)
-    # parsed_update_query = optim.parse_query(update_query, "database_sample", storage.get_stats)
-    # print(parsed_update_query)
+    update_query = "UPDATE employee SET salary = salary + 1.1 - 5 WHERE salary > 1000"
+    print(update_query)
+    parsed_update_query = optim.parse_query(update_query, "database_sample", storage.get_stats)
+    print(parsed_update_query)
 
     # #Test DELETE query
     # delete_query = "DELETE FROM employees WHERE salary < 3000"

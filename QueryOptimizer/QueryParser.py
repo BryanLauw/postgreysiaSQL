@@ -118,65 +118,58 @@ class QueryParser:
     def check_valid_syntax(self,query: str):
         tokens = self.tokenize_query(query)
         cur_state = self.start_state
-        for token in tokens:
+        for index,token in enumerate(tokens):
             next_state = ""
             cur_state_rules = self.transitions[cur_state]
             for rule in cur_state_rules:
                 rule_token = rule[0]
-                if((token == rule_token) or (rule_token == "<X>" and token.count('.')<=1 and token.replace('.','').isalpha()) or
+                if((token == rule_token) or (rule_token == "<X>" and token.count('.')<=1 and token.replace('.','').isalnum()) or
                    ((rule_token == "<N>" or rule_token == "<X>") and token.isnumeric()) or (rule_token == "<CO>" and token in self.CO) or
                    (rule_token == "<MO>" and token in self.MO)
                 ):
                     next_state = rule[1]
                     break
             if not next_state:
-                return []
+                start = index-2 if index-2>=0 else 0
+                end = index+2 if index+2<len(tokens) else len(tokens)-1
+                raise ValueError(f"Syntax error at: {tokens[start:end+1]}")
             
             cur_state = next_state
-            
-        return " ".join(tokens).strip() if cur_state in self.final_states else []
+        
+        if(cur_state not in self.final_states):
+            raise ValueError(f"Query is incomplete!")
+        
+        return " ".join(tokens).strip()
     
     def extract_SELECT(self,values: str):
         arr_attributes = [value.strip() for value in values.split(",")]
         return arr_attributes
-
+    
     def extract_FROM(self,values: str):
-        """
-        Extract FROM clause and split by JOIN operations. 
-        Returns a list of tables and JOIN expressions.
-        """
         arr_joins = []
         values_parsed = values.split()
-        len_parsed = len(values_parsed)
-        met_join = False
         element = ""
         i = 0
-        while i < len_parsed:
-            if(i+1 < len_parsed and values_parsed[i] == "NATURAL" and values_parsed[i+1] == "JOIN"):
-                if(not met_join):
-                    met_join = True
-                    element += " NATURAL JOIN"
-                else:
+        while i < len(values_parsed):
+            if values_parsed[i] == "NATURAL" and values_parsed[i+1] == "JOIN":
+                if element:
                     arr_joins.append(element.strip())
-                    element = "NATURAL JOIN"
-                    
-                i += 2
+                arr_joins.append("NATURAL JOIN")
+                element = ""
+                i+=2
                 continue
-            
-            if (values_parsed[i] == "JOIN" or values_parsed[i] == ','):
-                if(not met_join):
-                    met_join = True
-                else:
+            elif values_parsed[i] == "JOIN":
+                if element:
                     arr_joins.append(element.strip())
-                    element = ""
-            
-            element += " " + values_parsed[i]
-            
+                arr_joins.append("JOIN")
+                element = ""
+            else:
+                element += " " + values_parsed[i]
             i += 1
-        
-        if(element):
+
+        if element:
             arr_joins.append(element.strip())
-        
+
         return arr_joins
 
 
