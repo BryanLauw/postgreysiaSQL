@@ -19,21 +19,18 @@ class LogEntry:
         old_value (Optional[str]): The old value of the object (if applicable).
         new_value (Optional[str]): The new value of the object (if applicable).
         database_name (str): The name of the database associated with the log entry.
-        table (Optional[str]): The name of the database table involved in the transaction or event.
-        column (Optional[str]): The specific column of the table being modified, if applicable.
-        row(primkey) (Optional[str]): The primary key or unique identifier for the row involved in the transaction, providing precision to the affected data.
     """
 
-    def __init__(self, timestamp: datetime, transaction_id: int, event: str, database_name: str, object_value: Optional[str] = None, old_value: Optional[str] = None, new_value: Optional[str] = None, table: Optional[str] = None, column: Optional[str] = None, row: Optional[str] = None):
+    def __init__(self, timestamp: datetime, transaction_id: int, event: str, database_name: str, object_value: Optional[str] = None, old_value: Optional[str] = None, new_value: Optional[str] = None):
         self.database_name:str = database_name
         self.timestamp: datetime = timestamp
         self.transaction_id: int = transaction_id
         self.event: str = event
         
         # TODO: BAHAS 3 ini butuh atau ga
-        self.table: Optional[str] = table
-        self.column: Optional[str] = column
-        self.row: Optional[int] = row
+        # self.table: Optional[str]
+        # self.column: Optional[str]
+        # self.row: Optional[int]
 
         self.object_value: Optional[str] = object_value
         self.old_value: Optional[str] = old_value
