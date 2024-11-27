@@ -203,7 +203,7 @@ class QueryProcessor:
                 return self.__getTables(child)
 
 
-    def getData(self, data_retrieval: DataRetrieval, database: str) -> dict|Exception:
+    def __getData(self, data_retrieval: DataRetrieval, database: str) -> dict|Exception:
         # fetches the required rows of data from the storage manager
         # and returns it as a dictionary
 
