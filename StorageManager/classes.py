@@ -1,5 +1,6 @@
 import pickle
 import os
+from Bplus import BPlusTree
 
 class Condition:
     valid_operations = ["=", "<>", ">", ">=", "<", "<=", "!"] # untuk sementara "!" berarti no operation
@@ -95,7 +96,8 @@ class StorageEngine:
             if table_name not in self.blocks[database_name]:
                 self.blocks[database_name][table_name] = {
                     "columns" : [{"name" : nama_col, "type" : tipe_col} for nama_col, tipe_col in column_type.items()],
-                    "values" : []
+                    "values" : [],
+                    "indexes" : {}
                 }
                 return True
             return Exception(f"Sudah ada table dengan nama {table_name} di database {database_name}")
@@ -261,6 +263,62 @@ class StorageEngine:
             V_a_r[attribute] = len(set(row[attribute] for row in rows if attribute in row))
 
         return Statistic(n_r=nr, b_r=br, l_r=lr, f_r=fr, V_a_r=V_a_r)
+    
+    def set_index(self, database_name: str, table_name: str, column: str) -> None:
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        
+        if table_name not in self.blocks[database_name]:
+            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
+        
+        table = self.blocks[database_name][table_name]
+        if not any(col["name"] == column for col in table["columns"]):
+            raise ValueError(f"Column '{column}' does not exist in table '{table_name}'.")
+        if "indexes" not in table:
+            table["indexes"] = {}
+        bplus_tree = BPlusTree(order=4)
+        for row_index, row in enumerate(table["values"]):
+            if column not in row:
+                raise ValueError(f"Column '{column}' is missing in a row of table '{table_name}'.")
+            
+            key = row[column]  
+            bplus_tree.insert(key, row_index) 
+        table["indexes"][column] = bplus_tree
+        print(f"B+ Tree index created for column '{column}' in table '{table_name}'.")
+
+    def search_with_index(self, database_name: str, table_name: str, column: str, key) -> list :
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        if table_name not in self.blocks[database_name]:
+            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
+        
+        table = self.blocks[database_name][table_name]
+        if "indexes" not in table or column not in table["indexes"]:
+            raise ValueError(f"No index exists for column '{column}' in table '{table_name}'.")
+        index = table["indexes"][column]
+        result_indices = index.search(key)
+        values = table["values"]
+        if isinstance(result_indices, list): 
+            return [values[i] for i in result_indices]
+        elif result_indices is not None:  
+            return [values[result_indices]]
+        else:  
+            return []
+        
+    def search_range_with_index(self, database_name:str, table_name: str, column: str, start, end) -> list:
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        if table_name not in self.blocks[database_name]:
+            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
+        
+        table = self.blocks[database_name][table_name]
+        if "indexes" not in table or column not in table["indexes"]:
+            raise ValueError(f"No index exists for column '{column}' in table '{table_name}'.")
+        
+        index = table["indexes"][column]
+        result_indices = index.search_range(start, end)
+        values = table["values"]
+        return [values[i] for i in result_indices]
 
     def debug(self):
         print(self.blocks)
