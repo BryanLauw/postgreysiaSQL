@@ -117,26 +117,24 @@ class QueryParser:
     
     def check_valid_syntax(self,query: str):
         tokens = self.tokenize_query(query)
-        
         cur_state = self.start_state
         for token in tokens:
             next_state = ""
             cur_state_rules = self.transitions[cur_state]
             for rule in cur_state_rules:
                 rule_token = rule[0]
-                if((token == rule_token) or (rule_token == "<X>" and token.count('.')<=1 and token.replace('.','').isalnum()) or
-                   (rule_token == "<N>" and token.isnumeric()) or (rule_token == "<CO>" and token in self.CO) or
+                if((token == rule_token) or (rule_token == "<X>" and token.count('.')<=1 and token.replace('.','').isalpha()) or
+                   ((rule_token == "<N>" or rule_token == "<X>") and token.isnumeric()) or (rule_token == "<CO>" and token in self.CO) or
                    (rule_token == "<MO>" and token in self.MO)
                 ):
                     next_state = rule[1]
                     break
-            
             if not next_state:
-                return False
+                return []
             
             cur_state = next_state
             
-        return cur_state in self.final_states
+        return " ".join(tokens).strip() if cur_state in self.final_states else []
     
     def extract_SELECT(self,values: str):
         arr_attributes = [value.strip() for value in values.split(",")]
@@ -150,7 +148,6 @@ class QueryParser:
         arr_joins = []
         values_parsed = values.split()
         len_parsed = len(values_parsed)
-        
         met_join = False
         element = ""
         i = 0
@@ -161,12 +158,12 @@ class QueryParser:
                     element += " NATURAL JOIN"
                 else:
                     arr_joins.append(element.strip())
-                    element = " NATURAL JOIN "
+                    element = "NATURAL JOIN"
                     
                 i += 2
                 continue
             
-            if (values_parsed[i] == "JOIN"):
+            if (values_parsed[i] == "JOIN" or values_parsed[i] == ','):
                 if(not met_join):
                     met_join = True
                 else:
@@ -184,7 +181,7 @@ class QueryParser:
 
 
     def extract_WHERE(self,values: str):
-        return values.replace(" ", "")
+        return values.strip()
 
     def extract_ORDERBY(self,values: str):
         return values.strip()
@@ -196,7 +193,7 @@ class QueryParser:
         return values.strip()
 
     def extract_SET(self,values: str):
-        return [value.strip() for value in values.split(",")]
+        return values.strip()
 
     def extract_value(self,query: str, before: str, after: str):
         start = query.find(before) + len(before)
@@ -249,9 +246,3 @@ class QueryParser:
             i += 1
 
         return query_components_value
-        # print(f"query_components_value: {query_components_value}")
-            
-test = QueryParser("dfa.txt")
-
-# print(test.extract_value("SELECT a FROM a JOIN b ON a.id =    b.id","FROM",""))
-# print(test.tokenize_query("SELECT a FROM a as ab WHERE ab.ii>1"))          

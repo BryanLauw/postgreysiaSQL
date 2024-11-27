@@ -1,17 +1,24 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from StorageManager.classes import Statistic, StorageEngine
+
 from QueryParser import QueryParser
 from QueryTree import ParsedQuery, QueryTree
 from QueryHelper import *
-
+from typing import Callable, Union
 class OptimizationEngine:
     def __init__(self):
         self.QueryParser = QueryParser("dfa.txt")
 
-    def parse_query(self, query: str) -> ParsedQuery:
+    def parse_query(self, query: str,database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
             QueryHelper.normalize_string(query).upper()
         )
 
-        if(not self.QueryParser.check_valid_syntax(normalized_query)):
+        normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
+        if(not normalized_query):
             return False
         
         query_components_value = self.QueryParser.get_components_values(normalized_query)
@@ -21,7 +28,6 @@ class OptimizationEngine:
             
             query_components_value["FROM"] = QueryHelper.remove_aliases(query_components_value["FROM"])
             
-            print(alias_map)
             query_components_value["FROM"] = [
                 QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value["FROM"]
             ]
@@ -34,10 +40,15 @@ class OptimizationEngine:
                 query_components_value["WHERE"] = QueryHelper.rewrite_with_alias(
                     query_components_value["WHERE"], alias_map
                 )
-        print(query_components_value)
+                            
+            table_arr = QueryHelper.extract_tables(query_components_value["FROM"])
+        else:
+            table_arr = query_components_value['UPDATE']
+            
+        attributes_arr = QueryHelper.extract_attributes(query_components_value)
 
         query_tree = self.__build_query_tree(query_components_value)
-        return ParsedQuery(query_tree, query)
+        return ParsedQuery(query_tree,normalized_query)
     
     def strip_alias(table: str) -> str:
         if " AS " in table:
@@ -67,11 +78,10 @@ class OptimizationEngine:
             top = order_by_tree
         
         if "SELECT" in components:
-            for attribute in components['SELECT']:
-                select_tree = QueryTree(type="SELECT", val=attribute)
-                top.add_child(select_tree)
-                select_tree.add_parent(top)
-                top = select_tree
+            select_tree = QueryTree(type="SELECT", val=components["SELECT"])
+            top.add_child(select_tree)
+            select_tree.add_parent(top)
+            top = select_tree
                 
         if "UPDATE" in components:
             where_tree = QueryTree(type="UPDATE", val=components["UPDATE"])
@@ -109,18 +119,18 @@ class OptimizationEngine:
 
 
 if __name__ == "__main__":
-    new = OptimizationEngine()
+    optim = OptimizationEngine()
+    storage = StorageEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.a, s.b FROM students AS s JOIN st ON s.id=st.id WHERE s.a = 1"
-    print(select_query)
-    parsed_query = new.parse_query(select_query)
+    select_query = "SELECT s.id, s.b FROM students AS s JOIN st ON s.id=st.id WHERE x.a = 1 ORDER BY kok"
+    parsed_query = optim.parse_query(select_query,"database_sample",storage.get_stats)
     print(parsed_query)
 
     # Test UPDATE query
-    # update_query = "UPDATE employee SET salary = salary * 1.1 WHERE salary > 1000"
+    # update_query = "UPDATE employee SET salary = salary + 1.1 - 5 WHERE salary > 1000"
     # print(update_query)
-    # parsed_update_query = new.parse_query(update_query)
+    # parsed_update_query = optim.parse_query(update_query, "database_sample", storage.get_stats)
     # print(parsed_update_query)
 
     # #Test DELETE query
@@ -128,3 +138,5 @@ if __name__ == "__main__":
     # print(delete_query)
     # parsed_delete_query = new.parse_query(delete_query)
     # print(parsed_delete_query)
+    
+    

@@ -36,5 +36,4 @@ q34 SET q35
 q35 <X> q36
 q36 = q37
 q37 <X> q38
-q38 <MO> q37
-q38 WHERE q29
+q38 <MO> q37 WHERE q29

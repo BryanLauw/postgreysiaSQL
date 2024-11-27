@@ -1,24 +1,8 @@
 from QueryTree import ParsedQuery, QueryTree
 import re
-from typing import List
+from typing import List, Union, Dict
 
 class QueryHelper:
-    @staticmethod
-    def extract_table_aliases(from_tokens: list) -> dict:
-        """
-        Extract table aliases from the FROM clause.
-        Returns a dictionary mapping aliases to table names.
-        """
-        alias_map = {}
-        for token in from_tokens:
-            if " AS " in token:
-                table, alias = map(str.strip, token.split(" AS "))
-                alias_map[alias.split()[0]] = table
-            elif " " in token:  # Implicit alias
-                parts = token.split()
-                alias_map[parts[1]] = parts[0]
-        return alias_map
-    
     @staticmethod
     def remove_aliases(from_clause: list) -> list:
         """
@@ -54,7 +38,6 @@ class QueryHelper:
     @staticmethod
     def extract_table_aliases(from_clause: List[str]) -> dict:
         alias_map = {}
-        cleaned_from_clause = []
 
         for token in from_clause:
             if " AS " in token:
@@ -64,9 +47,68 @@ class QueryHelper:
                     table = splitted[i].split()[-1]
                     alias = splitted[i+1].split()[0]
                     alias_map[alias] = table
-                    
         return alias_map
+    
+    @staticmethod
+    def extract_tables(from_clause: List[str]) -> List[str]:
+        """ Get List of Tables in from clause. 
 
+        Args:
+            from_clause (List[str]): List of from clauses that doesnt have any aliases in it
+
+        Returns:
+            List[str]: List of Tables
+        """        
+        
+        table_arr = []
+        for token in from_clause:
+            splitted = token.split()
+            if("NATURAL JOIN" in token):
+                if(splitted[0] == "NATURAL"):
+                    table_arr.append(splitted[2])
+                else:
+                    table_arr.append(splitted[0])
+                    table_arr.append(splitted[3])
+                    
+            elif "JOIN" in token or "," in token:
+                if(splitted[0] == "JOIN" or splitted[0] == ","):
+                    table_arr.append(splitted[1])
+                else:
+                    table_arr.append(splitted[0])
+                    table_arr.append(splitted[2])
+        return table_arr
+    
+    @staticmethod
+    def extract_attributes(components_values: Dict[str, Union[List[str],str]]):
+        attributes_arr = []
+        for key in components_values:
+            if key == 'UPDATE':
+                attributes_arr.append(components_values[key])
+            elif key == 'WHERE' or key == 'SET':
+                splitted = components_values[key].split()
+                for token in splitted:
+                    if token.count('.')<=1 and token.replace('.','').isalpha():
+                        attributes_arr.append(token)
+            elif key == 'ORDER BY':
+                attributes_arr.append(components_values[key].split()[0])
+            elif key == 'FROM':
+                for clause in components_values[key]:
+                    tokens = clause.split()
+                    if tokens[0] == 'NATURAL' or tokens[1] == 'NATURAL':
+                        continue
+                    try:
+                        ON_idx = tokens.index('ON')
+                        len_tokens = len(tokens)
+                        for i in range(ON_idx+1,len_tokens):
+                            if tokens[i].count('.')<=1 and tokens[i].replace('.','').isalpha():
+                                attributes_arr.append(tokens[i])
+                    except ValueError:
+                        continue
+            elif key == 'SELECT':
+                attributes_arr.extend(components_values['SELECT'])
+                
+        return list(set(attributes_arr))
+                    
     @staticmethod
     def normalize_string(query: str):
         return query.replace("\t", "").replace("\n", "").replace("\r", "")
