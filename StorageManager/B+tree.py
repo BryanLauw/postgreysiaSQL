@@ -2,90 +2,127 @@ import math
 
 class BTreeNode:
     def __init__(self, order, is_leaf=False):
-        self.keys = []
-        self.children = []
-        self.is_leaf = is_leaf
-        self.next = None
-        self.order = order
+        self.keys = []  # The keys stored in the node
+        self.values = []  # Pointers to the data or "buckets" of pointers , bucker if it is secondary index
+        self.children = []  # Child pointers used only for internal nodes
+        self.is_leaf = is_leaf  # True if the node is a leaf node
+        self.next = None  # Pointer to the next leaf node (for range queries)
+        self.order = order  # Maximum number of children
+        self.parent = None
         self.min_children = math.ceil(order / 2) 
         self.min_key = math.ceil(order / 2) - 1
 
     def is_full(self):
         return len(self.keys) >= self.order - 1
 
+
 class BPlusTree:
     def __init__(self, order=4):
         self.root = BTreeNode(order, is_leaf=True)
         self.order = order
-
-    def insert(self, value):
-        result = self._insert_recursive(self.root, value)
-        if isinstance(result, tuple):
+        
+    def insert(self, key, value):
+        result = self._insert_recursive(self.root, key, value)
+        if isinstance(result, tuple):  # Root was split
+            middle_key, new_node = result
             new_root = BTreeNode(self.order, is_leaf=False)
-            new_root.keys = [result[0]]
-            new_root.children = [self.root, result[1]]
+            new_root.keys = [middle_key]
+            new_root.children = [self.root, new_node]
+
+            # Update parent references
+            self.root.parent = new_root
+            new_node.parent = new_root
+
             self.root = new_root
 
-    def _insert_recursive(self, node, value):
+
+    def _insert_recursive(self, node, key, value):
         if node.is_leaf:
-            node.keys.append(value)
-            node.keys.sort()
+            if key in node.keys:
+                index = node.keys.index(key)
+                if isinstance(node.values[index], list):
+                    node.values[index].append(value)
+                else:
+                    node.values[index] = [node.values[index], value]
+            else:
+                node.keys.append(key)
+                node.values.append(value)
+
+                # Ensure keys and values remain sorted
+                sorted_indices = sorted(range(len(node.keys)), key=lambda i: node.keys[i])
+                node.keys = [node.keys[i] for i in sorted_indices]
+                node.values = [node.values[i] for i in sorted_indices]
         else:
-            index = self._find_child_index(node, value)
-            child_result = self._insert_recursive(node.children[index], value)
-            
+            index = self._find_child_index(node, key)
+            child_result = self._insert_recursive(node.children[index], key, value)
+
             if isinstance(child_result, tuple):
-                node.children.insert(index + 1, child_result[1])
-                node.keys.insert(index, child_result[0])
+                middle_key, new_node = child_result
+                node.keys.insert(index, middle_key)
+                node.children.insert(index + 1, new_node)
+
+                # Update parent references
+                new_node.parent = node
+                for child in node.children:
+                    child.parent = node
 
         if len(node.keys) > self.order - 1:
             return self._split_node(node)
-        
+
         return node
 
-    def _split_node(self, node : BTreeNode):
+
+    def _split_node(self, node):
         mid = len(node.keys) // 2
-        
         new_node = BTreeNode(self.order, is_leaf=node.is_leaf)
 
         if node.is_leaf:
+            # Split leaf node
             new_node.keys = node.keys[mid:]
+            new_node.values = node.values[mid:]
             middle_key = node.keys[mid]
             node.keys = node.keys[:mid]
+            node.values = node.values[:mid]
 
+            # Update leaf chain
             new_node.next = node.next
             node.next = new_node
         else:
-            new_node.keys = node.keys[mid+1:]
+            # Split internal node
+            new_node.keys = node.keys[mid + 1:]
+            new_node.children = node.children[mid + 1:]
             middle_key = node.keys[mid]
             node.keys = node.keys[:mid]
-            
-            
-            new_node.children = node.children[mid+1:]
-            node.children = node.children[:mid+1]
+            node.children = node.children[:mid + 1]
 
-        return (middle_key, new_node)
+            # Update parent for new_node's children
+            for child in new_node.children:
+                child.parent = new_node
 
-    def _find_child_index(self, node, value):
-        for i, key in enumerate(node.keys):
-            if value < key:
+        # Set parent for the new node
+        new_node.parent = node.parent
+
+        return middle_key, new_node
+
+
+    def _find_child_index(self, node, key):
+        for i, k in enumerate(node.keys):
+            if key < k:
                 return i
         return len(node.keys)
-    
 
-    def search(self,value):
-        return self._search_recursive(self.root, value)
-    
-    def _search_recursive(self,node : BTreeNode,value):
+    def search(self, key):
+        return self._search_recursive(self.root, key)
+
+    def _search_recursive(self, node, key):
         if node.is_leaf:
-            return value in node.keys
-        
-        for i, key in enumerate(node.keys):
-            if value < key:
-                return self._search_recursive(node.children[i],value)
-            
-
-        return self._search_recursive(node.children[-1], value)
+            if key in node.keys:
+                index = node.keys.index(key)
+                return node.values[index]
+            return None
+        else:
+            index = self._find_child_index(node, key)
+            return self._search_recursive(node.children[index], key)
 
     def search_range(self, start, end):
         current_leaf = self.root
@@ -99,10 +136,10 @@ class BPlusTree:
         
         result = []
         while current_leaf:
-            for value in current_leaf.keys:
-                if start <= value <= end:
-                    result.append(value)
-                elif value > end:
+            for i, key in enumerate(current_leaf.keys):
+                if start <= key <= end:
+                    result.extend(current_leaf.values[i] if isinstance(current_leaf.values[i], list) else [current_leaf.values[i]])
+                elif key > end:
                     return result
             current_leaf = current_leaf.next
         
@@ -116,12 +153,10 @@ class BPlusTree:
         print("└── " if is_last else "├── ", end="")
         
         node_type = "L" if node.is_leaf else "I"
-        print(f"{node_type}: {node.keys}")
+        print(f"{node_type}: {node.keys} | {node.values if node.is_leaf else ''}")
 
         if not node.is_leaf:
-        
             new_prefix = prefix + ("    " if is_last else "│   ")
-            
             for i in range(len(node.children)):
                 is_last_child = (i == len(node.children) - 1)
                 self.print_tree(
@@ -133,14 +168,14 @@ class BPlusTree:
     def print_leaf_chain(self):
         print("\nLeaf Chain:")
         current_leaf = self.root
-        
         while not current_leaf.is_leaf:
             current_leaf = current_leaf.children[0]
-  
         while current_leaf:
-            print(f"[{current_leaf.keys}]", end=" → ")
+            print(f"[{current_leaf.keys}] → ", end="")
             current_leaf = current_leaf.next
         print("None")
+
+
         
     # Other methods (insert, _insert_recursive, etc.) remain unchanged
     def delete(self, value):
@@ -188,14 +223,13 @@ class BPlusTree:
         # Handle underflow
         if len(node.keys) < (self.order // 2) - 1:
             self._handle_underflow(node)
-    
-    def _find_child_index_deletion(self, node, value):
-        for i, key in enumerate(node.keys):
-            if value == key : 
-                return i, 
-            if value < key:
-                return i
-        return len(node.keys)
+
+
+    def _find_successor(self, node, idx):
+        current = node.children[idx]
+        while not current.is_leaf:
+            current = current.children[0]
+        return current.keys[1]
 
     def _smallest_leaf_node_on_the_right_subtree(self, node) :
         if not node.is_leaf :
@@ -204,13 +238,7 @@ class BPlusTree:
             else : 
                 self._smallest_leaf_node_on_the_right_subtree(node.children[0])
         return node.keys[0]
-
-    def _find_successor(self, node, idx):
-        current = node.children[idx]
-        while not current.is_leaf:
-            current = current.children[0]
-        return current.keys[1]
-
+    
     def _fix_underflow(self, parent, index):
         child = parent.children[index]
         
@@ -290,26 +318,23 @@ class BPlusTree:
 def main():
     tree = BPlusTree(order=4)
     
-    values = [10, 20, 5, 15, 25, 30, 8, 12, 7, 18, 22, 35, 40, 50, 55, 60,33,56, 11, 19, 13, 57,58, 14,6,36,37,38,39]
+    values = [[10, "A"], [20, "B"], [5, "C"], [15, "D"], [25, "E"], [30, "F"], [8, "G"], [12, "H"], [7, "I"], [18, "J"], [22, "K"], [35, "L"], [40, "M"], [50, "N"], [55, "O"], [60, "P"], [33, "Q"], [56, "R"], [11, "S"], [19, "T"], [13, "U"], [57, "V"], [58, "W"], [14, "X"], [6, "Y"], [36, "Z"], [37, "AA"], [38, "BB"], [39, "CC"]]
     
-    for i, value in enumerate(values):
+    for key, value in values:
         print(f"\nInserting {value}")
-        tree.insert(value)
+        tree.insert(key, value)
         
         print("\nTree Structure:")
         tree.print_tree()
         
         tree.print_leaf_chain()
-
-        if (i > 5) : 
-            print(tree.root.children)
         
         print("\n" + "-" * 50)
 
     print(tree.search_range(10,20))
 
     # tree.delete(60)
-    tree.delete(58)
+    tree.delete(56)
     tree.print_tree()
 
 if __name__ == "__main__":
