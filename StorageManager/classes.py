@@ -61,10 +61,20 @@ class Statistic:
 
 class StorageEngine:
     def __init__(self) -> None:
+        self.load()
+        self.buffer = {}
+
+    def load(self) -> None:
         try:
             if not (os.path.isfile("data.dat")):
                 pickle.dump({}, open("data.dat", "wb"))
             self.blocks = pickle.load(open("data.dat", "rb"))
+        except Exception as e:
+            print(f"error, {str(e)}")
+
+    def commit_buffer(self, transaction_id:int) -> None:
+        try:
+            self.blocks = self.buffer[transaction_id]
         except Exception as e:
             print(f"error, {str(e)}")
 
@@ -91,7 +101,7 @@ class StorageEngine:
             return Exception(f"Sudah ada table dengan nama {table_name} di database {database_name}")
         return Exception(f"Tidak ada database dengan nama {database_name}")
     
-    def insert_data(self, database_name:str, table_name:str, data_insert:dict) -> bool|Exception:
+    def insert_data(self, database_name:str, table_name:str, data_insert:dict, transaction_id:int) -> bool|Exception:
         if database_name in self.blocks:
             if table_name in self.blocks[database_name]:
                 self.blocks[database_name][table_name]["values"].append(data_insert)
@@ -99,7 +109,7 @@ class StorageEngine:
             return Exception(f"Tidak ada table dengan nama {table_name} di database {database_name}")
         return Exception(f"Tidak ada database dengan nama {database_name}")
 
-    def read_block(self, data_retrieval:DataRetrieval, database_name:str) -> dict|Exception:
+    def read_block(self, data_retrieval:DataRetrieval, database_name:str, transaction_id:int) -> dict|Exception:
         # error handling
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")
@@ -132,10 +142,13 @@ class StorageEngine:
 
         # lalu hapus data dari hasil_cross yang tidak memenuhi kondisi
         hasil_operasi = []
-        for kondisi in data_retrieval.conditions:
-            for row in hasil_cross:
-                if kondisi.evaluate(row[kondisi.column]):
-                    hasil_operasi.append(row)
+        if data_retrieval.conditions:
+            for kondisi in data_retrieval.conditions:
+                for row in hasil_cross:
+                    if kondisi.evaluate(row[kondisi.column]):
+                        hasil_operasi.append(row)
+        else:
+            hasil_operasi = hasil_cross
 
         # lalu ambil hanya kolom yang diinginkan
         hasil_akhir = [{key: d[key] for key in data_retrieval.column if key in d} for d in hasil_operasi]
@@ -143,7 +156,7 @@ class StorageEngine:
         # return akhir
         return hasil_akhir
 
-    def write_block(self, data_write: DataWrite, database_name: str) -> int | Exception:
+    def write_block(self, data_write: DataWrite, database_name: str, transaction_id:int) -> int | Exception:
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")
         if data_write.table not in self.blocks[database_name]:
@@ -184,7 +197,7 @@ class StorageEngine:
         return affected_rows
 
 
-    def delete_block(self, data_deletion:DataDeletion, database_name:str) -> int:
+    def delete_block(self, data_deletion:DataDeletion, database_name:str, transaction_id:int) -> int:
         # error handling
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")  
