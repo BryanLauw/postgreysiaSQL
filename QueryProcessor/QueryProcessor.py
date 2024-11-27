@@ -187,12 +187,12 @@ class QueryProcessor:
 
         return [element.split('.')[0] for element in l]
 
-    def getTables(self,tree: QueryTree):
+    def __getTables(self,tree: QueryTree):
         # get all tables needed from Query (not ParsedQuery)
     
         # Example:
         # select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5"
-        # getTables(select_query) = ['students', 'teacher']
+        # __getTables(select_query) = ['students', 'teacher']
 
         if tree.type.upper() == "SELECT": # This conditional is using "SELECT" because QueryTree does not have FROM type.
             return self.__removeAttribute(tree.val)
@@ -200,4 +200,4 @@ class QueryProcessor:
             return ""
         else:
             for child in tree.childs:
-                return self.getTables(child)
+                return self.__getTables(child)
