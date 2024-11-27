@@ -66,34 +66,37 @@ class QueryHelper:
                  )
     
     @staticmethod
-    def extract_attributes(components_values: Dict[str, Union[List[str],str]]):
-        attributes_arr = []
-        for key in components_values:
+    def extract_and_validate_attributes(components_values: Dict[str, Union[List[str],str]], table_statistics):
+        for key in (components_values):
             if key == 'UPDATE':
-                attributes_arr.append(components_values[key])
+                components_values[key] = QueryHelper.validate_attribute(components_values[key], table_statistics)
             elif key == 'WHERE' or key == 'SET':
                 splitted = components_values[key].split()
-                for token in splitted:
+                for index,token in enumerate(splitted):
                     if token.count('.')<=1 and token.replace('.','').isalpha():
-                        attributes_arr.append(token)
+                        splitted[index] = QueryHelper.validate_attribute(token,table_statistics)
+                components_values[key] = " ".join(splitted).strip()
+                
             elif key == 'ORDER BY':
-                attributes_arr.append(components_values[key].split()[0])
+                attribute, order = components_values[key].split()
+                components_values[key] = f"{QueryHelper.validate_attribute(attribute,table_statistics)} {order}"
+                
             elif key == 'FROM':
-                for clause in components_values[key]:
+                for index,clause in enumerate(components_values[key]):
                     tokens = clause.split()
                     try:
                         ON_idx = tokens.index('ON')
                         len_tokens = len(tokens)
                         for i in range(ON_idx+1,len_tokens):
                             if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', tokens[i].replace('.', '')) and tokens[i].count('.') <= 1:
-                                attributes_arr.append(tokens[i])
+                                tokens[i] = QueryHelper.validate_attribute(tokens[i],table_statistics)
+                        components_values[key][index] = " ".join(tokens).strip()
                     except ValueError:
                         continue
+                    
             elif key == 'SELECT':
-                attributes_arr.extend(components_values['SELECT'])
-        
-        attributes_arr = list(filter(lambda item: item not in ("AND", "OR"), attributes_arr))
-        return list(set(attributes_arr))
+                components_values[key] = [QueryHelper.validate_attribute(attr,table_statistics) for attr in components_values[key]]
+                print(components_values[key])
     
     @staticmethod
     def parse_where_clause(where_clause: str) -> QueryTree:
@@ -243,20 +246,23 @@ class QueryHelper:
         return table_statistics
     
     @staticmethod
-    def validate_attributes(attributes_arr: list[str],table_statistics: Dict[str, Statistic]):
-        print("SINI")
-        print(table_statistics["PRODUCTS"].V_a_r)
-        print(attributes_arr)
-        for index,attr in enumerate(attributes_arr):
-            if '.' in attr:
-                table, attribute = attr.split('.')
-                if attribute.lower() not in table_statistics[table].V_a_r:
-                    raise ValueError(f"{attribute} doesn't exist at table {table}")
-            else:
-                table_match = ""
-                for table in table_statistics:
-                    if attr.lower() in table_statistics[table].V_a_r:
-                        if table_match:
-                            raise ValueError(f"Ambiguous attribute: {attr}")
-                        table_match = table.upper()
-                        attributes_arr[index] = f"{table_match}.{attr}"
+    def validate_attribute(attribute: str,table_statistics: Dict[str, Statistic]):
+        if attribute in ["AND","OR"]:
+            return attribute
+        
+        attr_with_table = ""
+        if '.' in attribute:
+            table, attr = attribute.split('.')
+            if attr.lower() not in table_statistics[table].V_a_r:
+                raise ValueError(f"{attr} doesn't exist at table {table}")
+            attr_with_table = attribute
+        else:
+            for table in table_statistics:
+                if attribute.lower() in table_statistics[table].V_a_r:
+                    if attr_with_table:
+                        raise ValueError(f"Ambiguous attribute: {attribute}")
+                    attr_with_table = f"{table.upper()}.{attribute}"
+                    
+        if not attr_with_table:
+            raise ValueError(f"{attribute} doesn't exist!")
+        return attr_with_table

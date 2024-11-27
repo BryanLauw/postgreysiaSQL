@@ -36,12 +36,9 @@ class OptimizationEngine:
                 
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
         
-        print(query_components_value)
-        # print(table_statistics)
-        attributes_arr = QueryHelper.extract_attributes(query_components_value)
-        # print(attributes_arr)
+        QueryHelper.extract_and_validate_attributes(query_components_value, table_statistics)
         
-        QueryHelper.validate_attributes(attributes_arr,table_statistics)
+        print(query_components_value)
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree,normalized_query)
 
@@ -110,7 +107,7 @@ if __name__ == "__main__":
     storage = StorageEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.id, t.product_id FROM users AS s JOIN products AS t ON s.id = t.product_id, s.id = t.product_id  WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 order by s.id ASC"
+    select_query = "SELECT s.id, product_id FROM users AS s JOIN products AS t ON s.id = t.product_id, s.id = t.product_id  WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 order by s.id ASC"
     print(select_query)
     parsed_query = optim.parse_query(select_query,"database1",storage.get_stats)
     print(parsed_query)
