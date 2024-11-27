@@ -1,5 +1,6 @@
 from main_log_entry import LogEntry
 from typing import Optional, List, Set, Union
+from StorageManager.classes import DataWrite 
 from datetime import datetime
 import logging
 import re
@@ -11,7 +12,7 @@ class Recovery:
     """
     Class to handle recovery
     """
-    def __init__(self, log_file: str, logger: logging.Logger, add_entry_to_buffer):
+    def __init__(self, log_file: str, logger: logging.Logger, add_entry_to_buffer, storage_engine):
         """
         Constructor. Initialize the Recovery Instance
 
@@ -29,6 +30,9 @@ class Recovery:
 
         # callbacks
         self.add_entry_to_buffer = add_entry_to_buffer
+
+        # Store the storage engine instance
+        self.storage_engine = storage_engine
 
     def rollback(self, buffer_log_entries: List[LogEntry], list_transaction_id: List[str]):
         """
@@ -129,7 +133,14 @@ class Recovery:
             # TODO: SEND TO ????
             # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
 
-            self.logger.info(f"SEND to ??? on REDO function, {temp[i]}")
+            # self.logger.info(f"SEND to ??? on REDO function, {temp[i]}")
+
+            # still not sure about this, will check later after some sleep
+            if temp[i].event == "DATA":
+                self._execute_operation(temp[i])
+
+            self.logger.info(f"Re-executed operation on REDO function, {temp[i]}")
+
 
         # move to latest buffer
         for i in range(len(buffer_log_entries)):
@@ -141,7 +152,13 @@ class Recovery:
             # TODO: SEND TO ????
             # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
 
-            self.logger.info(f"SEND to ??? on REDO function {temp[i]}")
+            # self.logger.info(f"SEND to ??? on REDO function {temp[i]}")
+
+            # still not sure about this, will check later after some sleep
+            if buffer_log_entries[i].event == "DATA":
+                self._execute_operation(buffer_log_entries[i])
+
+            self.logger.info(f"Re-executed operation on REDO function {buffer_log_entries[i]}")
 
     def _reverse_query_executor(self, log_entry: LogEntry):
         
@@ -241,3 +258,34 @@ class Recovery:
             old_value=old_value,
             new_value=new_value
         )
+
+    def _execute_operation(self, log_entry: LogEntry):
+        """
+        Re-execute the data operation in the log entry.
+        """
+        
+        operation_info = log_entry.object_value  
+        if isinstance(operation_info, str):
+            try:
+                operation_info = ast.literal_eval(operation_info)
+            except (ValueError, SyntaxError):
+                self.logger.error(f"Invalid operation info in log entry: {log_entry}")
+                return
+        
+        database = operation_info.get('db')
+        table = operation_info.get('table')
+        column = operation_info.get('column')
+        new_value = log_entry.new_value
+        transaction_id = log_entry.transaction_id
+
+        data_write = DataWrite(
+            table=table,
+            column=[column],
+            conditions=[], 
+            new_value=[new_value]
+        )
+        result = self.storage_engine.write_block(data_write, database, transaction_id)
+        if isinstance(result, Exception):
+            self.logger.error(f"Error during redo operation: {result}")
+        else:
+            self.logger.info(f"Redo operation applied for transaction {transaction_id} on {database}.{table}.{column}")

@@ -15,6 +15,8 @@ from main_log_entry import LogEntry
 from main_recover_criteria import RecoverCriteria
 from main_threading_manager import ThreadingManager
 
+from StorageManager.classes import StorageEngine
+
 
 class FailureRecovery:
     """
@@ -54,8 +56,11 @@ class FailureRecovery:
         self.threading_manager = ThreadingManager(logger=self.logger)
         self.checkpoint_manager = CheckpointManager(fname, self.threading_manager, interval, buffer_size, self.logger)
 
+        # Initialize storage engine
+        self.storage_engine = StorageEngine()
+
         # init recovery
-        self.recovery = Recovery(fname, self.logger, self.add_entry_to_buffer)
+        self.recovery = Recovery(fname, self.logger, self.add_entry_to_buffer, self.storage_engine)
 
         # start checkpoint manager
         self.checkpoint_manager.start(self.get_buffer, self.get_active_transactions, self.clear_buffer)
