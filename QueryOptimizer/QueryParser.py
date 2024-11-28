@@ -158,10 +158,10 @@ class QueryParser:
                 element = ""
                 i+=2
                 continue
-            elif values_parsed[i] == "JOIN":
+            elif values_parsed[i] in ["JOIN",","]:
                 if element:
                     arr_joins.append(element.strip())
-                arr_joins.append("JOIN")
+                arr_joins.append(values_parsed[i])
                 element = ""
             else:
                 element += " " + values_parsed[i]

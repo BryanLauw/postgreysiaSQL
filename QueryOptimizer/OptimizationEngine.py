@@ -8,9 +8,11 @@ from QueryParser import QueryParser
 from QueryTree import ParsedQuery, QueryTree
 from QueryHelper import *
 from typing import Callable, Union
+from QueryValidator import QueryValidator
 class OptimizationEngine:
     def __init__(self):
         self.QueryParser = QueryParser("dfa.txt")
+        self.QueryValidator = QueryValidator()
 
     def parse_query(self, query: str,database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
@@ -30,14 +32,14 @@ class OptimizationEngine:
         query_components_value[comp_with_attr] = QueryHelper.remove_aliases(query_components_value[comp_with_attr])
         
         # Validate wrong aliases
-        QueryHelper.validate_aliases(query_components_value, alias_map)
+        self.QueryValidator.validate_aliases(query_components_value, alias_map, table_arr)
         
-        table_statistics = QueryHelper.validate_tables(table_arr,database_name,get_stats)
+        table_statistics = self.QueryValidator.validate_tables(table_arr,database_name,get_stats)
                 
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
         
-        QueryHelper.extract_and_validate_attributes(query_components_value, table_statistics)
-        
+        self.QueryValidator.extract_and_validate_attributes(query_components_value, table_statistics)
+                
         print(query_components_value)
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree,normalized_query)
@@ -107,7 +109,7 @@ if __name__ == "__main__":
     storage = StorageEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.id, product_id FROM users AS s JOIN products AS t ON s.id = t.product_id, s.id = t.product_id  WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 order by s.id ASC"
+    select_query = "SELECT s.id, product_id FROM users AS s JOIN products AS t ON users.id = t.id WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 order by s.id ASC"
     print(select_query)
     parsed_query = optim.parse_query(select_query,"database1",storage.get_stats)
     print(parsed_query)
@@ -120,17 +122,17 @@ if __name__ == "__main__":
     except ValueError as e:
         print(e)
 
-    where_clause = "students.a > 'aku' AND teacher.b = 'abc'"
-    attribute_types = {
-        "students.a": "integer",
-        "teacher.b": "varchar",
-    }
+    # where_clause = "students.a > 'aku' AND teacher.b = 'abc'"
+    # attribute_types = {
+    #     "students.a": "integer",
+    #     "teacher.b": "varchar",
+    # }
 
-    try:
-        QueryHelper.validate_comparisons(where_clause, attribute_types)
-        print("All comparisons are valid!")
-    except ValueError as e:
-        print(f"Validation error: {e}")
+    # try:
+    #     QueryHelper.validate_comparisons(where_clause, attribute_types)
+    #     print("All comparisons are valid!")
+    # except ValueError as e:
+    #     print(f"Validation error: {e}")
 
     # # Test UPDATE query
     # update_query = "UPDATE employee SET salary = salary + 1.1 - 5 WHERE salary > 1000"

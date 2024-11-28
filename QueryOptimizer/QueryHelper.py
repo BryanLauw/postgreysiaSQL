@@ -3,7 +3,6 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from StorageManager.classes import Statistic, StorageEngine
-
 from QueryTree import ParsedQuery, QueryTree
 import re
 from typing import List, Union, Dict, Callable
@@ -24,7 +23,7 @@ class QueryHelper:
         alias_map = {}
         attribute_arr = []
         for token in from_tokens:
-            if token=="JOIN" or token=="NATURAL JOIN":
+            if token in ["JOIN","NATURAL JOIN",","]:
                 continue
             
             splitted = token.split()
@@ -64,39 +63,6 @@ class QueryHelper:
                  query_components_value[comp] = QueryHelper.rewrite_with_alias(
                      query_components_value[comp], alias_map
                  )
-    
-    @staticmethod
-    def extract_and_validate_attributes(components_values: Dict[str, Union[List[str],str]], table_statistics):
-        for key in (components_values):
-            if key == 'UPDATE':
-                components_values[key] = QueryHelper.validate_attribute(components_values[key], table_statistics)
-            elif key == 'WHERE' or key == 'SET':
-                splitted = components_values[key].split()
-                for index,token in enumerate(splitted):
-                    if token.count('.')<=1 and token.replace('.','').isalpha():
-                        splitted[index] = QueryHelper.validate_attribute(token,table_statistics)
-                components_values[key] = " ".join(splitted).strip()
-                
-            elif key == 'ORDER BY':
-                attribute, order = components_values[key].split()
-                components_values[key] = f"{QueryHelper.validate_attribute(attribute,table_statistics)} {order}"
-                
-            elif key == 'FROM':
-                for index,clause in enumerate(components_values[key]):
-                    tokens = clause.split()
-                    try:
-                        ON_idx = tokens.index('ON')
-                        len_tokens = len(tokens)
-                        for i in range(ON_idx+1,len_tokens):
-                            if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', tokens[i].replace('.', '')) and tokens[i].count('.') <= 1:
-                                tokens[i] = QueryHelper.validate_attribute(tokens[i],table_statistics)
-                        components_values[key][index] = " ".join(tokens).strip()
-                    except ValueError:
-                        continue
-                    
-            elif key == 'SELECT':
-                components_values[key] = [QueryHelper.validate_attribute(attr,table_statistics) for attr in components_values[key]]
-                print(components_values[key])
     
     @staticmethod
     def parse_where_clause(where_clause: str) -> QueryTree:
@@ -163,106 +129,3 @@ class QueryHelper:
             return join_node
         
         return QueryHelper.__build_explicit_join(query_tree=join_node, join_tokens=join_tokens)
-    
-    # Define supported types and compatible comparisons
-    SUPPORTED_TYPES = {"integer", "float", "char", "varchar"}
-    COMPATIBLE_TYPES = {
-        "integer": {"integer", "float"},
-        "float": {"integer", "float"},
-        "char": {"char", "varchar"},
-        "varchar": {"char", "varchar"},
-    }
-
-    @staticmethod
-    def validate_comparisons(where_clause: str, attribute_types: dict):
-        # Regex to find comparisons
-        comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
-        matches = re.findall(comparison_pattern, where_clause)
-
-        for left_attr, operator, right_attr in matches:
-            left_type = attribute_types.get(left_attr)
-            right_type = attribute_types.get(right_attr)
-
-            # Handle literal values
-            if left_type is None:
-                left_type = QueryHelper.infer_literal_type(left_attr)
-            if right_type is None:
-                right_type = QueryHelper.infer_literal_type(right_attr)
-
-            # Check if both types are supported
-            if left_type not in QueryHelper.SUPPORTED_TYPES or right_type not in QueryHelper.SUPPORTED_TYPES:
-                raise ValueError(f"Unsupported data type(s) in comparison: {left_attr} ({left_type}) and {right_attr} ({right_type})")
-
-            # Check compatibility of the types
-            if right_type not in QueryHelper.COMPATIBLE_TYPES.get(left_type, {}):
-                raise ValueError(f"Incompatible types in comparison: {left_attr} ({left_type}) and {right_attr} ({right_type})")
-
-    @staticmethod
-    def infer_literal_type(value: str) -> str:
-        if value.isdigit():
-            return "integer"
-        try:
-            float(value)
-            return "float"
-        except ValueError:
-            pass
-        if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
-            return "varchar"
-        raise ValueError(f"Unknown literal type for value: {value}")
-    
-    @staticmethod
-    def validate_aliases(query_components: dict, alias_map: dict):
-        def find_aliases(expression: str) -> set:
-            aliases = set()
-            tokens = expression.split()
-            for token in tokens:
-                if "." in token:  # Check for alias usage
-                    alias = token.split(".")[0]
-                    aliases.add(alias)
-            return aliases
-
-        used_aliases = set()
-
-        if "SELECT" in query_components:
-            for attr in query_components["SELECT"]:
-                used_aliases.update(find_aliases(attr))
-        if "WHERE" in query_components:
-            used_aliases.update(find_aliases(query_components["WHERE"]))
-        if "FROM" in query_components:
-            for token in query_components["FROM"]:
-                if "." in token:
-                    used_aliases.update(find_aliases(token))
-
-        # Find undefined aliases
-        undefined_aliases = used_aliases - set(alias_map.keys())
-        if undefined_aliases:
-            raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
-    
-    @staticmethod
-    def validate_tables(table_arr: list[str], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        table_statistics = {}
-        for table in table_arr:
-            table_statistics[table] = get_stats(database_name,table.lower())
-        return table_statistics
-    
-    @staticmethod
-    def validate_attribute(attribute: str,table_statistics: Dict[str, Statistic]):
-        if attribute in ["AND","OR"]:
-            return attribute
-        
-        attr_with_table = ""
-        if '.' in attribute:
-            table, attr = attribute.split('.')
-            if attr.lower() not in table_statistics[table].V_a_r:
-                raise ValueError(f"{attr} doesn't exist at table {table}")
-            attr_with_table = attribute
-        else:
-            for table in table_statistics:
-                if attribute.lower() in table_statistics[table].V_a_r:
-                    if attr_with_table:
-                        raise ValueError(f"Ambiguous attribute: {attribute}")
-                    attr_with_table = f"{table.upper()}.{attribute}"
-                    
-        if not attr_with_table:
-            raise ValueError(f"{attribute} doesn't exist!")
-        return attr_with_table
