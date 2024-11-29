@@ -27,12 +27,12 @@ class LogEntry:
         
         # TODO: BAHAS 3 ini butuh atau ga
         if isinstance(object_value, dict):
-            if 'db' in object_value:
-                self.db: Optional[str] = object_value['db']
-            if 'table' in object_value:
-                self.table: Optional[str] = object_value['table'] 
-            if 'column' in object_value:
-                self.column: Optional[str] = object_value['column'] 
+            if 'nama_db' in object_value:
+                self.nama_db: Optional[str] = object_value['nama_db']
+            if 'nama_kolom' in object_value:
+                self.nama_kolom: Optional[str] = object_value['nama_kolom'] 
+            if 'primary_key' in object_value:
+                self.primary_key: Optional[str] = object_value['primary_key'] 
 
         self.object_value: Optional[str] = object_value
         self.old_value: Optional[str] = old_value
