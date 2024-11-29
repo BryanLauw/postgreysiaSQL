@@ -111,6 +111,14 @@ class BPlusTree:
                 return i
         return len(node.keys)
 
+    def _find_child_index_deletion(self, node, key):
+        for i, k in enumerate(node.keys):
+            if key < k and node.keys[i - 1] != key :
+                return i, -999
+            if key < k and node.keys[i - 1] == key : 
+                return i, -1000
+        return len(node.keys), -1001
+
     def search(self, key):
         return self._search_recursive(self.root, key)
 
@@ -179,7 +187,7 @@ class BPlusTree:
     def delete(self, value):
         if not self.root:
             return
-
+        print("======= deleting", value, "=======")
         self._delete_recursive(self.root, value)
 
         # If the root becomes empty and is not a leaf, promote its only child
@@ -189,10 +197,13 @@ class BPlusTree:
     def _delete_recursive(self, node, value):
         if node.is_leaf:
             if value in node.keys:
+                index = node.keys.index(value)
                 node.keys.remove(value)
+                node.values.remove(node.values[index])
         else:
             # delete from internal node
-            idx = self._find_child_index(node, value)
+            idx, status = self._find_child_index_deletion(node, value)
+            print(status)
             
             if value in node.keys:
                 print("idx ditemukannya value sama =", idx)
@@ -212,8 +223,13 @@ class BPlusTree:
 
                 if len(current.keys) > node.min_key :
                     successor = self._find_successor(node, idx)
-                    # print("successor =", successor)
-                    node.keys[idx - 1] = successor
+                    print("successor =", successor)
+                    print("node keys sebelum dihapus =", node.keys)
+                    print("idx", idx)
+                    if status != -999 :
+                        node.keys[idx - 1] = successor
+                        # print("1001:", node.keys)
+                    #     node.keys[idx] = successor
                     # print("jumlah keys")
                     # print("node keys baru =", node.keys[idx - 1])
                     self._delete_recursive(node.children[idx], value)
@@ -227,21 +243,39 @@ class BPlusTree:
                     # print(f"children 2", parent.children[1].keys)
                     # print("idx", idx)
                     left_sibling, right_sibling = None, None
-                    if idx > 1 : 
-                        left_sibling = parent.children[idx-2]
-                    if idx <= parent.min_children - 1 : 
-                        right_sibling = parent.children[idx]
+                    index_from_parent = parent.children.index(current)
+                    # print("index from parent for key", value, "is", index_from_parent)
+                    if index_from_parent > 0 : 
+                        left_sibling = parent.children[index_from_parent - 1]
+                        # print("left sibling", left_sibling.keys)
+                    if len(parent.children) > 1 :
+                        right_sibling = parent.children[index_from_parent + 1]
+                    # if index_from_parent <= parent.min_children - 1 : 
+                    #     right_sibling = parent.children[idx]
                     
                     if left_sibling and len(left_sibling.keys) > parent.min_key :
                         # print("masuk sini kan ya pt. 2")
                         borrowed_key = left_sibling.keys.pop(-1)
                         borrowed_value = left_sibling.values.pop(-1)
+                        node.keys.remove(value)
+                        current.keys.remove(value)
+
+                        current.keys.insert(0, borrowed_key)
+                        current.values.insert(0, borrowed_value)
 
                         node.keys.insert(0, borrowed_key)
                         node.values.insert(0, borrowed_value)
-                        parent.keys[idx - 1] = node.keys[0]
+                        # print("parent.keys[idx-1]", parent.keys[idx - 1])
+                        print()
+                        print("___otak-atik parent key___")
+                        print(parent.keys)
+                        # parent.keys[idx - 1] = borrowed_key
+                        if len(parent.keys) > idx :
+                            for i in range (len(parent.keys) - 1) :
+                                parent.keys[idx + i] = parent.children[idx + i + 1].keys[0]
+                            # parent.keys[idx] = parent.children[idx].keys[0]
                     else :
-                        if right_sibling and len(right_sibling.keys) > parent.min_key :
+                        if right_sibling and len    (right_sibling.keys) > parent.min_key :
                             borrowed_key = right_sibling.keys.pop(0)
                             # print("borrowed_key", borrowed_key)
                             borrowed_value = right_sibling.values.pop(0)
@@ -257,7 +291,10 @@ class BPlusTree:
                             node.keys.append(borrowed_key)
                             node.values.append(borrowed_value)
                             # print("node keys", node.keys)
-                            parent.keys[idx-1] = right_sibling.keys[0] if right_sibling.keys else borrowed_key
+                            parent.keys[idx-1] = borrowed_key
+                            if len(parent.keys) > idx :
+                                for i in range (len(parent.keys) - 1) :
+                                    parent.keys[idx + i] = parent.children[idx + i + 1].keys[0]
                         else : 
                             if left_sibling : 
                                 left_sibling.keys.extend(node.keys)
@@ -353,37 +390,46 @@ class BPlusTree:
 
 
 
-def main():
-    tree = BPlusTree(order=4)
+# def main():
+#     tree = BPlusTree(order=4)
     
-    values = [[10, "A"], [20, "B"], [5, "C"], [15, "D"], [25, "E"], [30, "F"], [8, "G"], [12, "H"], [7, "I"], [18, "J"], [22, "K"], [35, "L"], [40, "M"], [50, "N"], [55, "O"], [60, "P"], [33, "Q"], [56, "R"], [11, "S"], [19, "T"], [13, "U"], [57, "V"], [58, "W"], [14, "X"], [6, "Y"], [36, "Z"], [37, "AA"], [38, "BB"], [39, "CC"]]
+#     values = [[10, "A"], [20, "B"], [5, "C"], [15, "D"], [25, "E"], [30, "F"], [8, "G"], [12, "H"], [7, "I"], [18, "J"], [22, "K"], [35, "L"], [40, "M"], [50, "N"], [55, "O"], [60, "P"], [33, "Q"], [56, "R"], [11, "S"], [19, "T"], [13, "U"], [57, "V"], [58, "W"], [14, "X"], [6, "Y"], [36, "Z"], [37, "AA"], [38, "BB"], [39, "CC"]]
     
-    for key, value in values:
-        print(f"\nInserting {value}")
-        tree.insert(key, value)
+#     for key, value in values:
+#         print(f"\nInserting {value}")
+#         tree.insert(key, value)
         
-        print("\nTree Structure:")
-        tree.print_tree()
+#         print("\nTree Structure:")
+#         tree.print_tree()
         
-        tree.print_leaf_chain()
+#         tree.print_leaf_chain()
         
-        print("\n" + "-" * 50)
+#         print("\n" + "-" * 50)
 
-    print(tree.search_range(10,20))
+#     print(tree.search_range(10,20))
 
-    # tree.delete(60)
-    tree.delete(37)
-    tree.print_tree()
-    print()
-    tree.delete(38)
-    tree.print_tree()
-    print()
-    tree.delete(7)
-    tree.print_tree()
-    print()
-    tree.delete(8)
-    tree.print_tree()
-    print()
+#     # tree.delete(60)
+#     tree.delete(37)
+#     tree.print_tree()
+#     print()
+#     tree.delete(38)
+#     tree.print_tree()
+#     print()
+#     tree.delete(7)
+#     tree.print_tree()
+#     print()
+#     tree.delete(8)
+#     tree.print_tree()
+#     print()
+#     tree.delete(6)
+#     tree.print_tree()
+#     print()
+#     tree.delete(56)
+#     tree.print_tree()
+#     print()
+#     tree.delete(57)
+#     tree.print_tree()
+#     print()
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
