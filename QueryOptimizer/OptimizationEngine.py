@@ -35,13 +35,18 @@ class OptimizationEngine:
         # Validate wrong aliases
         self.QueryValidator.validate_aliases(query_components_value, alias_map, table_arr)
         
+        # Validate wrong tables
         self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
                 
+        # Rewrite alias with direct table's name for simplicity
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
         
+        # Get attributes and validate their existence
         self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
                 
         print(query_components_value)
+        
+        # Build the initial query evaluation plan tree
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree,normalized_query)
 
@@ -63,12 +68,15 @@ class OptimizationEngine:
             top = order_by_tree
         
         if "SELECT" in components:
+            root.val = "SELECT"
             select_tree = QueryTree(type="SELECT", val=components["SELECT"])
             top.add_child(select_tree)
             select_tree.add_parent(top)
             top = select_tree
+            
                 
         if "UPDATE" in components:
+            root.val = "UPDATE"
             where_tree = QueryTree(type="UPDATE", val=components["UPDATE"])
             top.add_child(where_tree)
             where_tree.add_parent(top)
