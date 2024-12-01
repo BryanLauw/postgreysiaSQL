@@ -73,7 +73,6 @@ class QueryValidator:
                 if "." in token:
                     used_aliases.update(find_aliases(token))
 
-        print("SINI ",used_aliases, set(alias_map.keys()))
         undefined_aliases = used_aliases - set(alias_map.keys()) - set(table_arr)
         if undefined_aliases:
             raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
@@ -133,4 +132,3 @@ class QueryValidator:
                     
             elif key == 'SELECT':
                 components_values[key] = [self.validate_attribute(attr, database_name, get_stats, table_arr) for attr in components_values[key]]
-                print(components_values[key])

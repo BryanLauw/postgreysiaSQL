@@ -68,7 +68,6 @@ class QueryHelper:
     def parse_where_clause(where_clause: str, current_node: QueryTree) -> QueryTree:
         # Tokenize the WHERE clause into conditions split by AND
         parsed_result = re.split(r'\sAND\s', where_clause)
-        print("parsed", parsed_result)
 
         # Dictionary to group conditions by table
         table_conditions = {}

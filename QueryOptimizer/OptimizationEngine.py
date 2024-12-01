@@ -43,9 +43,7 @@ class OptimizationEngine:
         
         # Get attributes and validate their existence
         self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
-                
-        print(query_components_value)
-        
+                        
         # Build the initial query evaluation plan tree
         query_tree = self.__build_query_tree(query_components_value,database_name)
         return ParsedQuery(query_tree,normalized_query)
@@ -127,9 +125,9 @@ if __name__ == "__main__":
 
     # Test SELECT query with JOIN
     select_query = "SELECT s.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id NATURAL JOIN users AS s WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by s.id ASC"
-    print(select_query)
+    print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
-    print(parsed_query)
+    print("EVALUATION PLAN TREE: \n",parsed_query)
 
     try:
         invalid_query = "SELECT x.a FROM students AS s"
