@@ -75,24 +75,44 @@ class QueryHelper:
             current_node.add_child(parse_node)
             parse_node.add_parent(current_node)
         return parse_node
-
+    
     @staticmethod
-    def build_join_tree(from_tokens: list) -> QueryTree:
+    def gather_attributes(node: QueryTree, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
+        if(node.type =="TABLE"):
+            return get_stats(database_name,node.val.strip().lower()).V_a_r.keys()
+        
+        if(node.type == "JOIN"):
+            return QueryHelper.gather_attributes(node.childs[0],database_name,get_stats) | QueryHelper.gather_attributes(node.childs[1],database_name,get_stats)
+        
+        if(node.type == "SELECT"):
+            return set(node.val)
+        
+        return QueryHelper.gather_attributes(node.childs[0],database_name,get_stats)
+        
+    @staticmethod
+    def build_join_tree(from_tokens: list, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> QueryTree:
         first_table_node = QueryTree(type="TABLE", val=from_tokens.pop(0))
 
         if len(from_tokens) == 0:
             return first_table_node
         
-        return QueryHelper.__build_explicit_join(first_table_node, from_tokens)
+        return QueryHelper.__recursive_build_join(first_table_node, from_tokens, database_name, get_stats)
     
     @staticmethod
-    def __build_explicit_join(query_tree: QueryTree, join_tokens: list) -> QueryTree:
-        join_tokens.pop(0)
-        value = join_tokens.pop(0).split(" ON ")
+    def __recursive_build_join(query_tree: QueryTree, join_tokens: list, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> QueryTree:
+        join_type = join_tokens.pop(0)
+        if(join_type == "NATURAL JOIN"):
+            other_table = join_tokens.pop(0)
+            natural_attributes = list(QueryHelper.gather_attributes(query_tree,database_name,get_stats) & get_stats(database_name,other_table.strip().lower()).V_a_r.keys())
+            natural_attributes = [attr.upper() for attr in natural_attributes]
+            join_node = QueryTree(type="JOIN", val=natural_attributes)
+        else:
+            value = join_tokens.pop(0).split(" ON ")
+            other_table = value[0]
+            join_node = QueryTree(type="JOIN", val=value[1])
 
-        join_node = QueryTree(type="JOIN", val=value[1])
         query_tree.add_parent(join_node)
-        right_table_node = QueryTree(type="TABLE", val=value[0])
+        right_table_node = QueryTree(type="TABLE", val=other_table)
         right_table_node.add_parent(join_node)
         join_node.add_child(query_tree)
         join_node.add_child(right_table_node)
@@ -100,4 +120,4 @@ class QueryHelper:
         if len(join_tokens) == 0:
             return join_node
         
-        return QueryHelper.__build_explicit_join(query_tree=join_node, join_tokens=join_tokens)
+        return QueryHelper.__recursive_build_join(query_tree=join_node, join_tokens=join_tokens, database_name=database_name,get_stats=get_stats)

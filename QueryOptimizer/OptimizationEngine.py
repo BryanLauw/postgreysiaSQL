@@ -47,10 +47,10 @@ class OptimizationEngine:
         print(query_components_value)
         
         # Build the initial query evaluation plan tree
-        query_tree = self.__build_query_tree(query_components_value)
+        query_tree = self.__build_query_tree(query_components_value,database_name)
         return ParsedQuery(query_tree,normalized_query)
 
-    def __build_query_tree(self, components: dict) -> QueryTree:
+    def __build_query_tree(self, components: dict, database_name: str) -> QueryTree:
         query_type = next(iter(components))
         root = QueryTree(type="ROOT")
         top = root
@@ -106,7 +106,7 @@ class OptimizationEngine:
                 top = where_tree
 
         if "FROM" in components:
-            join_tree = QueryHelper.build_join_tree(components["FROM"])
+            join_tree = QueryHelper.build_join_tree(components["FROM"],database_name,self.get_stats)
             top.add_child(join_tree)
             join_tree.add_parent(top)
 
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.id, product_id FROM users AS s JOIN products AS t ON users.id = t.id WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by s.id ASC"
+    select_query = "SELECT s.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id NATURAL JOIN users AS s WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by s.id ASC"
     print(select_query)
     parsed_query = optim.parse_query(select_query,"database1")
     print(parsed_query)
