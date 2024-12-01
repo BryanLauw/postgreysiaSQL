@@ -65,45 +65,17 @@ class QueryHelper:
                  )
     
     @staticmethod
-    def parse_where_clause(where_clause: str) -> QueryTree:
-        # Tokenize the WHERE clause into conditions and operators
-        tokens = re.split(r'(\bAND\b|\bOR\b)', where_clause)
-        tokens = [token.strip() for token in tokens if token.strip()]
+    def parse_where_clause(where_clause: str, current_node: QueryTree) -> QueryTree:
+        # Tokenize the WHERE clause into conditions
+        parsed_result = re.split(r'\sAND\s', where_clause)
+        print("parsed", parsed_result)
 
-        def build_tree(tokens: list) -> QueryTree:
-            if len(tokens) == 1:  # Base case: single condition
-                return QueryTree(type="WHERE", val=tokens[0])
+        for parse in parsed_result:
+            parse_node = QueryTree(type="WHERE", val=parse)
+            current_node.add_child(parse_node)
+            parse_node.add_parent(current_node)
+        return parse_node
 
-            # Find the lowest-precedence operator (OR > AND)
-            if "OR" in tokens:
-                operator_index = tokens.index("OR")
-            elif "AND" in tokens:
-                operator_index = tokens.index("AND")
-            else:
-                raise ValueError("Invalid WHERE clause")
-
-            # Split into left and right parts
-            left_tokens = tokens[:operator_index]
-            right_tokens = tokens[operator_index + 1:]
-            operator = tokens[operator_index]
-
-            # Create the operator node
-            operator_node = QueryTree(type="LOGIC", val=operator)
-
-            # Recursively build left and right subtrees
-            left_tree = build_tree(left_tokens)
-            right_tree = build_tree(right_tokens)
-
-            # Attach left and right subtrees to the operator node
-            operator_node.add_child(left_tree)
-            operator_node.add_child(right_tree)
-            left_tree.add_parent(operator_node)
-            right_tree.add_parent(operator_node)
-
-            return operator_node
-
-        return build_tree(tokens)
-    
     @staticmethod
     def build_join_tree(from_tokens: list) -> QueryTree:
         first_table_node = QueryTree(type="TABLE", val=from_tokens.pop(0))

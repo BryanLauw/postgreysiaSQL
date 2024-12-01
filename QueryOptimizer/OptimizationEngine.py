@@ -81,7 +81,15 @@ class OptimizationEngine:
         #     top = where_tree
         
         if "WHERE" in components:
-            where_tree = QueryHelper.parse_where_clause(components["WHERE"])
+            # use this if you want to separate the childs
+            # where_tree = QueryHelper.parse_where_clause(components["WHERE"], top)
+            # if query_type == "SELECT":
+            #     top = select_tree
+            # else:
+            #     top = where_tree
+
+            parsed_result = re.split(r'\sAND\s', components["WHERE"])
+            where_tree = QueryTree(type="WHERE", val=parsed_result)
             top.add_child(where_tree)
             where_tree.add_parent(top)
             if query_type == "SELECT":
@@ -110,7 +118,7 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.id, product_id FROM users AS s JOIN products AS t ON users.id = t.id WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 order by s.id ASC"
+    select_query = "SELECT s.id, product_id FROM users AS s JOIN products AS t ON users.id = t.id WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by s.id ASC"
     print(select_query)
     parsed_query = optim.parse_query(select_query,"database1")
     print(parsed_query)
