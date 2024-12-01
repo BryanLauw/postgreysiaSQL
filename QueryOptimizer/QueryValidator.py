@@ -1,4 +1,10 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from StorageManager.classes import Statistic, StorageEngine
 from QueryHelper import *
+from typing import Callable, Union
 
 class QueryValidator:
     # Define supported types and compatible comparisons
@@ -73,25 +79,22 @@ class QueryValidator:
             raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
     
     def validate_tables(self,table_arr: list[str], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        print(table_arr)
-        table_statistics = {}
         for table in table_arr:
-            table_statistics[table] = get_stats(database_name,table.lower())
-        return table_statistics
+            get_stats(database_name,table.lower())
     
-    def validate_attribute(self,attribute: str,table_statistics: Dict[str, Statistic]):
+    def validate_attribute(self,attribute: str,database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]],table_arr: list[str]):
         if attribute in ["AND","OR"]:
             return attribute
         
         attr_with_table = ""
         if '.' in attribute:
             table, attr = attribute.split('.')
-            if attr.lower() not in table_statistics[table].V_a_r:
+            if attr.lower() not in get_stats(database_name,table.lower()).V_a_r:
                 raise ValueError(f"{attr} doesn't exist at table {table}")
             attr_with_table = attribute
         else:
-            for table in table_statistics:
-                if attribute.lower() in table_statistics[table].V_a_r:
+            for table in table_arr:
+                if attribute.lower() in get_stats(database_name,table.lower()).V_a_r:
                     if attr_with_table:
                         raise ValueError(f"Ambiguous attribute: {attribute}")
                     attr_with_table = f"{table.upper()}.{attribute}"
@@ -100,20 +103,20 @@ class QueryValidator:
             raise ValueError(f"{attribute} doesn't exist!")
         return attr_with_table
     
-    def extract_and_validate_attributes(self,components_values: Dict[str, Union[List[str],str]], table_statistics):
+    def extract_and_validate_attributes(self,components_values: Dict[str, Union[List[str],str]], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]],table_arr: list[str]):
         for key in (components_values):
             if key == 'UPDATE':
-                components_values[key] = self.validate_attribute(components_values[key], table_statistics)
+                components_values[key] = self.validate_attribute(components_values[key], database_name, get_stats, table_arr)
             elif key == 'WHERE' or key == 'SET':
                 splitted = components_values[key].split()
                 for index,token in enumerate(splitted):
                     if token.count('.')<=1 and token.replace('.','').isalpha():
-                        splitted[index] = self.validate_attribute(token,table_statistics)
+                        splitted[index] = self.validate_attribute(token, database_name, get_stats, table_arr)
                 components_values[key] = " ".join(splitted).strip()
                 
             elif key == 'ORDER BY':
                 attribute, order = components_values[key].split()
-                components_values[key] = f"{self.validate_attribute(attribute,table_statistics)} {order}"
+                components_values[key] = f"{self.validate_attribute(attribute, database_name, get_stats, table_arr)} {order}"
                 
             elif key == 'FROM':
                 for index,clause in enumerate(components_values[key]):
@@ -123,11 +126,11 @@ class QueryValidator:
                         len_tokens = len(tokens)
                         for i in range(ON_idx+1,len_tokens):
                             if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', tokens[i].replace('.', '')) and tokens[i].count('.') <= 1:
-                                tokens[i] = self.validate_attribute(tokens[i],table_statistics)
+                                tokens[i] = self.validate_attribute(tokens[i], database_name, get_stats, table_arr)
                         components_values[key][index] = " ".join(tokens).strip()
                     except ValueError:
                         continue
                     
             elif key == 'SELECT':
-                components_values[key] = [self.validate_attribute(attr,table_statistics) for attr in components_values[key]]
+                components_values[key] = [self.validate_attribute(attr, database_name, get_stats, table_arr) for attr in components_values[key]]
                 print(components_values[key])

@@ -10,11 +10,12 @@ from QueryHelper import *
 from typing import Callable, Union
 from QueryValidator import QueryValidator
 class OptimizationEngine:
-    def __init__(self):
+    def __init__(self, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
         self.QueryParser = QueryParser("dfa.txt")
         self.QueryValidator = QueryValidator()
+        self.get_stats = get_stats
 
-    def parse_query(self, query: str,database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> ParsedQuery:
+    def parse_query(self, query: str,database_name: str) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
             QueryHelper.normalize_string(query).upper()
         )
@@ -34,13 +35,18 @@ class OptimizationEngine:
         # Validate wrong aliases
         self.QueryValidator.validate_aliases(query_components_value, alias_map, table_arr)
         
-        table_statistics = self.QueryValidator.validate_tables(table_arr,database_name,get_stats)
+        # Validate wrong tables
+        self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
                 
+        # Rewrite alias with direct table's name for simplicity
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
         
-        self.QueryValidator.extract_and_validate_attributes(query_components_value, table_statistics)
+        # Get attributes and validate their existence
+        self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
                 
         print(query_components_value)
+        
+        # Build the initial query evaluation plan tree
         query_tree = self.__build_query_tree(query_components_value)
         return ParsedQuery(query_tree,normalized_query)
 
@@ -62,12 +68,15 @@ class OptimizationEngine:
             top = order_by_tree
         
         if "SELECT" in components:
+            root.val = "SELECT"
             select_tree = QueryTree(type="SELECT", val=components["SELECT"])
             top.add_child(select_tree)
             select_tree.add_parent(top)
             top = select_tree
+            
                 
         if "UPDATE" in components:
+            root.val = "UPDATE"
             where_tree = QueryTree(type="UPDATE", val=components["UPDATE"])
             top.add_child(where_tree)
             where_tree.add_parent(top)
@@ -113,19 +122,19 @@ class OptimizationEngine:
 
 
 if __name__ == "__main__":
-    optim = OptimizationEngine()
     storage = StorageEngine()
+    optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
     select_query = "SELECT s.id, product_id FROM users AS s JOIN products AS t ON users.id = t.id WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 AND s.id < 2 order by s.id ASC"
     print(select_query)
-    parsed_query = optim.parse_query(select_query,"database1",storage.get_stats)
+    parsed_query = optim.parse_query(select_query,"database1")
     print(parsed_query)
 
     try:
         invalid_query = "SELECT x.a FROM students AS s"
         print(invalid_query)
-        parsed_query = optim.parse_query(invalid_query,"database1",storage.get_stats)
+        parsed_query = optim.parse_query(invalid_query,"database1")
         print(parsed_query)
     except ValueError as e:
         print(e)
