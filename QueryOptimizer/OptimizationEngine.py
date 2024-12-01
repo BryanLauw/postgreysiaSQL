@@ -10,11 +10,12 @@ from QueryHelper import *
 from typing import Callable, Union
 from QueryValidator import QueryValidator
 class OptimizationEngine:
-    def __init__(self):
+    def __init__(self, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
         self.QueryParser = QueryParser("dfa.txt")
         self.QueryValidator = QueryValidator()
+        self.get_stats = get_stats
 
-    def parse_query(self, query: str,database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> ParsedQuery:
+    def parse_query(self, query: str,database_name: str) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
             QueryHelper.normalize_string(query).upper()
         )
@@ -34,7 +35,7 @@ class OptimizationEngine:
         # Validate wrong aliases
         self.QueryValidator.validate_aliases(query_components_value, alias_map, table_arr)
         
-        table_statistics = self.QueryValidator.validate_tables(table_arr,database_name,get_stats)
+        table_statistics = self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
                 
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
         
@@ -105,19 +106,19 @@ class OptimizationEngine:
 
 
 if __name__ == "__main__":
-    optim = OptimizationEngine()
     storage = StorageEngine()
+    optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
     select_query = "SELECT s.id, product_id FROM users AS s JOIN products AS t ON users.id = t.id WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 order by s.id ASC"
     print(select_query)
-    parsed_query = optim.parse_query(select_query,"database1",storage.get_stats)
+    parsed_query = optim.parse_query(select_query,"database1")
     print(parsed_query)
 
     try:
         invalid_query = "SELECT x.a FROM students AS s"
         print(invalid_query)
-        parsed_query = optim.parse_query(invalid_query,"database1",storage.get_stats)
+        parsed_query = optim.parse_query(invalid_query,"database1")
         print(parsed_query)
     except ValueError as e:
         print(e)
