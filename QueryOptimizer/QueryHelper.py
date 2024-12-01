@@ -66,16 +66,43 @@ class QueryHelper:
     
     @staticmethod
     def parse_where_clause(where_clause: str, current_node: QueryTree) -> QueryTree:
-        # Tokenize the WHERE clause into conditions
+        # Tokenize the WHERE clause into conditions split by AND
         parsed_result = re.split(r'\sAND\s', where_clause)
         print("parsed", parsed_result)
 
+        # Dictionary to group conditions by table
+        table_conditions = {}
+
         for parse in parsed_result:
-            parse_node = QueryTree(type="WHERE", val=parse)
+            # If OR is present, handle it as a single condition
+            if "OR" in parse:
+                parse_node = QueryTree(type="WHERE", val=parse)
+                current_node.add_child(parse_node)
+                parse_node.add_parent(current_node)
+            else:
+                # Extract the table name from the condition
+                match = re.match(r'(\w+)\.', parse)
+                if match:
+                    table_name = match.group(1)
+                    # Group conditions by table name
+                    if table_name not in table_conditions:
+                        table_conditions[table_name] = []
+                    table_conditions[table_name].append(parse)
+        
+        # Add grouped conditions to the tree
+        for table, conditions in table_conditions.items():
+            if len(conditions) > 1:
+                # If multiple conditions for the same table, group them into an array
+                parse_node = QueryTree(type="WHERE", val=conditions)
+            else:
+                # If only one condition, store it as a string
+                parse_node = QueryTree(type="WHERE", val=conditions[0])
             current_node.add_child(parse_node)
             parse_node.add_parent(current_node)
-        return parse_node
-    
+
+        return current_node
+
+
     @staticmethod
     def gather_attributes(node: QueryTree, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
         if(node.type =="TABLE"):

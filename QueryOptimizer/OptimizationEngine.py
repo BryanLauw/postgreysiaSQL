@@ -90,20 +90,20 @@ class OptimizationEngine:
         
         if "WHERE" in components:
             # use this if you want to separate the childs
-            # where_tree = QueryHelper.parse_where_clause(components["WHERE"], top)
-            # if query_type == "SELECT":
-            #     top = select_tree
-            # else:
-            #     top = where_tree
-
-            parsed_result = re.split(r'\sAND\s', components["WHERE"])
-            where_tree = QueryTree(type="WHERE", val=parsed_result)
-            top.add_child(where_tree)
-            where_tree.add_parent(top)
+            where_tree = QueryHelper.parse_where_clause(components["WHERE"], top)
             if query_type == "SELECT":
                 top = select_tree
             else:
                 top = where_tree
+
+            # parsed_result = re.split(r'\sAND\s', components["WHERE"])
+            # where_tree = QueryTree(type="WHERE", val=parsed_result)
+            # top.add_child(where_tree)
+            # where_tree.add_parent(top)
+            # if query_type == "SELECT":
+            #     top = select_tree
+            # else:
+            #     top = where_tree
 
         if "FROM" in components:
             join_tree = QueryHelper.build_join_tree(components["FROM"],database_name,self.get_stats)
