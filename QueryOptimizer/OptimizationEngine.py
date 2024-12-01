@@ -35,11 +35,11 @@ class OptimizationEngine:
         # Validate wrong aliases
         self.QueryValidator.validate_aliases(query_components_value, alias_map, table_arr)
         
-        table_statistics = self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
+        self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
                 
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
         
-        self.QueryValidator.extract_and_validate_attributes(query_components_value, table_statistics)
+        self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
                 
         print(query_components_value)
         query_tree = self.__build_query_tree(query_components_value)
