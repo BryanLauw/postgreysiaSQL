@@ -66,32 +66,16 @@ class QueryHelper:
     
     @staticmethod
     def parse_where_clause(where_clause: str, current_node: QueryTree) -> QueryTree:
-        # Tokenize the WHERE clause into conditions split by AND
+        # Tokenize the WHERE clause into conditions
         parsed_result = re.split(r'\sAND\s', where_clause)
         print("parsed", parsed_result)
 
-        # Dictionary to group conditions by table
-        table_conditions = {}
-
         for parse in parsed_result:
-            # Extract the table name from the condition
-            match = re.match(r'(\w+)\.', parse)
-            if match:
-                table_name = match.group(1)
-
-                # If OR is present, group it under the same table as an array
-                if table_name not in table_conditions:
-                    table_conditions[table_name] = []
-                table_conditions[table_name].append(parse)
-
-        # Add grouped conditions to the tree
-        for table, conditions in table_conditions.items():
-            # Store the conditions as an array in the QueryTree node
-            parse_node = QueryTree(type="WHERE", val=conditions)
+            parse_node = QueryTree(type="WHERE", val=parse)
             current_node.add_child(parse_node)
             parse_node.add_parent(current_node)
-
-        return current_node
+            current_node = parse_node
+        return parse_node
 
     @staticmethod
     def gather_attributes(node: QueryTree, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
