@@ -66,70 +66,33 @@ class QueryHelper:
     
     @staticmethod
     def parse_where_clause(where_clause: str, current_node: QueryTree) -> QueryTree:
-        # Tokenize the WHERE clause into conditions split by AND
+        # Tokenize the WHERE clause into conditions
         parsed_result = re.split(r'\sAND\s', where_clause)
-        print("parsed", parsed_result)
-
-        # Dictionary to group conditions by table
-        table_conditions = {}
+        # print("parsed", parsed_result)
 
         for parse in parsed_result:
-            # Extract the table name from the condition
-            match = re.match(r'(\w+)\.', parse)
-            if match:
-                table_name = match.group(1)
-
-                # If OR is present, group it under the same table as an array
-                if table_name not in table_conditions:
-                    table_conditions[table_name] = []
-                table_conditions[table_name].append(parse)
-
-        # Add grouped conditions to the tree
-        for table, conditions in table_conditions.items():
-            # Store the conditions as an array in the QueryTree node
-            parse_node = QueryTree(type="WHERE", val=conditions)
+            parse_node = QueryTree(type="WHERE", val=parse)
             current_node.add_child(parse_node)
             parse_node.add_parent(current_node)
-
-        return current_node
+        return parse_node
 
     @staticmethod
-    def gather_attributes(node: QueryTree, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        if(node.type =="TABLE"):
-            return get_stats(database_name,node.val.strip().lower()).V_a_r.keys()
-        
-        if(node.type == "JOIN"):
-            return QueryHelper.gather_attributes(node.childs[0],database_name,get_stats) | QueryHelper.gather_attributes(node.childs[1],database_name,get_stats)
-        
-        if(node.type == "SELECT"):
-            return set(node.val)
-        
-        return QueryHelper.gather_attributes(node.childs[0],database_name,get_stats)
-        
-    @staticmethod
-    def build_join_tree(from_tokens: list, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> QueryTree:
+    def build_join_tree(from_tokens: list) -> QueryTree:
         first_table_node = QueryTree(type="TABLE", val=from_tokens.pop(0))
 
         if len(from_tokens) == 0:
             return first_table_node
         
-        return QueryHelper.__recursive_build_join(first_table_node, from_tokens, database_name, get_stats)
+        return QueryHelper.__build_explicit_join(first_table_node, from_tokens)
     
     @staticmethod
-    def __recursive_build_join(query_tree: QueryTree, join_tokens: list, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> QueryTree:
-        join_type = join_tokens.pop(0)
-        if(join_type == "NATURAL JOIN"):
-            other_table = join_tokens.pop(0)
-            natural_attributes = list(QueryHelper.gather_attributes(query_tree,database_name,get_stats) & get_stats(database_name,other_table.strip().lower()).V_a_r.keys())
-            natural_attributes = [attr.upper() for attr in natural_attributes]
-            join_node = QueryTree(type="NATURAL JOIN", val=natural_attributes)
-        else:
-            value = join_tokens.pop(0).split(" ON ")
-            other_table = value[0]
-            join_node = QueryTree(type="JOIN", val=value[1])
+    def __build_explicit_join(query_tree: QueryTree, join_tokens: list) -> QueryTree:
+        join_tokens.pop(0)
+        value = join_tokens.pop(0).split(" ON ")
 
+        join_node = QueryTree(type="JOIN", val=value[1])
         query_tree.add_parent(join_node)
-        right_table_node = QueryTree(type="TABLE", val=other_table)
+        right_table_node = QueryTree(type="TABLE", val=value[0])
         right_table_node.add_parent(join_node)
         join_node.add_child(query_tree)
         join_node.add_child(right_table_node)
@@ -137,4 +100,4 @@ class QueryHelper:
         if len(join_tokens) == 0:
             return join_node
         
-        return QueryHelper.__recursive_build_join(query_tree=join_node, join_tokens=join_tokens, database_name=database_name,get_stats=get_stats)
+        return QueryHelper.__build_explicit_join(query_tree=join_node, join_tokens=join_tokens)
