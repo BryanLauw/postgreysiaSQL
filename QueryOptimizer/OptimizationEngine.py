@@ -9,6 +9,7 @@ from QueryTree import ParsedQuery, QueryTree
 from QueryHelper import *
 from typing import Callable, Union
 from QueryValidator import QueryValidator
+from QueryCost import QueryCost
 class OptimizationEngine:
     def __init__(self, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
         self.QueryParser = QueryParser("dfa.txt")
@@ -128,6 +129,9 @@ if __name__ == "__main__":
     print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
     print("EVALUATION PLAN TREE: \n",parsed_query)
+    # cost_query = QueryCost(storage, "users")
+    # print("COST = ", cost_query.get_cost(parsed_query.query_tree), "\n")
+
 
     try:
         invalid_query = "SELECT x.a FROM students AS s"

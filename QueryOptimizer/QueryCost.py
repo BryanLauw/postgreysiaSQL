@@ -1,11 +1,31 @@
 from StorageManager.classes import *
+from QueryTree import *
 
 class QueryCost:
 
     def __init__(self, storage_engine: StorageEngine, database: str):
         self.__storage_engine = storage_engine
         self.__database = database
-    
+
+    def get_cost(self, query_tree : QueryTree) :
+        print("masuk")
+        cost = 0
+        if query_tree.type == "WHERE" :
+            cost = self.where_equals()
+        if query_tree.type == "JOIN" :
+            cost = self.join()
+        if query_tree.type == "SELECT" : 
+            cost = self.select()
+        if query_tree.childs == None :
+            return cost
+        else :
+            for i in query_tree.childs :
+                print(cost)
+                # print(self.get_cost(query_tree))
+                # print(f"Type of self.get_cost(i): {type(cost)}")
+                cost += self.get_cost(i)
+            return cost   
+
     def where_equals(self, table: str, attribute: str) -> int: # returns number of tuples
         statistics = self.__storage_engine.get_stats(database_name=self.__database, table_name=table)
         return statistics.n_r // statistics.V_a_r[attribute]
