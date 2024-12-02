@@ -15,8 +15,6 @@ from main_log_entry import LogEntry
 from main_recover_criteria import RecoverCriteria
 from main_threading_manager import ThreadingManager
 
-# from StorageManager.classes import StorageEngine
-
 
 class FailureRecovery:
     """
@@ -55,9 +53,6 @@ class FailureRecovery:
         # initialize threading and checkpoint managersZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
         self.threading_manager = ThreadingManager(logger=self.logger)
         self.checkpoint_manager = CheckpointManager(fname, self.threading_manager, interval, buffer_size, self.logger)
-
-        # Initialize storage engine
-        # self.storage_engine = StorageEngine()
 
         # init recovery
         self.recovery = Recovery(fname, self.logger, self.add_entry_to_buffer)
@@ -117,6 +112,8 @@ class FailureRecovery:
             new_value=new_value
         )
 
+        recovery_result = None 
+
         if (event == "START"):
             # add when active
             self.list_active_transaction.add(transaction_id)
@@ -126,24 +123,28 @@ class FailureRecovery:
             self.list_active_transaction.remove(transaction_id)
 
         elif(event == "ABORT"): # Simulate Normal Operation
-            self.rollback(log_entry)
+            recovery_result = {
+                "undo": self.rollback(log_entry)
+            }
 
         elif(event == "ABORT SYSTEM"): # Simulate SYSTEM FAILURE ABORT
             crit = RecoverCriteria(log_entry.transaction_id)
-            self.recover(log_entry, crit)
+            recovery_result = self.recover(log_entry, crit)
 
         self.buffer_log_entries.append(log_entry)
 
         if len(self.buffer_log_entries) >= self.buffer_size:
             self.checkpoint_manager.perform_checkpoint(self.buffer_log_entries, self.list_active_transaction)
+
+        return recovery_result
     
     def rollback(self, log_entry: LogEntry):
         """
         Function to rollback , **DURING NORMAL OPERATION**
         """
-        
-        # TODO: Yang di rollback hanya dibuffer aja atau lgsg tulis stable storage ?
-        self.recovery.rollback(self.buffer_log_entries, [log_entry.transaction_id])
+
+        return self.recovery.rollback(self.buffer_log_entries, [log_entry.transaction_id])
+
 
     def recover(self, log_entry: LogEntry, criteria: RecoverCriteria):
         """
@@ -157,8 +158,13 @@ class FailureRecovery:
         # self.checkpoint_manager.perform_checkpoint()
         
         # redo and undo operations
-        self.recovery.redo(self.buffer_log_entries)
-        self.recovery.undo(self.buffer_log_entries)
+        redo_instructions = self.recovery.redo(self.buffer_log_entries)
+        undo_instructions = self.recovery.undo(self.buffer_log_entries)
+
+        return {
+            "redo": redo_instructions,
+            "undo": undo_instructions
+        }
 
     def _stop(self):
         """
@@ -205,7 +211,7 @@ if __name__ == "__main__":
     ]
 
     for x in arr:
-        recovery.write_log_entry(
+        result = recovery.write_log_entry(
             x.get("id", ""),  # Default to an empty string if "id" is missing
             x.get("event", ""),  # Default to an empty string if "event" is missing
             x.get("object_value", ""),  # Default to an empty string if "object_value" is missing
@@ -213,5 +219,7 @@ if __name__ == "__main__":
             x.get("new_value", "")  # Default to an empty string if "new_value" is missing
         )
         # break
+        if result:
+            print(result)
         time.sleep(1)
 

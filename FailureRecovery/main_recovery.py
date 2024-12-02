@@ -31,8 +31,6 @@ class Recovery:
         # callbacks
         self.add_entry_to_buffer = add_entry_to_buffer
 
-        # Store the storage engine instance
-        # self.storage_engine = storage_engine
 
     def rollback(self, buffer_log_entries: List[LogEntry], list_transaction_id: List[str]):
         """
@@ -44,6 +42,8 @@ class Recovery:
         """
         # start checking from buffer
         temp = buffer_log_entries[::-1] # reverse list
+
+        undo_list = []
         
         # find the start
         isFound = False
@@ -56,11 +56,13 @@ class Recovery:
                     list_transaction_id.remove(x.transaction_id)
                     isFound = True
                     break
-                self._reverse_query_executor(x)
+                undo_instruction = self._reverse_query_executor(x)
+                if undo_instruction:
+                    undo_list.append(undo_instruction)
 
         # if not found, then check in the log
-        if isFound:
-            return
+        if isFound: 
+            return undo_list
         
         # not found. Read from file log
         temp = self._load_log_entries()
@@ -74,13 +76,17 @@ class Recovery:
                     # stop since we already found it
                     isFound = True
                     break
-                self._reverse_query_executor(x)
+                undo_instruction = self._reverse_query_executor(x)
+                if undo_instruction:
+                    undo_list.append(undo_instruction)
         
         # flush the log first then write compensation
         # for x in self.compensation_log_list:
         #     self.logger.info(f"{x.event} {x.object_value or ''}, {x.old_value or ''}, {x.new_value or ''}")
         #     write_log_entry_to_file(self.log_file, x)
         # self.compensation_log_list.clear()
+
+        return undo_list
     
     def undo(self, buffer_log_entries: List[LogEntry]):
         """
@@ -94,8 +100,9 @@ class Recovery:
         params:
             buffer_log_entries(List[LogEntry]): buffer of the log entry
         """
-        self.rollback(buffer_log_entries, self.undo_list)
+        undo_instructions = self.rollback(buffer_log_entries, self.undo_list)
         self.undo_list.clear()
+        return undo_instructions
         
 
     def redo(self, buffer_log_entries: List[LogEntry]):
@@ -111,7 +118,9 @@ class Recovery:
         params:
             buffer_log_entries(List[LogEntry]): buffer of the log entry
         """
-        
+        #list for storage manager
+        redo_list = []
+
         # find latest checkpoint
         temp = self._load_log_entries()
 
@@ -125,46 +134,41 @@ class Recovery:
         
         # move from checkpoint to latest in log file
         for i in range(checkpointIdx, len(temp)):
-            self.logger.info(f"[DEBUG], {temp[i].new_value}")
             if (temp[i].event == "START"):
                 self.undo_list.add(temp[i].transaction_id)
-            elif (temp[i].event in ["COMMIT", "ABORT"]): # TODO: if you want, performance tuning. Tapi ini better readability
+            elif (temp[i].event in ["COMMIT", "ABORT"]): 
                 self.undo_list.remove(temp[i].transaction_id)
-            
-            # TODO: SEND TO ????
-            # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
+            elif (temp[i].event == "DATA"):
+                redo_list.append({
+                    "transaction_id": temp[i].transaction_id,
+                    "object_value": temp[i].object_value,
+                    "new_value": temp[i].new_value
+                })
 
             # self.logger.info(f"SEND to ??? on REDO function, {temp[i]}")
 
-            # still not sure about this, will check later after some sleep
-            # if temp[i].event == "DATA":
-            #     self._execute_operation(temp[i])
-
-            # self.logger.info("[DEBUG]", temp[i])
-
             self.logger.info(f"Re-executed operation on REDO function, {temp[i]}")
-
-
+        
         # move to latest buffer
         for i in range(len(buffer_log_entries)):
-            if (temp[i].event == "START"):
-                self.undo_list.add(temp[i].transaction_id)
-            elif (temp[i].event in ["COMMIT", "ABORT"]): # TODO: if you want, performance tuning. Tapi ini better readability
-                self.undo_list.remove(temp[i].transaction_id)
-
-            # TODO: SEND TO ????
-            # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
-
+            if (buffer_log_entries[i].event == "START"):
+                self.undo_list.add(buffer_log_entries[i].transaction_id)
+            elif (buffer_log_entries[i].event in ["COMMIT", "ABORT"]):
+                self.undo_list.remove(buffer_log_entries[i].transaction_id)
+            elif (buffer_log_entries[i].event == "DATA"):
+                redo_list.append({
+                    "transaction_id": buffer_log_entries[i].transaction_id,
+                    "object_value": buffer_log_entries[i].object_value,
+                    "new_value": buffer_log_entries[i].new_value
+                })
+            
             # self.logger.info(f"SEND to ??? on REDO function {temp[i]}")
 
-            # still not sure about this, will check later after some sleep
-            # if buffer_log_entries[i].event == "DATA":
-            #     self._execute_operation(buffer_log_entries[i])
-
             self.logger.info(f"Re-executed operation on REDO function {buffer_log_entries[i]}")
+        
+        return redo_list
 
     def _reverse_query_executor(self, log_entry: LogEntry):
-        
         # add compensation log
         # self.compensation_log_list.append(log_entry)
         if log_entry.event == "ABORT":
@@ -179,10 +183,13 @@ class Recovery:
         )
         print(temp.timestamp, temp.transaction_id, temp.event, temp.object_value)
         self.add_entry_to_buffer(temp)
-        # TODO: SEND TO ????
-        # soalnya failure recovery harus kerjasama, suruh edit data kan :VVVV
 
-        self.logger.info(f"SEND to ??? REVERSED Query {log_entry}")
+        # self.logger.info(f"SEND to ??? REVERSED Query {log_entry}")
+        return {
+            "transaction_id": log_entry.transaction_id,
+            "object_value": log_entry.object_value,
+            "old_value": log_entry.old_value
+        }
 
     def _load_log_entries(self) -> List[LogEntry]:
         """
@@ -261,34 +268,3 @@ class Recovery:
             old_value=old_value,
             new_value=new_value
         )
-
-    # def _execute_operation(self, log_entry: LogEntry):
-    #     """
-    #     Re-execute the data operation in the log entry.
-    #     """
-        
-    #     operation_info = log_entry.object_value  
-    #     if isinstance(operation_info, str):
-    #         try:
-    #             operation_info = ast.literal_eval(operation_info)
-    #         except (ValueError, SyntaxError):
-    #             self.logger.error(f"Invalid operation info in log entry: {log_entry}")
-    #             return
-        
-    #     database = operation_info.get('db')
-    #     table = operation_info.get('table')
-    #     column = operation_info.get('column')
-    #     new_value = log_entry.new_value
-    #     transaction_id = log_entry.transaction_id
-
-    #     data_write = DataWrite(
-    #         table=table,
-    #         column=[column],
-    #         conditions=[], 
-    #         new_value=[new_value]
-    #     )
-    #     result = self.storage_engine.write_block(data_write, database, transaction_id)
-    #     if isinstance(result, Exception):
-    #         self.logger.error(f"Error during redo operation: {result}")
-    #     else:
-    #         self.logger.info(f"Redo operation applied for transaction {transaction_id} on {database}.{table}.{column}")

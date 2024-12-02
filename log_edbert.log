@@ -110,3 +110,71 @@
 2024-12-02T12:02:27,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,
 2024-12-02T12:02:29,2,ABORT SYSTEM,,,
 2024-12-02T12:02:31,,CHECKPOINT,{0, 2}
+2024-12-02T12:39:20,0,START,,,
+2024-12-02T12:39:21,0,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},2000,2050
+2024-12-02T12:39:22,1,START,,,
+2024-12-02T12:39:23,1,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},700,600
+2024-12-02T12:39:24,1,COMMIT,,,
+2024-12-02T12:39:25,2,START,,,
+2024-12-02T12:39:26,,CHECKPOINT,{0, 2}
+2024-12-02T12:39:26,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,400
+2024-12-02T12:39:21,0,DATA,{'nama_db': 'db_name', 'nama_kolom': 'table_a', 'primary_key': 'column_a'},2000,
+2024-12-02T12:39:27,0,ABORT,,,
+2024-12-02T12:39:21,0,DATA,{'nama_db': 'db_name', 'nama_kolom': 'table_a', 'primary_key': 'column_a'},2000,
+2024-12-02T12:39:26,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,
+2024-12-02T12:39:28,2,ABORT SYSTEM,,,
+2024-12-02T12:39:30,,CHECKPOINT,{0, 2}
+2024-12-02T13:39:13,0,START,,,
+2024-12-02T13:39:14,0,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},2000,2050
+2024-12-02T13:39:15,1,START,,,
+2024-12-02T13:39:16,1,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},700,600
+2024-12-02T13:39:17,1,COMMIT,,,
+2024-12-02T13:39:18,2,START,,,
+2024-12-02T13:39:19,,CHECKPOINT,{0, 2}
+2024-12-02T13:39:19,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,400
+2024-12-02T13:39:14,0,DATA,{'nama_db': 'db_name', 'nama_kolom': 'table_a', 'primary_key': 'column_a'},2000,
+2024-12-02T13:39:20,0,ABORT,,,
+2024-12-02T13:39:14,0,DATA,{'nama_db': 'db_name', 'nama_kolom': 'table_a', 'primary_key': 'column_a'},2000,
+2024-12-02T13:39:19,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,
+2024-12-02T13:39:21,2,ABORT SYSTEM,,,
+2024-12-02T13:39:23,,CHECKPOINT,{0, 2}
+2024-12-02T18:03:48,0,START,,,
+2024-12-02T18:03:49,0,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},2000,2050
+2024-12-02T18:03:50,1,START,,,
+2024-12-02T18:03:51,1,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},700,600
+2024-12-02T18:03:52,1,COMMIT,,,
+2024-12-02T18:03:53,2,START,,,
+2024-12-02T18:03:54,,CHECKPOINT,{0, 2}
+2024-12-02T18:03:54,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,400
+2024-12-02T18:03:49,0,DATA,{'nama_db': 'db_name', 'nama_kolom': 'table_a', 'primary_key': 'column_a'},2000,
+2024-12-02T18:03:55,0,ABORT,,,
+2024-12-02T18:03:49,0,DATA,{'nama_db': 'db_name', 'nama_kolom': 'table_a', 'primary_key': 'column_a'},2000,
+2024-12-02T18:03:54,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,
+2024-12-02T18:03:56,2,ABORT SYSTEM,,,
+2024-12-02T18:03:58,,CHECKPOINT,{0, 2}
+2024-12-02T21:13:37,0,START,,,
+2024-12-02T21:13:38,0,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},2000,2050
+2024-12-02T21:13:39,1,START,,,
+2024-12-02T21:13:40,1,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},700,600
+2024-12-02T21:13:41,1,COMMIT,,,
+2024-12-02T21:13:42,2,START,,,
+2024-12-02T21:13:43,,CHECKPOINT,{0, 2}
+2024-12-02T21:13:43,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,400
+2024-12-02T21:13:38,0,DATA,{'nama_db': 'db_name', 'nama_kolom': 'table_a', 'primary_key': 'column_a'},2000,
+2024-12-02T21:13:44,0,ABORT,,,
+2024-12-02T21:13:43,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,
+2024-12-02T21:13:45,2,ABORT SYSTEM,,,
+2024-12-02T21:13:47,,CHECKPOINT,{0, 2}
+2024-12-02T21:14:06,0,START,,,
+2024-12-02T21:14:07,0,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},2000,2050
+2024-12-02T21:14:08,1,START,,,
+2024-12-02T21:14:09,1,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},700,600
+2024-12-02T21:14:10,1,COMMIT,,,
+2024-12-02T21:14:11,2,START,,,
+2024-12-02T21:14:12,,CHECKPOINT,{0, 2}
+2024-12-02T21:14:12,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,400
+2024-12-02T21:14:07,0,DATA,{'nama_db': 'db_name', 'nama_kolom': 'table_a', 'primary_key': 'column_a'},2000,
+2024-12-02T21:14:13,0,ABORT,,,
+2024-12-02T21:14:12,2,DATA,{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'},500,
+2024-12-02T21:14:14,2,ABORT SYSTEM,,,
+2024-12-02T21:14:16,,CHECKPOINT,{0, 2}
