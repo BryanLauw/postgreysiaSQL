@@ -115,9 +115,11 @@ class OptimizationEngine:
         # Placeholder for future optimization logic
         pass
 
-    def __get_cost(self, query: ParsedQuery) -> int:
-        # Placeholder for query cost estimation
-        pass
+    def get_cost(self, query: ParsedQuery, database_name: str) -> int:
+        # implementasi sementara hanya menghitung size cost
+        query_cost = QueryCost(self.get_stats, database_name)
+        size_cost = query_cost.get_cost_size(query.query_tree).n_r
+        return size_cost
 
 
 if __name__ == "__main__":
