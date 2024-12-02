@@ -132,6 +132,7 @@ if __name__ == "__main__":
     # cost_query = QueryCost(storage, "users")
     # print("COST = ", cost_query.get_cost(parsed_query.query_tree), "\n")
 
+
     try:
         invalid_query = "SELECT x.a FROM students AS s"
         print(invalid_query)
