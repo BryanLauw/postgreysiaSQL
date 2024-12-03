@@ -10,10 +10,14 @@ from QueryHelper import *
 from typing import Callable, Union
 from QueryValidator import QueryValidator
 from QueryCost import QueryCost
+from queue import Queue
+from QueryOptimizer import QueryOptimizer
+
 class OptimizationEngine:
     def __init__(self, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
         self.QueryParser = QueryParser("dfa.txt")
         self.QueryValidator = QueryValidator()
+        self.QueryOptimizer = QueryOptimizer()
         self.get_stats = get_stats
 
     def parse_query(self, query: str,database_name: str) -> ParsedQuery:
@@ -111,9 +115,17 @@ class OptimizationEngine:
 
         return root
 
-    def optimize_query(self, query: ParsedQuery) -> ParsedQuery:
-        # Placeholder for future optimization logic
-        pass
+    def optimize_query(self, query: ParsedQuery):
+        queue_nodes = Queue()
+        queue_nodes.put(query.query_tree)
+        while(not queue_nodes.empty()):
+            current_node = queue_nodes.get()
+            if(current_node.type == "TABLE"):
+                continue
+            for child in current_node.childs:
+                queue_nodes.put(child)
+                
+            self.QueryOptimizer.perform_operation(current_node)
 
     def __get_cost(self, query: ParsedQuery) -> int:
         # Placeholder for query cost estimation
@@ -128,6 +140,7 @@ if __name__ == "__main__":
     select_query = "SELECT s.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id NATURAL JOIN users AS s WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by s.id ASC"
     print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
+    # optim.optimize_query(parsed_query)
     print("EVALUATION PLAN TREE: \n",parsed_query)
     # cost_query = QueryCost(storage, "users")
     # print("COST = ", cost_query.get_cost(parsed_query.query_tree), "\n")
