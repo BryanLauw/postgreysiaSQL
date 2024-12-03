@@ -134,8 +134,7 @@ class OptimizationEngine:
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
         query_cost = QueryCost(self.get_stats, database_name)
-        size_cost = query_cost.get_cost_size(query.query_tree).n_r
-        return size_cost
+        return query_cost.calculate_size_cost(query.query_tree)
 
 
 if __name__ == "__main__":
@@ -143,15 +142,15 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    # select_query = "SELECT u.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
-    # print("SELECT QUERY\n",select_query,end="\n\n")
-    # parsed_query = optim.parse_query(select_query,"database1")
-    # print(parsed_query)
-    # optim.optimize_query(parsed_query)
-    # optim.optimize_query(parsed_query)
-    # print("EVALUATION PLAN TREE: \n",parsed_query)
-    # cost_query = QueryCost(storage, "users")
-    # print("COST = ", cost_query.get_cost(parsed_query.query_tree), "\n")
+    select_query = "SELECT u.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
+    print("SELECT QUERY\n",select_query,end="\n\n")
+    parsed_query = optim.parse_query(select_query,"database1")
+    print(parsed_query)
+    optim.optimize_query(parsed_query)
+    optim.optimize_query(parsed_query)
+    print("EVALUATION PLAN TREE: \n",parsed_query)
+    
+    print(f"COST = {optim.get_cost(parsed_query, 'database1')}")
 
     # try:
     #     invalid_query = "SELECT x.a FROM students AS s"
