@@ -121,14 +121,17 @@ class OptimizationEngine:
     def optimize_query(self, query: ParsedQuery):
         queue_nodes = Queue()
         queue_nodes.put(query.query_tree)
-        while(not queue_nodes.empty()):
+        while not queue_nodes.empty():
             current_node = queue_nodes.get()
-            if(current_node.type == "TABLE"):
+            if current_node.type == "TABLE":
                 continue
             for child in current_node.childs:
                 queue_nodes.put(child)
-                
-            if self.QueryOptimizer.perform_operation(current_node):
+
+            if self.QueryOptimizer.perform_operation(
+                current_node, 
+                lambda node: self.get_cost(ParsedQuery(node, query.query), "database1")
+            ):
                 print(query)
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
@@ -142,7 +145,7 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = "SELECT u.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
+    select_query = "SELECT u.id, product_id FROM users AS u JOIN products AS t ON products.product_id = u.id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
     print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
     print(parsed_query)
