@@ -78,10 +78,15 @@ class OptimizationEngine:
             select_tree.add_parent(top)
             top = select_tree
             
-                
         if "UPDATE" in components:
             root.val = "UPDATE"
             where_tree = QueryTree(type="UPDATE", val=components["UPDATE"])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
+            
+        if "SET" in components:
+            where_tree = QueryTree(type="SET", val=components["SET"])
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
