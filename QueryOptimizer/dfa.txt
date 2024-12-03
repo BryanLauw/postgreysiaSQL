@@ -11,9 +11,9 @@ q7 JOIN q3
 q8 <X> q9
 q9 AS q14 ON q10 <X> q15
 q10 <X> q11
-q11 = q12
+q11 <CO> q12
 q12 <X> q13
-q13 JOIN q8 NATURAL q7 WHERE q16 , q3 <MO> q12
+q13 JOIN q8 NATURAL q7 WHERE q16 , q3 <MO> q12 AND q10 OR q10
 q14 <X> q15
 q15 ON q10
 q16 <X> q17
