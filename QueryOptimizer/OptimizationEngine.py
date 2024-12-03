@@ -32,7 +32,7 @@ class OptimizationEngine:
         comp_with_attr = "FROM" if "FROM" in query_components_value else "UPDATE"
         
         # Get list Tables and Aliases
-        alias_map, table_arr = QueryHelper.extract_table_and_aliases(query_components_value[comp_with_attr])
+        alias_map, table_arr = QueryHelper.extract_table_and_aliases(query_components_value[comp_with_attr] if comp_with_attr=="FROM" else [query_components_value[comp_with_attr]] )
         
         # Remove alias
         query_components_value[comp_with_attr] = QueryHelper.remove_aliases(query_components_value[comp_with_attr])
@@ -138,23 +138,23 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = "SELECT u.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
-    print("SELECT QUERY\n",select_query,end="\n\n")
-    parsed_query = optim.parse_query(select_query,"database1")
-    print(parsed_query)
-    optim.optimize_query(parsed_query)
+    # select_query = "SELECT u.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
+    # print("SELECT QUERY\n",select_query,end="\n\n")
+    # parsed_query = optim.parse_query(select_query,"database1")
+    # print(parsed_query)
     # optim.optimize_query(parsed_query)
-    print("EVALUATION PLAN TREE: \n",parsed_query)
+    # optim.optimize_query(parsed_query)
+    # print("EVALUATION PLAN TREE: \n",parsed_query)
     # cost_query = QueryCost(storage, "users")
     # print("COST = ", cost_query.get_cost(parsed_query.query_tree), "\n")
 
-    try:
-        invalid_query = "SELECT x.a FROM students AS s"
-        print(invalid_query)
-        parsed_query = optim.parse_query(invalid_query,"database1")
-        print(parsed_query)
-    except ValueError as e:
-        print(e)
+    # try:
+    #     invalid_query = "SELECT x.a FROM students AS s"
+    #     print(invalid_query)
+    #     parsed_query = optim.parse_query(invalid_query,"database1")
+    #     print(parsed_query)
+    # except ValueError as e:
+    #     print(e)
 
     # where_clause = "students.a > 'aku' AND teacher.b = 'abc'"
     # attribute_types = {
@@ -168,11 +168,11 @@ if __name__ == "__main__":
     # except ValueError as e:
     #     print(f"Validation error: {e}")
 
-    # # Test UPDATE query
-    # update_query = "UPDATE employee SET salary = salary + 1.1 - 5 WHERE salary > 1000"
-    # print(update_query)
-    # parsed_update_query = optim.parse_query(update_query, "database_sample", storage.get_stats)
-    # print(parsed_update_query)
+    # Test UPDATE query
+    update_query = "UPDATE products SET product_id = product_id + 1.1 - 5 WHERE product_id > 1000"
+    print(update_query)
+    parsed_update_query = optim.parse_query(update_query, "database_sample")
+    print(parsed_update_query)
 
     # #Test DELETE query
     # delete_query = "DELETE FROM employees WHERE salary < 3000"

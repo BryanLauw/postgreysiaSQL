@@ -37,11 +37,14 @@ class QueryHelper:
         return alias_map, attribute_arr
     
     @staticmethod
-    def remove_aliases(from_clause: list) -> list:
+    def remove_aliases(from_clause: Union[list,str]) -> list:
         def strip_alias(from_str: str) -> str:
             cleaned_str = re.sub(r"\s+as\s+\w+\s*", " ", from_str, flags=re.IGNORECASE)
             return cleaned_str
 
+        if(isinstance(from_clause, str)):
+            return strip_alias(from_clause)
+        
         return [strip_alias(token) if token.upper() not in ["JOIN", "ON", "NATURAL"] else token for token in from_clause]
     
     @staticmethod

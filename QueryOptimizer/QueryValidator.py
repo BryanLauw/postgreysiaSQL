@@ -105,7 +105,7 @@ class QueryValidator:
     def extract_and_validate_attributes(self,components_values: Dict[str, Union[List[str],str]], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]],table_arr: list[str]):
         for key in (components_values):
             if key == 'UPDATE':
-                components_values[key] = self.validate_attribute(components_values[key], database_name, get_stats, table_arr)
+                continue
             elif key == 'WHERE' or key == 'SET':
                 splitted = components_values[key].split()
                 for index,token in enumerate(splitted):
