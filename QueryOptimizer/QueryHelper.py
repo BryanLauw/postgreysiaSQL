@@ -3,7 +3,6 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from StorageManager.classes import Statistic, StorageEngine
-
 from QueryTree import ParsedQuery, QueryTree
 import re
 from typing import List, Union, Dict, Callable
@@ -24,7 +23,7 @@ class QueryHelper:
         alias_map = {}
         attribute_arr = []
         for token in from_tokens:
-            if token=="JOIN" or token=="NATURAL JOIN":
+            if token in ["JOIN","NATURAL JOIN",","]:
                 continue
             
             splitted = token.split()
@@ -38,11 +37,14 @@ class QueryHelper:
         return alias_map, attribute_arr
     
     @staticmethod
-    def remove_aliases(from_clause: list) -> list:
+    def remove_aliases(from_clause: Union[list,str]) -> list:
         def strip_alias(from_str: str) -> str:
             cleaned_str = re.sub(r"\s+as\s+\w+\s*", " ", from_str, flags=re.IGNORECASE)
             return cleaned_str
 
+        if(isinstance(from_clause, str)):
+            return strip_alias(from_clause)
+        
         return [strip_alias(token) if token.upper() not in ["JOIN", "ON", "NATURAL"] else token for token in from_clause]
     
     @staticmethod
@@ -66,92 +68,55 @@ class QueryHelper:
                  )
     
     @staticmethod
-    def extract_attributes(components_values: Dict[str, Union[List[str],str]]):
-        attributes_arr = []
-        for key in components_values:
-            if key == 'UPDATE':
-                attributes_arr.append(components_values[key])
-            elif key == 'WHERE' or key == 'SET':
-                splitted = components_values[key].split()
-                for token in splitted:
-                    if token.count('.')<=1 and token.replace('.','').isalpha():
-                        attributes_arr.append(token)
-            elif key == 'ORDER BY':
-                attributes_arr.append(components_values[key].split()[0])
-            elif key == 'FROM':
-                for clause in components_values[key]:
-                    tokens = clause.split()
-                    try:
-                        ON_idx = tokens.index('ON')
-                        len_tokens = len(tokens)
-                        for i in range(ON_idx+1,len_tokens):
-                            if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', tokens[i].replace('.', '')) and tokens[i].count('.') <= 1:
-                                attributes_arr.append(tokens[i])
-                    except ValueError:
-                        continue
-            elif key == 'SELECT':
-                attributes_arr.extend(components_values['SELECT'])
+    def parse_where_clause(where_clause: str, current_node: QueryTree) -> QueryTree:
+        # Tokenize the WHERE clause into conditions
+        parsed_result = re.split(r'\sAND\s', where_clause)
+        print("parsed", parsed_result)
+
+        for parse in parsed_result:
+            parse_node = QueryTree(type="WHERE", val=parse)
+            current_node.add_child(parse_node)
+            parse_node.add_parent(current_node)
+            current_node = parse_node
+        return parse_node
+
+    @staticmethod
+    def gather_attributes(node: QueryTree, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
+        if(node.type =="TABLE"):
+            return get_stats(database_name,node.val.strip().lower()).V_a_r.keys()
         
-        attributes_arr = list(filter(lambda item: item not in ("AND", "OR"), attributes_arr))
-        return list(set(attributes_arr))
-    
+        if(node.type == "JOIN"):
+            return QueryHelper.gather_attributes(node.childs[0],database_name,get_stats) | QueryHelper.gather_attributes(node.childs[1],database_name,get_stats)
+        
+        if(node.type == "SELECT"):
+            return set(node.val)
+        
+        return QueryHelper.gather_attributes(node.childs[0],database_name,get_stats)
+        
     @staticmethod
-    def parse_where_clause(where_clause: str) -> QueryTree:
-        # Tokenize the WHERE clause into conditions and operators
-        tokens = re.split(r'(\bAND\b|\bOR\b)', where_clause)
-        tokens = [token.strip() for token in tokens if token.strip()]
-
-        def build_tree(tokens: list) -> QueryTree:
-            if len(tokens) == 1:  # Base case: single condition
-                return QueryTree(type="WHERE", val=tokens[0])
-
-            # Find the lowest-precedence operator (OR > AND)
-            if "OR" in tokens:
-                operator_index = tokens.index("OR")
-            elif "AND" in tokens:
-                operator_index = tokens.index("AND")
-            else:
-                raise ValueError("Invalid WHERE clause")
-
-            # Split into left and right parts
-            left_tokens = tokens[:operator_index]
-            right_tokens = tokens[operator_index + 1:]
-            operator = tokens[operator_index]
-
-            # Create the operator node
-            operator_node = QueryTree(type="LOGIC", val=operator)
-
-            # Recursively build left and right subtrees
-            left_tree = build_tree(left_tokens)
-            right_tree = build_tree(right_tokens)
-
-            # Attach left and right subtrees to the operator node
-            operator_node.add_child(left_tree)
-            operator_node.add_child(right_tree)
-            left_tree.add_parent(operator_node)
-            right_tree.add_parent(operator_node)
-
-            return operator_node
-
-        return build_tree(tokens)
-    
-    @staticmethod
-    def build_join_tree(from_tokens: list) -> QueryTree:
+    def build_join_tree(from_tokens: list, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> QueryTree:
         first_table_node = QueryTree(type="TABLE", val=from_tokens.pop(0))
 
         if len(from_tokens) == 0:
             return first_table_node
         
-        return QueryHelper.__build_explicit_join(first_table_node, from_tokens)
+        return QueryHelper.__recursive_build_join(first_table_node, from_tokens, database_name, get_stats)
     
     @staticmethod
-    def __build_explicit_join(query_tree: QueryTree, join_tokens: list) -> QueryTree:
-        join_tokens.pop(0)
-        value = join_tokens.pop(0).split(" ON ")
+    def __recursive_build_join(query_tree: QueryTree, join_tokens: list, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> QueryTree:
+        join_type = join_tokens.pop(0)
+        if(join_type == "NATURAL JOIN"):
+            other_table = join_tokens.pop(0)
+            natural_attributes = list(QueryHelper.gather_attributes(query_tree,database_name,get_stats) & get_stats(database_name,other_table.strip().lower()).V_a_r.keys())
+            natural_attributes = [attr.upper() for attr in natural_attributes]
+            join_node = QueryTree(type="NATURAL JOIN", val=natural_attributes)
+        else:
+            value = join_tokens.pop(0).split(" ON ")
+            other_table = value[0]
+            join_node = QueryTree(type="JOIN", val=value[1])
 
-        join_node = QueryTree(type="JOIN", val=value[1])
         query_tree.add_parent(join_node)
-        right_table_node = QueryTree(type="TABLE", val=value[0])
+        right_table_node = QueryTree(type="TABLE", val=other_table)
         right_table_node.add_parent(join_node)
         join_node.add_child(query_tree)
         join_node.add_child(right_table_node)
@@ -159,104 +124,4 @@ class QueryHelper:
         if len(join_tokens) == 0:
             return join_node
         
-        return QueryHelper.__build_explicit_join(query_tree=join_node, join_tokens=join_tokens)
-    
-    # Define supported types and compatible comparisons
-    SUPPORTED_TYPES = {"integer", "float", "char", "varchar"}
-    COMPATIBLE_TYPES = {
-        "integer": {"integer", "float"},
-        "float": {"integer", "float"},
-        "char": {"char", "varchar"},
-        "varchar": {"char", "varchar"},
-    }
-
-    @staticmethod
-    def validate_comparisons(where_clause: str, attribute_types: dict):
-        # Regex to find comparisons
-        comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
-        matches = re.findall(comparison_pattern, where_clause)
-
-        for left_attr, operator, right_attr in matches:
-            left_type = attribute_types.get(left_attr)
-            right_type = attribute_types.get(right_attr)
-
-            # Handle literal values
-            if left_type is None:
-                left_type = QueryHelper.infer_literal_type(left_attr)
-            if right_type is None:
-                right_type = QueryHelper.infer_literal_type(right_attr)
-
-            # Check if both types are supported
-            if left_type not in QueryHelper.SUPPORTED_TYPES or right_type not in QueryHelper.SUPPORTED_TYPES:
-                raise ValueError(f"Unsupported data type(s) in comparison: {left_attr} ({left_type}) and {right_attr} ({right_type})")
-
-            # Check compatibility of the types
-            if right_type not in QueryHelper.COMPATIBLE_TYPES.get(left_type, {}):
-                raise ValueError(f"Incompatible types in comparison: {left_attr} ({left_type}) and {right_attr} ({right_type})")
-
-    @staticmethod
-    def infer_literal_type(value: str) -> str:
-        if value.isdigit():
-            return "integer"
-        try:
-            float(value)
-            return "float"
-        except ValueError:
-            pass
-        if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
-            return "varchar"
-        raise ValueError(f"Unknown literal type for value: {value}")
-    
-    @staticmethod
-    def validate_aliases(query_components: dict, alias_map: dict):
-        def find_aliases(expression: str) -> set:
-            aliases = set()
-            tokens = expression.split()
-            for token in tokens:
-                if "." in token:  # Check for alias usage
-                    alias = token.split(".")[0]
-                    aliases.add(alias)
-            return aliases
-
-        used_aliases = set()
-
-        if "SELECT" in query_components:
-            for attr in query_components["SELECT"]:
-                used_aliases.update(find_aliases(attr))
-        if "WHERE" in query_components:
-            used_aliases.update(find_aliases(query_components["WHERE"]))
-        if "FROM" in query_components:
-            for token in query_components["FROM"]:
-                if "." in token:
-                    used_aliases.update(find_aliases(token))
-
-        # Find undefined aliases
-        undefined_aliases = used_aliases - set(alias_map.keys())
-        if undefined_aliases:
-            raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
-    
-    @staticmethod
-    def validate_tables(table_arr: list[str], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        table_statistics = {}
-        for table in table_arr:
-            table_statistics[table] = get_stats(database_name,table.lower())
-        return table_statistics
-    
-    @staticmethod
-    def validate_attributes(attributes_arr: list[str],table_statistics: Dict[str, Statistic]):
-        print("SINI")
-        print(table_statistics["PRODUCTS"].V_a_r)
-        print(attributes_arr)
-        for index,attr in enumerate(attributes_arr):
-            if '.' in attr:
-                table, attribute = attr.split('.')
-                if attribute.lower() not in table_statistics[table].V_a_r:
-                    raise ValueError(f"{attribute} doesn't exist at table {table}")
-            else:
-                table_match = ""
-                for table in table_statistics:
-                    if attr.lower() in table_statistics[table].V_a_r:
-                        if table_match:
-                            raise ValueError(f"Ambiguous attribute: {attr}")
-                        table_match = table.upper()
-                        attributes_arr[index] = f"{table_match}.{attr}"
+        return QueryHelper.__recursive_build_join(query_tree=join_node, join_tokens=join_tokens, database_name=database_name,get_stats=get_stats)
