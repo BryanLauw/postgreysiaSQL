@@ -15,42 +15,4 @@ Disallowed transaction will result in aborted transaction. All of aborted transa
 
 
 ## How to use this thing?
-```python
-# Create the instance
-cc = ConcurrencyControlManager()
-
-def run_transaction(operations):
-    # Track whether transaction succeeded
-    succeed = False
-
-    while not succeed:
-        # Get timestamp with begin_transaction
-        ts = cc.begin_transaction()
-
-        response = None
-        succeed = True
-        for op in operations:
-            response = cc.validate(op.object, ts, op.action)
-
-            # If action not allowed, abort
-            if not v.allowed:
-                succeed = False
-                abort()
-                break
-
-            # If allowed, run that action
-            run_action(op)
-
-        # Wait for signal to rerun the transaction
-        if not succeed:
-            with response.condition:
-                response.condition.wait()
-
-threads = []
-for t in transactions:
-    threads.append(Thread(target=run_transaction, args=t))
-
-for t in threads:
-    t.join()
-```
-
+Example in the file `ConcurrencyGenerateSchedule.py`
