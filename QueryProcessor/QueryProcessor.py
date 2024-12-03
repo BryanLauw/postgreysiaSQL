@@ -1,53 +1,18 @@
 from ConcurrencyControlManager.ConcurrencyControlManager import *
-from QueryOptimizer.main import *
+from QueryOptimizer.OptimizationEngine import *
 from FailureRecovery.failure_recovery import *
 from StorageManager.classes import *
+import re
 
-# temp class
-class Condition:
-    def __init__(self, column: str, operation: str, operand: Union[str, int]):
-        self.column = column
-        self.operation = operation
-        self.operand = operand
-    
-    def __repr__(self):
-        return f"Condition(column={self.column}, operation={self.operation}, operand={self.operand})"
-
-class DataRetrieval:
-    def __init__(self, table: str, columns: List[str], conditions: List[Condition]):
-        self.table = table
-        self.columns = columns
-        self.conditions = conditions
-
-    def __repr__(self):
-        return f"DataRetrieval(table={self.table}, columns={self.columns}, conditions={self.conditions})"
-
-class DataWrite:
-    def __init__(self, table: str, column: List[str], conditions: List[Condition], new_value: List[str]):
-        self.table = table
-        self.column = column
-        self.conditions = conditions
-        self.new_value = new_value
-
-    def __repr__(self):
-        return f"DataWrite(table={self.table}, column={self.column}, conditions={self.conditions}, new_value={self.new_value})"
-
-class DataDeletion:
-    def __init__(self, table: str, conditions: List[Condition]):
-        self.table = table
-        self.conditions = conditions
-
-    def __repr__(self):
-        return f"DataDeletion(table={self.table}, conditions={self.conditions})"
-    
 class QueryProcessor:
-    def __init__(self):
+    def __init__(self, db_name: str):
         self.current_transactionId = None
         self.parsedQuery = None
-        self.qo = QueryOptimizer()
+        self.qo = OptimizationEngine()
         self.cc = ConcurrencyControlManager()
         self.sm = StorageEngine()
         self.rm = FailureRecovery()
+        self.db_name = db_name
         pass
 
     def execute_query(self, query : str):
@@ -80,6 +45,10 @@ class QueryProcessor:
             
             else:
                 self.parsedQuery = self.qo.parse_query(query)
+
+        if self.parsedQuery.query_tree.val == "UPDATE":
+            write = self.ParsedQueryToDataWrite(self.parsedQuery)
+            b = self.sm.write_block(write, self.db_name, self.current_transactionId)
     
     def ParsedQueryToDataRetrieval(parsed_query: ParsedQuery) -> DataRetrieval:
         if parsed_query.query_tree.type == "JOIN":
@@ -105,40 +74,33 @@ class QueryProcessor:
         return DataRetrieval(table=table, columns=columns, conditions=conditions)
 
     def ParsedQueryToDataWrite(parsed_query: ParsedQuery) -> DataWrite:
-        if parsed_query.query_tree.type == "JOIN":
-            raise ValueError("DataWrite cannot be applied to JOIN operations.")
+        # Input: child (QueryTree with only where value)
+        # Output: List of condition from child
+        def filter_condition(child: QueryTree) -> List[Condition]:
+            operator = r'(<=|>=|<>|<|>|=)'
+            where_val = child.val
+            match = re.split(operator, where_val, maxsplit=1)
+            parts = [part.strip() for part in match]
+            parts[2] = int(parts[2]) if parts[2].isdigit() else parts[2]
+            temp = Condition(parts[0], parts[1], parts[2])
+            if not child.childs:
+                return [temp]
+            else:
+                return [temp] + filter_condition(child.childs[0])
+        
+        # Get table name
+        table = parsed_query.query_tree.childs[0].val
 
-        table = parsed_query.query_tree.val
+        # Get new value
+        new_value = parsed_query.query_tree.childs[0].childs[0].val
+        match = re.split(r'=', new_value)
+        columns = [match[0].strip()]
+        new_value = [match[1].strip()]
 
-        columns = [
-            child.val for child in parsed_query.query_tree.childs if child.type == "COLUMN"
-        ]
-        values = [
-            child.val for child in parsed_query.query_tree.childs if child.type not in ["COLUMN", "CONDITION"]
-        ]
+        # Get all conditions
+        conditions = filter_condition(parsed_update_query.query_tree.childs[0].childs[0].childs[0])
 
-        def infer_type(value: str):
-            if value.startswith(("'", '"')) and value.endswith(("'", '"')):
-                return value.strip("'\"")
-            try:
-                if '.' in value:
-                    return float(value) 
-                return int(value) 
-            except ValueError:
-                return value 
-
-        new_values = [infer_type(value) for value in values]
-
-        conditions = [
-            Condition(
-                column=cond.childs[0].val,
-                operation=cond.childs[1].val,
-                operand=cond.childs[2].val
-            )
-            for cond in parsed_query.query_tree.childs if cond.type == "CONDITION"
-        ]
-
-        return DataWrite(table=table, column=columns, conditions=conditions, new_value=new_values)
+        return DataWrite([table], columns, conditions, new_value)
 
     def ParsedQueryToDataDeletion(parsed_query: ParsedQuery) -> DataDeletion:
         data_deletion = DataDeletion(
