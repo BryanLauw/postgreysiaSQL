@@ -41,9 +41,10 @@ class QueryOptimizer:
             node1 (QueryTree): new parent of node2
             node2 (QueryTree): new child of node1
         """
-        
+        # print("NODE1: ",node1.type,node1.val, "\nNODE2: ",node2.type,node2.val)
+
         # Change child of parent node1, to point child of node1
-        for child,index in enumerate(node1.parent.childs):
+        for index,child in enumerate(node1.parent.childs):
             if child == node1:
                 node1.parent.childs[index] = node1.childs[0]
                 
@@ -55,7 +56,7 @@ class QueryOptimizer:
         node1.parent = node2.parent
         
         # Change child of node2 parent, from node2 to node1
-        for child,index in enumerate(node2.parent.childs):
+        for index,child in enumerate(node2.parent.childs):
             if child == node2:
                 node2.parent.childs[index] = node1
                 
@@ -63,26 +64,31 @@ class QueryOptimizer:
         node2.parent = node1
     
     def __already_pushed_selection(self, node_where: QueryTree):
-        print(node_where.val)
+        # print(node_where.val)
         child = node_where.childs[0]
         if(child.type == "WHERE"):
-            return self.check_WHERE_above_table(child)
+            # print("SINI ",child.val)
+            return self.__already_pushed_selection(child)
         
         return child.type == "TABLE"
     
     def __find_matching_table(self, node: QueryTree, table_name: str):
         if node.type == "TABLE":
-            return node if node.val == table_name else None
+            return node if node.val.strip() == table_name.strip() else None
         
         for child in node.childs:
-            res_child = self.find_matching_table(child,table_name)
+            res_child = self.__find_matching_table(child,table_name)
             if(res_child is not None):
                 return res_child
         
         return None
     
     def pushing_selection(self, node: QueryTree,) -> bool:
+        print("PUSHING SELECTION: ",node.val,node.type)
         if(self.__already_pushed_selection(node)):
+            return False
+        
+        if "OR" in  node.val:
             return False
         
         match = re.search(r'(\w+)\.',node.val)
@@ -90,14 +96,15 @@ class QueryOptimizer:
             return False
         
         table_name = match.group(1)
-        table_node = self.find_matching_table(node,table_name)
-        self.insert_node(node,table_node)
+        # print("Table name: ",table_name)
+        table_node = self.__find_matching_table(node,table_name)
+        # print("Table node: ",table_node.val)
+        self.__insert_node(node,table_node)
         
         return True
     
     def perform_operation(self,node: QueryTree):
         if(node.type == "WHERE"):
-            print(node.type)
             return self.pushing_selection(node)
         
         return False         

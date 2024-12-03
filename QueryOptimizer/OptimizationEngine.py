@@ -138,7 +138,7 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id NATURAL JOIN users AS s WHERE s.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by s.id ASC"
+    select_query = "SELECT u.id, product_id FROM products AS t JOIN users as u ON u.id = products.product_id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
     print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
     print(parsed_query)
