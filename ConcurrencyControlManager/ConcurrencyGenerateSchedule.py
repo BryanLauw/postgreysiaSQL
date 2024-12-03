@@ -15,9 +15,6 @@ cm = ConcurrencyControlManager()
 type AtomicAction = tuple[Action, Row, int]
 type Transaction = list[AtomicAction]
 
-r1 = Row()
-r2 = Row()
-r3 = Row()
 r = [Row(), Row(), Row()]
 
 trs: list[Transaction] = [
@@ -53,9 +50,8 @@ trs: list[Transaction] = [
 
 
 def log(v: str):
-    log_mutex.acquire_lock()
-    print(v)
-    log_mutex.release_lock()
+    with log_mutex:
+        print(v)
 
 
 def runThread(tr: Transaction):
@@ -85,7 +81,7 @@ def runThread(tr: Transaction):
                 + " "
                 + str(r.index(op[1]))
             )
-            sleep(op[2] * 0.1)
+            sleep(op[2] * 0.01)
 
         if response != None and not succeed:
             with response.condition:
