@@ -193,3 +193,47 @@ class QueryProcessor:
             return data
         except Exception as e:
             return e
+        
+    def __get_filters_for_table(tree: QueryTree, table_name: str) -> List[tuple]:
+        # contoh query SELECT students.name, students.age FROM students WHERE students.age > 20 AND students.grade = 'A';
+        # contoh query tree
+        # (root: QUERY)
+        # (select: SELECT)
+        #         (columns: students.name, students.age)
+        # (from: FROM)
+        #         (table: students)
+        # (where: WHERE)
+        #         (conditions: students.age > 20 AND students.grade = 'A';)
+
+        # result [('students.age', '>', '20'), ('students.grade', '=', "'A';")]
+        filters = []
+
+        def traverse(node: QueryTree):
+            if node.type in {"where", "on"}:
+                for child in node.childs:
+                    if child.type == "conditions":
+                        filter_tokens = child.val.split()
+                        i = 0
+                        while i < len(filter_tokens):
+                            if i + 2 < len(filter_tokens) and filter_tokens[i + 1] in {"=", "<>", ">", ">=", "<", "<="}:
+                                column = filter_tokens[i]
+                                operation = filter_tokens[i + 1]
+                                operand = filter_tokens[i + 2]
+
+                        
+                                table_in_condition = column.split(".")[0]
+                                if table_in_condition == table_name:
+                                    filters.append((column, operation, operand))
+
+                                
+                                i += 3
+                            else:
+                        
+                                i += 1
+
+        
+            for child in node.childs:
+                traverse(child)
+
+        traverse(tree)
+        return filters
