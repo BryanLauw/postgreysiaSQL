@@ -68,5 +68,4 @@ class ConcurrencyControlManager:
     def end_transaction(self, transaction_id: int):
         with self.mutex:
             with self.condition:
-                self.condition.notify_all()
-                transaction_id
+                self.condition.notify()
