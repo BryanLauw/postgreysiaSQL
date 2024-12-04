@@ -1,6 +1,6 @@
 import pickle
 import os
-from Bplus import BPlusTree
+from StorageManager.Bplus import BPlusTree
 
 class Condition:
     valid_operations = ["=", "<>", ">", ">=", "<", "<=", "!"] # untuk sementara "!" berarti no operation
