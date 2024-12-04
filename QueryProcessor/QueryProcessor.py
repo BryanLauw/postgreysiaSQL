@@ -274,3 +274,17 @@ class QueryProcessor:
 
         traverse(tree)
         return filters
+    
+    # def delete_block(self, data_deletion:DataDeletion, database_name:str, transaction_id:int) -> int:
+    def __deleteData(self, data_deletion: DataDeletion, database: str) -> int:
+        # delete the required rows of data from the storage manager
+        # and returns the number of rows deleted
+        # data_deletion = DataDeletion(table="students", conditions=[Condition("a", ">", 1)])
+        # database = "database1"
+        # deleteData(data_deletion, database, transaction_id) = 4
+
+        try:
+            rows_deleted = self.sm.delete_block(data_deletion, database, self.current_transactionId)
+            return rows_deleted
+        except Exception as e:
+            return e
