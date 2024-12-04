@@ -111,6 +111,14 @@ class BPlusTree:
                 return i
         return len(node.keys)
 
+    def _find_child_index_deletion(self, node, key):
+        for i, k in enumerate(node.keys):
+            if key < k and node.keys[i - 1] != key :
+                return i, -999
+            if key < k and node.keys[i - 1] == key : 
+                return i, -1000
+        return len(node.keys), -1001
+
     def search(self, key):
         return self._search_recursive(self.root, key)
 
@@ -176,123 +184,278 @@ class BPlusTree:
         print("None")
         
     # DELETION
-    def delete(self, value):
+    # def delete(self, value):
+    #     if not self.root:
+    #         return
+    #     print("======= deleting", value, "=======")
+    #     self._delete_recursive(self.root, value)
+
+    #     # If the root becomes empty and is not a leaf, promote its only child
+    #     if not self.root.keys and not self.root.is_leaf:
+    #         self.root = self.root.children[0]
+
+    # def _delete_recursive(self, node, value):
+    #     if node.is_leaf:
+    #         if value in node.keys:
+    #             index = node.keys.index(value)
+    #             node.keys.remove(value)
+    #             node.values.remove(node.values[index])
+    #     else:
+    #         # delete from internal node
+    #         idx, status = self._find_child_index_deletion(node, value)
+    #         print(status)
+            
+    #         if value in node.keys:
+    #             print("idx ditemukannya value sama =", idx)
+                
+    #             current = node.children[idx]
+    #             # print("parent:", current.parent.keys)
+    #             # print(f"isi node children[{idx}]", current.keys)
+    #             while (not current.is_leaf) : 
+    #                 current = current.children[0]
+    #             #     print("banyak anak:", len(current.children))
+    #             #     print(f"-- isi node children[{idx}]", current.keys)
+                
+    #             # print("panjang node children =", len(current.keys))
+    #             # print("isi node: ")
+    #             for all in current.keys :
+    #                 print(all)
+
+    #             if len(current.keys) > node.min_key :
+    #                 successor = self._find_successor(node, idx)
+    #                 print("successor =", successor)
+    #                 print("node keys sebelum dihapus =", node.keys)
+    #                 print("idx", idx)
+    #                 if status != -999 :
+    #                     node.keys[idx - 1] = successor
+    #                     # print("1001:", node.keys)
+    #                 #     node.keys[idx] = successor
+    #                 # print("jumlah keys")
+    #                 # print("node keys baru =", node.keys[idx - 1])
+    #                 self._delete_recursive(node.children[idx], value)
+    #             else : 
+    #                 # handle underflow
+    #                 parent =  current.parent
+    #                 # print("=====================================")
+    #                 # print("parent:", parent.keys)
+    #                 # print("how much children they have:", len(parent.children))
+    #                 # print(f"children 1", parent.children[0].keys)
+    #                 # print(f"children 2", parent.children[1].keys)
+    #                 # print("idx", idx)
+    #                 left_sibling, right_sibling = None, None
+    #                 index_from_parent = parent.children.index(current)
+    #                 # print("index from parent for key", value, "is", index_from_parent)
+    #                 if index_from_parent > 0 : 
+    #                     left_sibling = parent.children[index_from_parent - 1]
+    #                     # print("left sibling", left_sibling.keys)
+    #                 if len(parent.children) > 1 :
+    #                     right_sibling = parent.children[index_from_parent + 1]
+    #                 # if index_from_parent <= parent.min_children - 1 : 
+    #                 #     right_sibling = parent.children[idx]
+                    
+    #                 if left_sibling and len(left_sibling.keys) > parent.min_key :
+    #                     # print("masuk sini kan ya pt. 2")
+    #                     borrowed_key = left_sibling.keys.pop(-1)
+    #                     borrowed_value = left_sibling.values.pop(-1)
+    #                     node.keys.remove(value)
+    #                     current.keys.remove(value)
+
+    #                     current.keys.insert(0, borrowed_key)
+    #                     current.values.insert(0, borrowed_value)
+
+    #                     node.keys.insert(0, borrowed_key)
+    #                     node.values.insert(0, borrowed_value)
+    #                     # print("parent.keys[idx-1]", parent.keys[idx - 1])
+    #                     print()
+    #                     print("___otak-atik parent key___")
+    #                     print(parent.keys)
+    #                     # parent.keys[idx - 1] = borrowed_key
+    #                     # if len(parent.keys) > idx :
+    #                     #     for i in range (len(parent.keys) - 1) :
+    #                     #         parent.keys[idx + i] = parent.children[idx + i + 1].keys[0]
+    #                         # parent.keys[idx] = parent.children[idx].keys[0]
+    #                     for i in range (len(parent.keys)) :
+    #                         parent.keys[idx - 1 + i] = parent.children[idx + i].keys[0]
+    #                 else :
+    #                     if right_sibling and len(right_sibling.keys) > parent.min_key :
+    #                         borrowed_key = right_sibling.keys.pop(0)
+    #                         # print("borrowed_key", borrowed_key)
+    #                         borrowed_value = right_sibling.values.pop(0)
+    #                         node.keys.remove(value)
+    #                         current.keys.remove(value)
+    #                         print(value)
+    #                         print(node.keys)
+    #                         # print("masuk sini kan ya")
+    #                         # print(node.keys)
+    #                         current.keys.append(borrowed_key)
+    #                         current.values.append(borrowed_value)
+    #                         # print("curr keys", current.keys)
+    #                         node.keys.append(borrowed_key)
+    #                         node.values.append(borrowed_value)
+    #                         # print("node keys", node.keys)
+    #                         for i in range (len(parent.keys) - 1) :
+    #                             parent.keys[idx - 1 + i] = parent.children[idx + i].keys[0]
+    #                     else : 
+                            
+    #                         if left_sibling : 
+    #                             # extend itu buat merge seluruh keys dari left sibling ke current
+    #                             left_sibling.keys.extend(node.keys)
+    #                             left_sibling.next = node.next
+    #                             parent.keys.pop(idx - 1)
+    #                             parent.children.pop(idx)
+    #                         else : 
+    #                             node.keys.extend(right_sibling.keys)
+    #                             node.next = right_sibling.next
+    #                             parent.keys.pop(index_from_parent)
+    #                             parent.children.pop(index_from_parent)
+    #                         self._delete_recursive(parent, value)
+    #         else:
+    #             self._delete_recursive(node.children[idx], value)
+
+    #     # handle underflow
+    #     # if len(node.keys) < (self.order // 2) - 1:
+    #     #     self._handle_underflow(node)
+    
+
+    # def _find_successor(self, node, idx):
+    #     current = node.children[idx]
+    #     while not current.is_leaf:
+    #         current = current.children[0]
+    #     return current.keys[1]
+
+    def delete(self, key):
         if not self.root:
             return
 
-        self._delete_recursive(self.root, value)
+        print(f"Deleting key: {key}")
+        self._delete_recursive(self.root, key)
 
         # If the root becomes empty and is not a leaf, promote its only child
         if not self.root.keys and not self.root.is_leaf:
             self.root = self.root.children[0]
 
-    def _delete_recursive(self, node, value):
+    def _delete_recursive(self, node, key):
         if node.is_leaf:
-            if value in node.keys:
-                node.keys.remove(value)
-        else:
-            # delete from internal node
-            idx = self._find_child_index(node, value)
-            
-            if value in node.keys:
-                print("idx ditemukannya value sama =", idx)
-                
-                current = node.children[idx]
-                # print("parent:", current.parent.keys)
-                # print(f"isi node children[{idx}]", current.keys)
-                while (not current.is_leaf) : 
-                    current = current.children[0]
-                #     print("banyak anak:", len(current.children))
-                #     print(f"-- isi node children[{idx}]", current.keys)
-                    
-                # print("panjang node children =", len(current.keys))
-                # print("isi node: ")
-                for all in current.keys :
-                    print(all)
-
-                if len(current.keys) > node.min_key :
-                    successor = self._find_successor(node, idx)
-                    # print("successor =", successor)
-                    node.keys[idx - 1] = successor
-                    # print("jumlah keys")
-                    # print("node keys baru =", node.keys[idx - 1])
-                    self._delete_recursive(node.children[idx], value)
-                else : 
-                    # handle underflow
-                    parent =  current.parent
-                    # print("=====================================")
-                    # print("parent:", parent.keys)
-                    # print("how much children they have:", len(parent.children))
-                    # print(f"children 1", parent.children[0].keys)
-                    # print(f"children 2", parent.children[1].keys)
-                    # print("idx", idx)
-                    left_sibling, right_sibling = None, None
-                    if idx > 1 : 
-                        left_sibling = parent.children[idx-2]
-                    if idx <= parent.min_children - 1 : 
-                        right_sibling = parent.children[idx]
-                    
-                    if left_sibling and len(left_sibling.keys) > parent.min_key :
-                        # print("masuk sini kan ya pt. 2")
-                        borrowed_key = left_sibling.keys.pop(-1)
-                        borrowed_value = left_sibling.values.pop(-1)
-
-                        node.keys.insert(0, borrowed_key)
-                        node.values.insert(0, borrowed_value)
-                        parent.keys[idx - 1] = node.keys[0]
-                    else :
-                        if right_sibling and len(right_sibling.keys) > parent.min_key :
-                            borrowed_key = right_sibling.keys.pop(0)
-                            # print("borrowed_key", borrowed_key)
-                            borrowed_value = right_sibling.values.pop(0)
-                            node.keys.remove(value)
-                            current.keys.remove(value)
-                            print(value)
-                            print(node.keys)
-                            # print("masuk sini kan ya")
-                            # print(node.keys)
-                            current.keys.append(borrowed_key)
-                            current.values.append(borrowed_value)
-                            # print("curr keys", current.keys)
-                            node.keys.append(borrowed_key)
-                            node.values.append(borrowed_value)
-                            # print("node keys", node.keys)
-                            parent.keys[idx-1] = right_sibling.keys[0] if right_sibling.keys else borrowed_key
-                        else : 
-                            if left_sibling : 
-                                left_sibling.keys.extend(node.keys)
-                                left_sibling.next = node.next
-                                parent.keys.pop(idx - 1)
-                                parent.children.pop(idx)
-                            else : 
-                                node.keys.extend(right_sibling.keys)
-                                node.next = right_sibling.next
-                                parent.keys.pop(idx)
-                                parent.children.pop(idx + 1)
-                            self._delete_recursive(parent, value)
+            # Delete from leaf node
+            if key in node.keys:
+                index = node.keys.index(key)
+                print("key =", key)
+                print("index yg akan dihapus =", index)
+                print("yang akan dipop=", node.keys, "=", node.keys[index])
+                node.keys.pop(index)
+                node.values.pop(index)
             else:
-                self._delete_recursive(node.children[idx], value)
+                print(f"Key {key} not found in the tree.")
+                return
+        else:
+            # Find child to recurse into
+            index = self._find_child_index(node, key)
+            child = node.children[index]
 
-        # handle underflow
-        # if len(node.keys) < (self.order // 2) - 1:
-        #     self._handle_underflow(node)
-    
-    def _get_max_key_from_node(self, node) :
+            if key in node.keys:
+                # SHOULD I USE THIS CONDITIONAL? 
+                # if len(child.keys) > child.min_key :
+                    # Key is in the internal node
+                self._delete_recursive(child, key)
+                successor = self._find_successor(child)
+                node.keys[index - 1] = successor
+                # else : 
+                #     self._rebalance_leaf(child)
+                # so that it would be like this
+            else:
+                # Recurse into the child
+                self._delete_recursive(child, key)
+
+        # Handle underflow after deletion
+        self._handle_underflow(node)
+
+    def _handle_underflow(self, node):
         if node.is_leaf:
-            return node.keys[-1]
-        return self._get_max_key_from_node(node.children[-1])
-    
-    def _get_smallest_key_from_node(self, node) :
-        if node.is_leaf:
-            return node.keys[0]
-        return self._get_smallest_key_from_node(node.children[0])
+            # Underflow condition for leaf nodes
+            if len(node.keys) < node.min_key:
+                self._rebalance_leaf(node)
+        else:
+            # Underflow condition for internal nodes
+            if len(node.keys) < node.min_children - 1:
+                self._rebalance_internal(node)
 
+    def _rebalance_leaf(self, node):
+        parent = node.parent
+        if not parent:
+            return
 
-    def _find_successor(self, node, idx):
-        current = node.children[idx]
+        index = parent.children.index(node)
+        left_sibling = parent.children[index - 1] if index > 0 else None
+        right_sibling = parent.children[index + 1] if index < len(parent.children) - 1 else None
+
+        if left_sibling and len(left_sibling.keys) > left_sibling.min_key:
+            # Borrow from left sibling
+            node.keys.insert(0, left_sibling.keys.pop(-1))
+            node.values.insert(0, left_sibling.values.pop(-1))
+            parent.keys[index - 1] = node.keys[0]
+        elif right_sibling and len(right_sibling.keys) > right_sibling.min_key:
+            # Borrow from right sibling
+            node.keys.append(right_sibling.keys.pop(0))
+            node.values.append(right_sibling.values.pop(0))
+            parent.keys[index] = right_sibling.keys[0]
+        else: 
+            # Merge with a sibling
+            if left_sibling:
+                left_sibling.keys.extend(node.keys)
+                left_sibling.values.extend(node.values)
+                left_sibling.next = node.next
+                parent.keys.pop(index - 1)
+                parent.children.pop(index)
+            elif right_sibling:
+                node.keys.extend(right_sibling.keys)
+                node.values.extend(right_sibling.values)
+                node.next = right_sibling.next
+                parent.keys.pop(index)
+                parent.children.pop(index + 1)
+
+    def _rebalance_internal(self, node):
+        parent = node.parent
+        if not parent:
+            return
+
+        index = parent.children.index(node)
+        left_sibling = parent.children[index - 1] if index > 0 else None
+        right_sibling = parent.children[index + 1] if index < len(parent.children) - 1 else None
+
+        if left_sibling and len(left_sibling.keys) > left_sibling.min_key:
+            # Borrow from left sibling
+            node.keys.insert(0, parent.keys[index - 1])
+            node.children.insert(0, left_sibling.children.pop(-1))
+            parent.keys[index - 1] = left_sibling.keys.pop(-1)
+        elif right_sibling and len(right_sibling.keys) > right_sibling.min_key:
+            # Borrow from right sibling
+            node.keys.append(parent.keys[index])
+            node.children.append(right_sibling.children.pop(0))
+            parent.keys[index] = right_sibling.keys.pop(0)
+        else:
+            # Merge with a sibling
+            if left_sibling:
+                left_sibling.keys.append(parent.keys.pop(index - 1))
+                left_sibling.keys.extend(node.keys)
+                left_sibling.children.extend(node.children)
+                parent.children.pop(index)
+            elif right_sibling:
+                node.keys.append(parent.keys.pop(index))
+                node.keys.extend(right_sibling.keys)
+                node.children.extend(right_sibling.children)
+                parent.children.pop(index + 1)
+
+    def _find_successor(self, node):
+        current = node
         while not current.is_leaf:
             current = current.children[0]
-        return current.keys[1]
+        return current.keys[0]
+
+        # def _find_successor(self, node, idx):
+    #     current = node.children[idx]
+    #     while not current.is_leaf:
+    #         current = current.children[0]
+    #     return current.keys[1]
     
 
     # def _borrow_from_left(self, parent, index, left_sibling):
@@ -372,6 +535,7 @@ def main():
     print(tree.search_range(10,20))
 
     # tree.delete(60)
+    print()
     tree.delete(37)
     tree.print_tree()
     print()
@@ -384,6 +548,23 @@ def main():
     tree.delete(8)
     tree.print_tree()
     print()
+    tree.delete(6)
+    tree.print_tree()
+    print()
+    tree.delete(56)
+    tree.print_tree()
+    print()
+    tree.delete(57)
+    tree.print_tree()
+    print()
+    tree.delete(39)
+    tree.print_tree()
+    print()
+    tree.delete(55)
+    tree.print_tree()
+    print()
+    tree.delete(58)
+    tree.print_tree()
 
 if __name__ == "__main__":
     main()
