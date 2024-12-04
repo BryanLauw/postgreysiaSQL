@@ -123,7 +123,7 @@ class QueryParser:
             cur_state_rules = self.transitions[cur_state]
             for rule in cur_state_rules:
                 rule_token = rule[0]
-                if((token == rule_token) or (rule_token == "<X>" and re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', token.replace('.', '')) and token.count('.') <= 1) or
+                if((token == rule_token) or (rule_token == "<X>" and re.match(r'^[A-Za-z_][A-Za-z0-9_]*$|^\d+(\.\d+)*$', token.replace('.', '')) and token.count('.') <= 1) or
                    ((rule_token == "<N>" or rule_token == "<X>") and token.isnumeric()) or (rule_token == "<CO>" and token in self.CO) or
                    (rule_token == "<MO>" and token in self.MO)
                 ):
@@ -158,10 +158,10 @@ class QueryParser:
                 element = ""
                 i+=2
                 continue
-            elif values_parsed[i] == "JOIN":
+            elif values_parsed[i] in ["JOIN",","]:
                 if element:
                     arr_joins.append(element.strip())
-                arr_joins.append("JOIN")
+                arr_joins.append(values_parsed[i])
                 element = ""
             else:
                 element += " " + values_parsed[i]

@@ -12,6 +12,17 @@ class QueryTree:
     
     def add_parent(self, parent: 'QueryTree') -> 'QueryTree':
         self.parent = parent
+    
+    def get_next_sibling(self):
+        if self.parent is None:
+            return None # No parent, no sibling
+        
+        siblings = self.parent.childs
+        current_index = siblings.index(self)
+        if current_index < len(siblings) - 1:
+            return siblings[current_index + 1] # Return the next sibling
+        
+        return None # No more siblings
 
     def __repr__(self, level=0):
         ret = "\t" * level + f"({self.type}: {self.val})\n"
