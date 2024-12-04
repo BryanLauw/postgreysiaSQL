@@ -189,10 +189,13 @@ class QueryProcessor:
             transaction_id (int): The ID of the transaction to rollback.
         """
         # Retrieve undo instructions from FailureRecovery
-        undo_instructions = self.rm.rollback(transaction_id)
+        undo_list = self.rm.rollback(transaction_id).get("undo")
 
         # Reverse the changes made by the transaction
-        for instruction in undo_instructions:
+        for instruction in undo_list:
+            transaction_id = instruction["transaction_id"]
+            old_value = instruction["old_value"]
+            new_value = instruction["new_value"]
             object_value = instruction["object_value"]
             old_value = instruction["old_value"]
             db, table, column = self.__parse_object_value(object_value)
