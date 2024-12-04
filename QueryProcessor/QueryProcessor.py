@@ -1,8 +1,11 @@
+from FailureRecovery.main_log_entry import LogEntry
 from ..ConcurrencyControlManager.ConcurrencyControlManager import *
 from ..QueryOptimizer.OptimizationEngine import *
 from ..FailureRecovery import *
 from StorageManager.classes import *
 import re
+
+import FailureRecovery.main as FailureRecovery
 
 # temp class
 class Condition:
@@ -177,6 +180,45 @@ class QueryProcessor:
     def parse_query(self, query : str):
         queries = query.split(';')
         return [q.strip() for q in queries if q.strip()]
+    
+    def __handle_rollback(self, transaction_id: int):
+        """
+        Handle rollback when FailureRecovery calls rollback.
+
+        Parameters:
+            transaction_id (int): The ID of the transaction to rollback.
+        """
+        # Retrieve undo instructions from FailureRecovery
+        undo_instructions = self.rm.rollback(transaction_id)
+
+        # Reverse the changes made by the transaction
+        for instruction in undo_instructions:
+            object_value = instruction["object_value"]
+            old_value = instruction["old_value"]
+            db, table, column = self.__parse_object_value(object_value)
+            # Revert the data to the old value using StorageManager
+            self.sm.update_data(object_value, old_value) # TODO : Implement update_data in StorageManager
+
+        # Release any locks held by the transaction
+        self.cc.end_transaction(transaction_id)
+
+    def __parse_object_value(self, object_value: str):
+        """
+        Parse the object value to extract table and column information.
+        
+        Parameters:
+            object_value (str): The object value string.
+        
+        Returns:
+            tuple: A tuple containing the table and column.
+        """
+        # Assuming object_value is a string in the format "{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'}"
+        matches = re.findall(r"'(\w+)':'([^']*)'", object_value)
+        obj = dict(matches)
+        table = obj['nama_kolom']
+        column = obj['primary_key']
+        db = obj['nama_db']
+        return db, table, column
     
     def __removeAttribute(self, l: List) -> List[str]:
         # removing attribute from <table>.<attribute> for all element in list
