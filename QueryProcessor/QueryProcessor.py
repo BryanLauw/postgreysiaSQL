@@ -1,9 +1,46 @@
-from ConcurrencyControlManager.ConcurrencyControlManager import *
-from QueryOptimizer.OptimizationEngine import *
-from FailureRecovery.failure_recovery import *
+from ..ConcurrencyControlManager.ConcurrencyControlManager import *
+from ..QueryOptimizer.OptimizationEngine import *
+from ..FailureRecovery import *
 from StorageManager.classes import *
 import re
 
+# temp class
+class Condition:
+    def __init__(self, column: str, operation: str, operand: Union[str, int]):
+        self.column = column
+        self.operation = operation
+        self.operand = operand
+    
+    def __repr__(self):
+        return f"Condition(column={self.column}, operation={self.operation}, operand={self.operand})"
+
+class DataRetrieval:
+    def __init__(self, table: str, columns: List[str], conditions: List[Condition]):
+        self.table = table
+        self.columns = columns
+        self.conditions = conditions
+
+    def __repr__(self):
+        return f"DataRetrieval(table={self.table}, columns={self.columns}, conditions={self.conditions})"
+
+class DataWrite:
+    def __init__(self, table: str, column: List[str], conditions: List[Condition], new_value: List[str]):
+        self.table = table
+        self.column = column
+        self.conditions = conditions
+        self.new_value = new_value
+
+    def __repr__(self):
+        return f"DataWrite(table={self.table}, column={self.column}, conditions={self.conditions}, new_value={self.new_value})"
+
+class DataDeletion:
+    def __init__(self, table: str, conditions: List[Condition]):
+        self.table = table
+        self.conditions = conditions
+
+    def __repr__(self):
+        return f"DataDeletion(table={self.table}, conditions={self.conditions})"
+    
 class QueryProcessor:
     def __init__(self, db_name: str):
         self.current_transactionId = None
