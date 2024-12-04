@@ -172,18 +172,18 @@ class OptimizationEngine:
         # Placeholder for query cost estimation
         pass
 
-    def removeAttribute(self,l: List):
-        return [element.split('.')[0] for element in l]
+# def removeAttribute(self,l: List):
+#     return [element.split('.')[0] for element in l]
 
-    def getTables(self,tree: QueryTree):
-        # print(tree.type)
-        if tree.type.upper() == "SELECT":
-            return self.removeAttribute(tree.val)
-        elif len(tree.childs) == 0:
-            return ""
-        else:
-            for child in tree.childs:
-                return self.getTables(child)
+# def getTables(self,tree: QueryTree):
+#     # print(tree.type)
+#     if tree.type.upper() == "SELECT":
+#         return self.removeAttribute(tree.val)
+#     elif len(tree.childs) == 0:
+#         return ""
+#     else:
+#         for child in tree.childs:
+#             return self.getTables(child)
 
 # def getJoin(tree: QueryTree):
 #     print(tree.type)
@@ -195,19 +195,6 @@ class OptimizationEngine:
 #         for child in tree.childs:
 #             return getJoin(child)
 
-    def joinOn(tablename1: str, tablename2:str, table1: List[map], table2: List[map], cond: str):
-        
-        result = []
-        condList = [['key1','key2'],['key3','key4']]
-        for r1 in table1:
-            for r2 in table2:
-                isValid = True
-                for cond in condList:
-                    if r1[cond[0]] != r2[cond[1]]:
-                        isValid = False
-                if(isValid):
-                    result.append(table1 | table2) # belom handle duplikat column di 2 tabel
-        return result
                         
         
 

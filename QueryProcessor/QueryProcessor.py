@@ -276,6 +276,18 @@ class QueryProcessor:
         except Exception as e:
             return e
         
+    def joinOn(tablename1: str, tablename2:str, table1: List[map], table2: List[map], cond: str):
+        result = []
+        condList = [['key1','key2'],['key3','key4']]
+        for r1 in table1:
+            for r2 in table2:
+                isValid = True
+                for cond in condList:
+                    if r1[cond[0]] != r2[cond[1]]:
+                        isValid = False
+                if(isValid):
+                    result.append(table1 | table2) # belom handle duplikat column di 2 tabel
+        return result
     def __get_filters_for_table(tree: QueryTree, table_name: str) -> List[tuple]:
         # contoh query SELECT students.name, students.age FROM students WHERE students.age > 20 AND students.grade = 'A';
         # contoh query tree
