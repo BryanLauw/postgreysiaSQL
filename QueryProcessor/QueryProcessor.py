@@ -12,7 +12,6 @@ import FailureRecovery.main as FailureRecovery
 class QueryProcessor:
     # def __init__(self, db_name: str | None):
     def __init__(self):
-        self.current_transactionId = 0 #SBD
         self.parsedQuery = None
         self.sm = StorageEngine()
         self.qo = OptimizationEngine(self.sm.get_stats)
@@ -20,6 +19,7 @@ class QueryProcessor:
         self.rm = FailureRecovery.FailureRecovery()
         self.db_name = "database1" #SBD
 
+        self.current_transactionId = self.cc.begin_transaction() #SBD
         self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
 
         # Register exit and signal handler
@@ -48,10 +48,6 @@ class QueryProcessor:
                 self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
                 self.cc.end_transaction(self.current_transactionId)
                 self.sm.commit_buffer(self.current_transactionId)
-                self.current_transactionId = None
-            
-            elif(query.upper() == "END TRANSACTION"):
-                self.cc.end_transaction(self.current_transactionId)
                 self.sm.save()
                 self.current_transactionId = None
 
@@ -197,6 +193,8 @@ class QueryProcessor:
                 data_line += f" {value:<{width}} |"
             print(data_line)
             data_lines.append(data_line)
+
+        print(border)
         
         result = "\n".join([border, header_line, border] + data_lines + [border])
         return result.strip()
@@ -487,11 +485,8 @@ class QueryProcessor:
         """
         Custom signal handler to handle SIGINT and SIGSEV.
         """
-        self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
         self.cc.end_transaction(self.current_transactionId)
-        self.sm.commit_buffer(self.current_transactionId)
         self.sm.save()
-        
-        # Raise the original signal to allow the program to terminate
-        signal.signal(signum, signal.SIG_DFL)
-        signal.raise_signal(signum)
+        print("Bye!")
+        self.rm.signal_handler(signum, frame)
+        # Raise the original signal  to allow the program to terminate
