@@ -8,7 +8,7 @@ class ConcurrencyTester:
         res = self.cm.validate_object(object, transaction_id, action)
         if res == False:
             raise Exception(f"Transaction {transaction_id} not allowed to {action} data")
-            
+
 
     # read
     def r(self, id, obj): 
@@ -87,9 +87,9 @@ class ConcurrencyTester:
         
         self.r(t1, a)  # t1 reads A
         self.w(t2, b)  # t2 write B
-        self.r(t1, b)  # t1 read B
+        self.r(t1, b)  # t1 read B, fails since t1 has lower timestamp
         self.w(t2, c)  # t2 writes C
-        self.w(t1, c)  # t1 write C , should fail since t1 has lower timestamp
+        self.w(t1, c)  # t1 write C , this also fails since t1 has lower timestamp
 
     def test_cycle_prevention(self):
         """Test prevention of dependency cycles:
@@ -109,9 +109,9 @@ class ConcurrencyTester:
         self.r(t2, b)  # t2 reads B
         self.r(t3, c)  # t3 reads C
         
-        self.w(t1, b)  # t1 write B
-        self.w(t2, c)  # t2 write C
-        self.w(t3, a)  # t3 writesA, should fail since it creates a cycle
+        self.w(t1, b)  # t1 write B, this fails first since t1 has lower timestamp
+        self.w(t2, c)  # t2 write C, also fails since t2 has lower timestamp
+        self.w(t3, a)  # t3 writes A, this also fails since it creates a cycle
 
 def run_all_tests():
     tester = ConcurrencyTester()
