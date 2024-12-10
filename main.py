@@ -9,4 +9,8 @@ while True:
     query = input("> ")
     if query == "exit":
         break
+    # try:
+    #     queryProcessor.execute_query(query)
+    # except Exception as e:
+    #     print(f"Error: {e}")
     queryProcessor.execute_query(query)

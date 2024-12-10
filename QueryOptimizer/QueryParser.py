@@ -41,6 +41,12 @@ class QueryParser:
                 lenParsed = len(parsed)
                 for i in range(1,lenParsed,2):
                     self.transitions[state].append((parsed[i],parsed[i+1])) 
+                    
+    def transform_to_upper(self,text):
+        words = text.split()
+        transformed = [word.upper() if word.upper() in self.keywords+["AND","OR"] else word for word in words]
+        print(words)
+        return " ".join(transformed)
     
     def tokenize_query(self,query: str):
         operators = self.CO + self.MO
@@ -123,7 +129,7 @@ class QueryParser:
             cur_state_rules = self.transitions[cur_state]
             for rule in cur_state_rules:
                 rule_token = rule[0]
-                if((token == rule_token) or (rule_token == "<X>" and re.match(r'^[A-Za-z_][A-Za-z0-9_]*$|^\d+(\.\d+)*$', token.replace('.', '')) and token.count('.') <= 1) or
+                if((token == rule_token) or (rule_token == "<X>" and (re.match(r'^[A-Za-z_][A-Za-z0-9_]*$|^\d+(\.\d+)*$', token.replace('.', '')) and token.count('.') <= 1 or re.match(r'^".*"$', token))) or
                    ((rule_token == "<N>" or rule_token == "<X>") and token.isnumeric()) or (rule_token == "<CO>" and token in self.CO) or
                    (rule_token == "<MO>" and token in self.MO)
                 ):
