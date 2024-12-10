@@ -61,39 +61,40 @@ class QueryProcessor:
                 #     self.parsedQuery = self.qo.parse_query(query, "database1")
                 # except Exception as e:
                 #     raise Exception(e)
-                    
-                if self.parsedQuery.query_tree.val == "UPDATE":
-                    write = self.ParsedQueryToDataWrite(self.parsedQuery)
-                    # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
-                    b = self.sm.write_block(write, "database1", self.current_transactionId)
-                elif self.parsedQuery.query_tree.val == "SELECT":
-                    data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
-                    temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
-                    temp = self.__orderBy(temp, "id", True) # hardcode
-                    result = self.printResult(temp)
-                    return result
+                result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
+                self.printResult(result)
+                # if self.parsedQuery.query_tree.val == "UPDATE":
+                #     write = self.ParsedQueryToDataWrite(self.parsedQuery)
+                #     # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
+                #     b = self.sm.write_block(write, "database1", self.current_transactionId)
+                # elif self.parsedQuery.query_tree.val == "SELECT":
+                #     data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
+                #     temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
+                #     temp = self.__orderBy(temp, "id", True) # hardcode
+                #     result = self.printResult(temp)
+                #     return result
 
     def evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
         if not tree.childs:
             if len(select) > 0 and len(where) > 0:
                 cond = self.__makeCondition(where)
-                dataRetriev = DataRetrieval(tree.val, select, cond)
-                return self.__getData(dataRetriev, self.db_name)
+                dataRetriev = DataRetrieval([tree.val], select, cond)
+                return self.__getData(dataRetriev)
             elif len(select) > 0:
-                dataRetriev = DataRetrieval(tree.val, select, [])
-                return self.__getData(dataRetriev, self.db_name)
+                dataRetriev = DataRetrieval([tree.val], select, [])
+                return self.__getData(dataRetriev)
             elif len(where) > 0:
                 cond = self.__makeCondition(where)
-                dataRetriev = DataRetrieval(tree.val, [], cond)
-                return self.__getData(dataRetriev, self.db_name)
+                dataRetriev = DataRetrieval([tree.val], [], cond)
+                return self.__getData(dataRetriev)
             else:
-                dataRetriev = DataRetrieval(tree.val, [], [])
-                return self.__getData(dataRetriev, self.db_name)
+                dataRetriev = DataRetrieval([tree.val], [], [])
+                return self.__getData(dataRetriev)
         else:
             if tree.type == "JOIN" or tree.type == "NATURAL JOIN":
                 if tree.type == "JOIN":
                     temp = self.__joinOn(
-                        "temp1", "temp2",
+                        "users", "products",
                         self.evaluateSelectTree(tree.childs[0], [], []),
                         self.evaluateSelectTree(tree.childs[1], [], []),
                         tree.val
@@ -399,20 +400,20 @@ class QueryProcessor:
             for child in tree.childs:
                 return self.__getTables(child)
 
-    def __makeCondition(self, tree: QueryTree) -> List[Condition]:
-        # Make Condition from Query Tree
-        cons = self.__getTables(tree)
-        ret = []
-        for con in cons:
-            if "." in con[0]:
-                column = con.split(".")[1]
-            else:
-                column = con
-            temp = Condition(column, con[1], con[2])
-            ret.append(temp)
-        return ret
-
-    def __getData(self, data_retrieval: DataRetrieval, database: str) -> dict|Exception:
+    # def __makeCondition(self, tree: QueryTree) -> List[Condition]:
+    #     # Make Condition from Query Tree
+    #     cons = self.__getTables(tree)
+    #     ret = []
+    #     for con in cons:
+    #         if "." in con[0]:
+    #             column = con.split(".")[1]
+    #         else:
+    #             column = con
+    #         temp = Condition(column, con[1], con[2])
+    #         ret.append(temp)
+    #     return ret
+    
+    def __getData(self, data_retrieval: DataRetrieval) -> dict|Exception:
         # fetches the required rows of data from the storage manager
         # and returns it as a dictionary
 
@@ -425,10 +426,10 @@ class QueryProcessor:
 
         try:
             for table in data_retrieval.table:
-                response = self.cc.validate_object(table, database, self.current_transactionId)
+                response = self.cc.validate_object(table, self.db_name, self.current_transactionId)
                 if not response.allowed:
                     raise Exception(f"Transaction {self.current_transactionId} cannot read table {table}")
-            data = self.sm.read_block(data_retrieval, database)
+            data = self.sm.read_block(data_retrieval, self.db_name, self.current_transactionId)
             return data
         except Exception as e:
             self.handle_rollback(self.current_transactionId)
@@ -439,18 +440,24 @@ class QueryProcessor:
         eqs = cond.split("AND")  # Split on commas
         for eq in eqs:
             temp = eq.split("=") # [t1.a , t2.b]
-            # print(temp)
+            print(temp)
             lhs = temp[0].split(".") # [t1,a]
+            print(lhs)
             if(lhs[0]==tablename1):
                 result.append([lhs[1].strip(),temp[1].split(".")[1].strip()])
             else: 
                 result.append([temp[1].split(".")[1].strip(), lhs[1].strip()])
         return result
     
-    def __joinOn(self,tablename1: str, tablename2:str, table1: List[map], table2: List[map], cond: str):
+    def __joinOn(self,tablename1: str, tablename2:str, table1: list[map], table2: list[map], cond: str):
         result = []
         condList = self.__transCond(tablename1,tablename2,cond)
-        # condList = [['key1','key2'],['key3','key4']]
+        
+        # print(tablename1)        
+        # print(tablename2)        
+        # print(table1)        
+        # print(table2)        
+        
         for r1 in table1:
             for r2 in table2:
                 isValid = True
@@ -472,6 +479,8 @@ class QueryProcessor:
                         else:
                             row[col] = r2[col]
                     result.append(row)
+        print("WWKKWKWK")
+        print(result)
         return result
     
     def __naturalJoin(self, tablename1: str, tablename2: str, table1: List[dict], table2: List[dict]) -> List[dict]:

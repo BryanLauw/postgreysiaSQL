@@ -204,6 +204,8 @@ class StorageEngine:
             hasil_operasi = hasil_cross
 
         # lalu ambil hanya kolom yang diinginkan
+        if(len(data_retrieval.column) == 0):
+            return hasil_operasi
         hasil_akhir = [{key: d[key] for key in data_retrieval.column if key in d} for d in hasil_operasi]
 
         # return akhir
