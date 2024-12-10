@@ -12,7 +12,6 @@ import FailureRecovery.main as FailureRecovery
 class QueryProcessor:
     # def __init__(self, db_name: str | None):
     def __init__(self):
-        self.current_transactionId = 0 #SBD
         self.parsedQuery = None
         self.sm = StorageEngine()
         self.qo = OptimizationEngine(self.sm.get_stats)
@@ -20,6 +19,7 @@ class QueryProcessor:
         self.rm = FailureRecovery.FailureRecovery()
         self.db_name = "database1" #SBD
 
+        self.current_transactionId = self.cc.begin_transaction() #SBD
         self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
 
         # Register exit and signal handler
@@ -48,10 +48,6 @@ class QueryProcessor:
                 self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
                 self.cc.end_transaction(self.current_transactionId)
                 self.sm.commit_buffer(self.current_transactionId)
-                self.current_transactionId = None
-            
-            elif(query.upper() == "END TRANSACTION"):
-                self.cc.end_transaction(self.current_transactionId)
                 self.sm.save()
                 self.current_transactionId = None
 
@@ -76,7 +72,111 @@ class QueryProcessor:
                     temp = self.__orderBy(temp, "id", True) # hardcode
                     result = self.printResult(temp)
                     return result
+
+    def evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
+        if not tree.childs:
+            if len(select) > 0 and len(where) > 0:
+                cond = self.__makeCondition(where)
+                dataRetriev = DataRetrieval(tree.val, select, cond)
+                return self.__getData(dataRetriev, self.db_name)
+            elif len(select) > 0:
+                dataRetriev = DataRetrieval(tree.val, select, [])
+                return self.__getData(dataRetriev, self.db_name)
+            elif len(where) > 0:
+                cond = self.__makeCondition(where)
+                dataRetriev = DataRetrieval(tree.val, [], cond)
+                return self.__getData(dataRetriev, self.db_name)
+            else:
+                dataRetriev = DataRetrieval(tree.val, [], [])
+                return self.__getData(dataRetriev, self.db_name)
+        else:
+            if tree.type == "JOIN" or tree.type == "NATURAL JOIN":
+                if tree.type == "JOIN":
+                    temp = self.__joinOn(
+                        "temp1", "temp2",
+                        self.evaluateSelectTree(tree.childs[0], [], []),
+                        self.evaluateSelectTree(tree.childs[1], [], []),
+                        tree.val
+                    )
+                elif tree.type == "NATURAL JOIN":
+                    temp = self.__naturalJoin(
+                        "temp1", "temp2",
+                        self.evaluateSelectTree(tree.childs[0], [], []),
+                        self.evaluateSelectTree(tree.childs[1], [], []))
+                    
+                if len(select) > 0 and len(where) > 0:
+                    temp = self.__filterSelect(temp, select)
+                    temp = self.__filterWhere(temp, where)
+                    return temp
+                elif len(select) > 0:
+                    temp = self.__filterSelect(temp, select)
+                    return temp
+                elif len(where) > 0:
+                    temp = self.__filterWhere(temp, where)
+                    return temp
+                else:
+                    return temp
+            else:
+                if tree.type == "SELECT":
+                    select = tree.val
+                elif tree.type == "WHERE":
+                    where = tree.val
+                for child in tree.childs:
+                    return self.evaluateSelectTree(child, select, where)
+                
+    def __filterSelect(self, data: List[dict], select: list[str]) -> List[dict]:
+        # filter select
+        column = [col.split(".")[1] for col in select]
+        return [{key: value for key, value in row.items() if key in column} for row in data]
     
+    def __evalWhere(self, row:map, conds:list[Condition]):
+        for cond in conds:
+            if(cond.operation == "<>" and row[cond.column] != row[cond.operand]):
+                return True
+            elif(cond.operation == ">=" and row[cond.column] >= row[cond.operand]):
+                return True
+            elif(cond.operation == "<=" and row[cond.column] <= row[cond.operand]):
+                return True
+            elif(cond.operation == "=" and row[cond.column] == row[cond.operand]):
+                return True
+            elif(cond.operation == ">" and row[cond.column] > row[cond.operand]):
+                return True
+            elif(cond.operation == "<" and row[cond.column] < row[cond.operand]):
+                return True
+        return False
+    
+    def __filterWhere(self,data: list[map], where: str) -> list[map]:
+        result = []
+        cond = self.__makeCondition(where)
+        for row in data:
+            if self.__evalWhere(row,cond):
+                result.append(row)
+        return result
+    
+    def __makeCondition(self, where: str) -> List[Condition]:      
+        eqs = where.split("OR")
+        cond = [] 
+        for eq in eqs:
+            if("<>" in eq):
+                temp = eq.split("<>")
+                cond.append(Condition(temp[0].strip(),"<>",temp[1].strip()))
+            elif(">=" in eq):
+                temp = eq.split(">=")
+                cond.append(Condition(temp[0].strip(),">=",temp[1].strip()))
+            elif("<=" in eq):
+                temp = eq.split("<=")
+                cond.append(Condition(temp[0].strip(),"<=",temp[1].strip()))
+            elif("=" in eq):
+                temp = eq.split("=")
+                cond.append(Condition(temp[0].strip(),"=",temp[1].strip()))
+            elif(">" in eq):
+                temp = eq.split(">")
+                cond.append(Condition(temp[0].strip(),">",temp[1].strip()))
+            elif("<" in eq):
+                temp = eq.split("<")
+                cond.append(Condition(temp[0].strip(),"<",temp[1].strip()))
+        return cond
+
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
         # if parsed_query.query_tree.type == "JOIN":
         #     joined_tables = [
@@ -197,6 +297,8 @@ class QueryProcessor:
                 data_line += f" {value:<{width}} |"
             print(data_line)
             data_lines.append(data_line)
+
+        print(border)
         
         result = "\n".join([border, header_line, border] + data_lines + [border])
         return result.strip()
@@ -487,11 +589,8 @@ class QueryProcessor:
         """
         Custom signal handler to handle SIGINT and SIGSEV.
         """
-        self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
         self.cc.end_transaction(self.current_transactionId)
-        self.sm.commit_buffer(self.current_transactionId)
         self.sm.save()
-        
-        # Raise the original signal to allow the program to terminate
-        signal.signal(signum, signal.SIG_DFL)
-        signal.raise_signal(signum)
+        print("Bye!")
+        self.rm.signal_handler(signum, frame)
+        # Raise the original signal  to allow the program to terminate
