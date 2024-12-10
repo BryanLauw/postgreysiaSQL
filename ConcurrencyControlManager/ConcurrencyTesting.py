@@ -166,6 +166,73 @@ class ConcurrencyTester:
 
         # sixth operation is not allowed due to the third operation.
 
+    def test_transaction_dependency(self):
+        """
+        Test varying read and write operations with different transactions
+        """
+        
+        # Initialize rows
+        a, b, c, d = Row(), Row(), Row(), Row()
+        t1 = self.cm.begin_transaction()  
+        t2 = self.cm.begin_transaction()  
+        t3 = self.cm.begin_transaction()  
+        
+        # T1 reads A, writes B
+        self.r(t1, a)
+        self.w(t1, b)
+        
+        # T2 writes A, reads C
+        self.w(t2, a)
+        self.r(t2, c)
+        
+        # T3 reads B, writes D
+        self.r(t3, b)
+        self.w(t3, d)
+
+        # Conflict testing:
+        # T1's write to B should not conflict with T2 or T3.
+        # T2's write to A should not conflict with T1 or T3.
+        # T3 can safely read B since T1 is older.
+
+    def test_cascading_writes_violation(self):
+        """
+        Transactions should not cascade their writes across objects causing conflicts.
+        """
+        
+        # Initialize rows
+        a, b = Row(), Row()
+
+        t1 = self.cm.begin_transaction()  
+        t2 = self.cm.begin_transaction()  
+
+        self.r(t1, a)  # T1 reads A
+        self.w(t2, a)  # T2 writes A
+        self.w(t1, b)  # T1 writes B
+        self.w(t1, a)  # T1 tries to write A 
+        
+        # Conflict testing:
+        # T1 should fail because it attempts to write to A after T2 has written to A.
+        
+    def test_multiple_access_conflict(self):
+        """
+        Random order of read and write operations that leads to conflicts.
+        """
+        a, b, c = Row(), Row(), Row()
+        
+        t1 = self.cm.begin_transaction()  
+        t2 = self.cm.begin_transaction()  
+        t3 = self.cm.begin_transaction()  
+        t4 = self.cm.begin_transaction()  
+
+        self.r(t1, a)  # T1 reads A
+        self.w(t2, a)  # T2 writes A
+        self.w(t3, b)  # T3 writes B
+        self.r(t4, b)  # T4 reads B
+        self.w(t1, c)  # T1 writes C
+        self.r(t2, b)  # T2 tries to reads B 
+        
+        # Conflict testing:
+        # T2 tries to read B after T3 has already written to B, so this should cause a violation.
 
 def run_all_tests():
     tester = ConcurrencyTester()
@@ -180,6 +247,9 @@ def run_all_tests():
         (tester.test_write_written_violation, "Write Written Violation Test"),
         (tester.test_read_written_violation, "Read Written Violation Test"),
         (tester.test_random_violation, "Random Violation Test"),
+        (tester.test_transaction_dependency, "Transaction Dependency Test"),  
+        (tester.test_cascading_writes_violation, "Cascading Write Test"),
+        (tester.test_multiple_access_conflict, "Multiple Access Conflict Test"),
     ]
     
     for test_func, test_name in tests:
