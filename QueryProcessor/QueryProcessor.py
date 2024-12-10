@@ -253,7 +253,18 @@ class QueryProcessor:
         key_column = obj.get('primary_key')
         key_value = obj.get('key_value')
         return db, table, column, key_column, key_value
-    
+
+    def getLeaf(self,tree:QueryTree):
+        # Base case: if the node has no children, it is a leaf
+        if not tree.childs:
+            return [tree]
+        
+        # Recursive case: collect leaves from all children
+        leaves = []
+        for child in tree.childs:
+            leaves.extend(self.getLeaf(child))
+        return leaves
+
     def __removeAttribute(self, l: List) -> List[str]:
         # removing attribute from <table>.<attribute> for all element in list
         
