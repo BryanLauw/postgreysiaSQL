@@ -119,6 +119,50 @@ class QueryProcessor:
                 for child in tree.childs:
                     return self.evaluateTree(child, select, where)
     
+
+    def evalWhere(self, row:map, conds:list[Condition]):
+        for cond in conds:
+            if(cond.operation == "<>" and row[cond.column] != row[cond.operand]):
+                return True
+            elif(cond.operation == ">=" and row[cond.column] >= row[cond.operand]):
+                return True
+            elif(cond.operation == "<=" and row[cond.column] <= row[cond.operand]):
+                return True
+            elif(cond.operation == "=" and row[cond.column] == row[cond.operand]):
+                return True
+            elif(cond.operation == ">" and row[cond.column] > row[cond.operand]):
+                return True
+            elif(cond.operation == "<" and row[cond.column] < row[cond.operand]):
+                return True
+        return False
+    def filterWhere(self,data: list[map], where: str) -> list[map]:
+        result = []
+        eqs = where.split("OR")
+        cond = [] 
+        for eq in eqs:
+            if("<>" in eq):
+                temp = eq.split("<>")
+                cond.append(Condition(temp[0].strip(),"<>",temp[1].strip()))
+            elif(">=" in eq):
+                temp = eq.split(">=")
+                cond.append(Condition(temp[0].strip(),">=",temp[1].strip()))
+            elif("<=" in eq):
+                temp = eq.split("<=")
+                cond.append(Condition(temp[0].strip(),"<=",temp[1].strip()))
+            elif("=" in eq):
+                temp = eq.split("=")
+                cond.append(Condition(temp[0].strip(),"=",temp[1].strip()))
+            elif(">" in eq):
+                temp = eq.split(">")
+                cond.append(Condition(temp[0].strip(),">",temp[1].strip()))
+            elif("<" in eq):
+                temp = eq.split("<")
+                cond.append(Condition(temp[0].strip(),"<",temp[1].strip()))
+        for row in data:
+            if self.evalWhere(row,cond):
+                result.append(row)
+        return result
+
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
         # if parsed_query.query_tree.type == "JOIN":
         #     joined_tables = [
