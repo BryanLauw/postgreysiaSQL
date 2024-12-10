@@ -50,7 +50,7 @@ class QueryProcessor:
         self.qo = OptimizationEngine()
         self.cc = ConcurrencyControlManager()
         self.sm = StorageEngine()
-        self.rm = FailureRecovery()
+        self.rm = FailureRecovery.FailureRecovery()
         self.db_name = db_name
         pass
 
@@ -73,6 +73,7 @@ class QueryProcessor:
                 # self.rm.start_transaction(self.current_transactionId)
                 
             elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
+                self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
                 self.cc.end_transaction(self.current_transactionId)
                 self.current_transactionId = None
             
