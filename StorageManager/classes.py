@@ -368,43 +368,22 @@ class StorageEngine:
         return bplus_tree
     
 
-    def search_bplus_index(self,database_name:str,table_name:str,column:str,key) -> list:
-        pass
+    def search_bplus_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int) -> list:
+        self.validate_column_buffer(database_name,table_name,column,transaction_id)
 
-
-    def search_with_index(self, database_name: str, table_name: str, column: str, key) -> list :
-        if database_name not in self.blocks:
-            raise ValueError(f"Database '{database_name}' does not exist.")
-        if table_name not in self.blocks[database_name]:
-            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
-        
-        table = self.blocks[database_name][table_name]
-        if "indexes" not in table or column not in table["indexes"]:
-            raise ValueError(f"No index exists for column '{column}' in table '{table_name}'.")
-        index = table["indexes"][column]
+        index = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
+        print(index)
         result_indices = index.search(key)
-        values = table["values"]
-        if isinstance(result_indices, list): 
-            return [values[i] for i in result_indices]
-        elif result_indices is not None:  
-            return [values[result_indices]]
-        else:   
-            return []
+        return result_indices
+    
+    def search_bplus_index_range(self, database_name:str,table_name:str, column:str,  transaction_id:int,start,end) -> list:
         
-    def search_range_with_index(self, database_name:str, table_name: str, column: str, start, end) -> list:
-        if database_name not in self.blocks:
-            raise ValueError(f"Database '{database_name}' does not exist.")
-        if table_name not in self.blocks[database_name]:
-            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
-        
-        table = self.blocks[database_name][table_name]
-        if "indexes" not in table or column not in table["indexes"]:
-            raise ValueError(f"No index exists for column '{column}' in table '{table_name}'.")
-        
-        index = table["indexes"][column]
+        self.validate_column_buffer(database_name,table_name,column,transaction_id)
+
+        index = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         result_indices = index.search_range(start, end)
-        values = table["values"]
-        return [values[i] for i in result_indices]
+        return result_indices
+
 
 
     def debug(self):
