@@ -223,30 +223,30 @@ class QueryOptimizer:
         return True
     
     def combine_selection_and_cartesian_product(self, node: QueryTree) -> bool:
-        if len(node.val) > 0:
-            return False
-        
         tables_from_children = self.__find_tables_from_children(node)
+        
         node_to_combine = node.parent
-        while node_to_combine.type != "ROOT" and not self.__is_where_combinable(node_to_combine, tables_from_children):
+        new_join_on_conditions = []
+        is_combine_run = False
+        while node_to_combine.type != "ROOT":
+            if self.__is_where_combinable(node_to_combine, tables_from_children):
+                is_combine_run = True
+                new_join_on_conditions.append(node_to_combine.val)
+
+                # remove the selection node
+                parent = node_to_combine.parent
+                child = node_to_combine.childs[0]
+                parent.childs[0] = child
+                child.parent = parent
+
             node_to_combine = node_to_combine.parent
-
-        if node_to_combine.type == "ROOT":
-            return False
         
-        # change cartesian product node
-        node.type = "JOIN"
-        node.val = node_to_combine.val
-        
-        # remove the selection node
-        parent = node_to_combine.parent
-        child = node_to_combine.childs[0]
-        parent.childs[0] = child
-        child.parent = parent
-        node_to_combine.parent = None
-        node_to_combine.childs = []
+        if is_combine_run:
+            # change node type from cartesian product to join on
+            node.type = "JOIN"
+            node.val = " AND ".join(new_join_on_conditions)
 
-        return True
+        return is_combine_run
 
     def __find_tables_from_children(self, node: QueryTree) -> list:
         tables = []
@@ -259,13 +259,7 @@ class QueryOptimizer:
         return tables
     
     def __is_where_combinable(self, node: QueryTree, tables: list) -> bool:
-        if node.type != "WHERE":
-            return False
-        
-        elif "OR" in node.val:
-            return False
-        
-        elif any(char in node.val for char in ["<>", "<", ">", "<=", ">="]):
+        if not "WHERE" in node.type:
             return False
         
         tables_where = [item.split(".")[0] for item in node.val.split(" = ")]

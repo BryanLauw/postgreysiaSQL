@@ -146,11 +146,13 @@ class OptimizationEngine:
             
             for child in current_node.childs:
                 queue_nodes.put(child)
-        for node in list_nodes["NATURAL JOIN"]:
-            self.QueryOptimizer.combine_selection_and_cartesian_product(node)
             
         for node in list_nodes["WHERE"]:
             self.QueryOptimizer.pushing_selection(node)
+
+        for node in list_nodes["NATURAL JOIN"]:
+            if len(node.val) == 0:
+                self.QueryOptimizer.combine_selection_and_cartesian_product(node)
         
         self.QueryOptimizer.pushing_projection(query.query_tree.childs[0].childs[0])
 
