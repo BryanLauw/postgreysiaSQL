@@ -1,109 +1,122 @@
-from QueryTree import ParsedQuery, QueryTree
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from StorageManager.classes import Statistic, StorageEngine
+from .QueryTree import ParsedQuery, QueryTree
+import re
+from typing import List, Union, Dict, Callable
 
 class QueryHelper:
-
+    @staticmethod
+    def normalize_string(query: str):
+        return query.replace("\t", "").replace("\n", "").replace("\r", "")
+    
     @staticmethod
     def remove_excessive_whitespace(query: str):
         words = query.split()
         new_query = " ".join(words)
         return new_query
-
-    @staticmethod
-    def normalize_string(query: str):
-        return query.replace("\t", "").replace("\n", "").replace("\r", "")
-
-    @staticmethod
-    def extract_SELECT(values: str):
-        arr_attributes = [value.strip() for value in values.split(",")]
-        return arr_attributes
-
-    @staticmethod
-    def extract_FROM(values: str):
-        """
-        Extract FROM clause and split by JOIN operations. 
-        Returns a list of tables and JOIN expressions.
-        """
-        arr_joins = []
-        values_parsed = values.split()
-        element = ""
-        i = 0
-        while i < len(values_parsed):
-            if values_parsed[i] == "JOIN":
-                if element:
-                    arr_joins.append(element.strip())
-                arr_joins.append("JOIN")
-                element = ""
-            else:
-                element += " " + values_parsed[i]
-            i += 1
-
-        if element:
-            arr_joins.append(element.strip())
-
-        return arr_joins
-
-
-    @staticmethod
-    def extract_WHERE(values: str):
-        return values.replace(" ", "")
-
-    @staticmethod
-    def extract_ORDERBY(values: str):
-        return values.strip()
-
-    @staticmethod
-    def extract_LIMIT(values: str):
-        return int(values)
-
-    @staticmethod
-    def extract_UPDATE(values: str):
-        return values.strip()
-
-    @staticmethod
-    def extract_SET(values: str):
-        return [value.strip() for value in values.split(",")]
-
-    @staticmethod
-    def extract_value(query: str, before: str, after: str):
-        start = query.find(before) + len(before)
-        if after == "":
-            end = len(query)
-        else:
-            end = query.find(after)
-        extracted = query[start:end]
-        if before == "SELECT":
-            extracted = QueryHelper.extract_SELECT(extracted)
-        elif before == "FROM":
-            extracted = QueryHelper.extract_FROM(extracted)
-        elif before == "WHERE":
-            extracted = QueryHelper.extract_WHERE(extracted)
-        elif before == "ORDER BY":
-            extracted = QueryHelper.extract_ORDERBY(extracted)
-        elif before == "LIMIT":
-            extracted = QueryHelper.extract_LIMIT(extracted)
-        elif before == "UPDATE":
-            extracted = QueryHelper.extract_UPDATE(extracted)
-        elif before == "SET":
-            extracted = QueryHelper.extract_SET(extracted)
-        return extracted
     
     @staticmethod
-    def build_join_tree(from_tokens: list) -> QueryTree:
+    def extract_table_and_aliases(from_tokens: list[str]) -> {dict,list[str]}:
+        alias_map = {}
+        attribute_arr = []
+        for token in from_tokens:
+            if token in ["JOIN","NATURAL JOIN",","]:
+                continue
+            
+            splitted = token.split()
+            attribute_arr.append(splitted[0])
+            
+            try:
+                idx_AS = splitted.index("AS")
+                alias_map[splitted[idx_AS+1]] = splitted[idx_AS-1]
+            except ValueError:
+                pass
+        return alias_map, attribute_arr
+    
+    @staticmethod
+    def remove_aliases(from_clause: Union[list,str]) -> list:
+        def strip_alias(from_str: str) -> str:
+            cleaned_str = re.sub(r"\s+as\s+\w+\s*", " ", from_str, flags=re.IGNORECASE)
+            return cleaned_str
+
+        if(isinstance(from_clause, str)):
+            return strip_alias(from_clause)
+        
+        return [strip_alias(token) if token.upper() not in ["JOIN", "ON", "NATURAL"] else token for token in from_clause]
+    
+    @staticmethod
+    def rewrite_with_alias(expression: str, alias_map: dict) -> str:
+        for alias, table in alias_map.items():
+            pattern = rf"(?<!\w){re.escape(alias)}\."
+            replacement = table + "."
+            expression = re.sub(pattern, replacement, expression)
+        return expression
+    
+    @staticmethod
+    def rewrite_components_alias(query_components_value: Dict[str, Union[List[str],str]], alias_map: dict):
+        for comp in query_components_value:
+            if comp in ["SELECT","FROM"]:
+                query_components_value[comp] = [
+                    QueryHelper.rewrite_with_alias(attr, alias_map) for attr in query_components_value[comp]
+                ]
+            else:
+                 query_components_value[comp] = QueryHelper.rewrite_with_alias(
+                     query_components_value[comp], alias_map
+                 )
+    
+    @staticmethod
+    def parse_where_clause(where_clause: str, current_node: QueryTree) -> QueryTree:
+        # Tokenize the WHERE clause into conditions
+        parsed_result = re.split(r'\sAND\s', where_clause)
+        print("parsed", parsed_result)
+
+        for parse in parsed_result:
+            parse_node = QueryTree(type="WHERE", val=parse)
+            current_node.add_child(parse_node)
+            parse_node.add_parent(current_node)
+            current_node = parse_node
+        return parse_node
+
+    @staticmethod
+    def gather_attributes(node: QueryTree, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
+        if(node.type =="TABLE"):
+            return get_stats(database_name,node.val.strip().lower()).V_a_r.keys()
+        
+        if(node.type == "JOIN"):
+            return QueryHelper.gather_attributes(node.childs[0],database_name,get_stats) | QueryHelper.gather_attributes(node.childs[1],database_name,get_stats)
+        
+        if(node.type == "SELECT"):
+            return set(node.val)
+        
+        return QueryHelper.gather_attributes(node.childs[0],database_name,get_stats)
+        
+    @staticmethod
+    def build_join_tree(from_tokens: list, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> QueryTree:
         first_table_node = QueryTree(type="TABLE", val=from_tokens.pop(0))
 
         if len(from_tokens) == 0:
             return first_table_node
         
-        return QueryHelper.__build_explicit_join(first_table_node, from_tokens)
+        return QueryHelper.__recursive_build_join(first_table_node, from_tokens, database_name, get_stats)
     
     @staticmethod
-    def __build_explicit_join(query_tree: QueryTree, join_tokens: list) -> QueryTree:
-        join_tokens.pop(0)
-        value = join_tokens.pop(0).split(" ON ")
+    def __recursive_build_join(query_tree: QueryTree, join_tokens: list, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> QueryTree:
+        join_type = join_tokens.pop(0)
+        if(join_type in ["NATURAL JOIN",","]):
+            other_table = join_tokens.pop(0)
+            natural_attributes = list(QueryHelper.gather_attributes(query_tree,database_name,get_stats) & get_stats(database_name,other_table.strip().lower()).V_a_r.keys())
+            natural_attributes = [attr.upper() for attr in natural_attributes]
+            join_node = QueryTree(type="NATURAL JOIN", val=natural_attributes)
+        else:
+            value = join_tokens.pop(0).split(" ON ")
+            other_table = value[0]
+            join_node = QueryTree(type="JOIN", val=value[1])
 
-        join_node = QueryTree(type="JOIN", val=value[1])
         query_tree.add_parent(join_node)
-        right_table_node = QueryTree(type="TABLE", val=value[0])
+        right_table_node = QueryTree(type="TABLE", val=other_table)
         right_table_node.add_parent(join_node)
         join_node.add_child(query_tree)
         join_node.add_child(right_table_node)
@@ -111,4 +124,4 @@ class QueryHelper:
         if len(join_tokens) == 0:
             return join_node
         
-        return QueryHelper.__build_explicit_join(query_tree=join_node, join_tokens=join_tokens)
+        return QueryHelper.__recursive_build_join(query_tree=join_node, join_tokens=join_tokens, database_name=database_name,get_stats=get_stats)
