@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from StorageManager.classes import Statistic, StorageEngine
-from QueryTree import ParsedQuery, QueryTree
+from .QueryTree import ParsedQuery, QueryTree
 import re
 from typing import List, Union, Dict, Callable
 
@@ -105,7 +105,7 @@ class QueryHelper:
     @staticmethod
     def __recursive_build_join(query_tree: QueryTree, join_tokens: list, database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]) -> QueryTree:
         join_type = join_tokens.pop(0)
-        if(join_type == "NATURAL JOIN"):
+        if(join_type in ["NATURAL JOIN",","]):
             other_table = join_tokens.pop(0)
             natural_attributes = list(QueryHelper.gather_attributes(query_tree,database_name,get_stats) & get_stats(database_name,other_table.strip().lower()).V_a_r.keys())
             natural_attributes = [attr.upper() for attr in natural_attributes]

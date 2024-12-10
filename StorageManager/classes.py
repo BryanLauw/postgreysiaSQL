@@ -27,9 +27,9 @@ class Condition:
             return item <= self.operand
 
 class DataRetrieval:
-    def __init__(self, table:list[str], column:list[str], conditions:list[Condition]) -> None:
-        self.table = table
-        self.column = column
+    def __init__(self, tables:list[str], columns:list[str], conditions:list[Condition]) -> None:
+        self.table = tables
+        self.column = columns
         self.conditions = conditions
 
 class DataWrite:

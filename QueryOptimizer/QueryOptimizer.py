@@ -5,13 +5,40 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from StorageManager.classes import Statistic, StorageEngine
 
-from QueryParser import QueryParser
-from QueryTree import ParsedQuery, QueryTree
-from QueryHelper import *
+from .QueryParser import QueryParser
+from .QueryTree import ParsedQuery, QueryTree
+from .QueryHelper import *
 from typing import Callable, Union
-from QueryValidator import QueryValidator
+from .QueryValidator import QueryValidator
 
 class QueryOptimizer:
+
+    def commutative_join(self, node: QueryTree, query_cost: Callable[[QueryTree], int]) -> bool:
+        if node.type not in ["JOIN", "NATURAL JOIN"]:
+            return False
+
+        if len(node.childs) != 2:
+            return False
+
+        left_child, right_child = node.childs
+
+        left_first_cost = query_cost(left_child)
+        right_first_cost = query_cost(right_child)
+
+        print(f"Evaluating commutative join for node: {node.type} {node.val}")
+        print(f"Cost with left child ({left_child.val}) first: {left_first_cost}")
+        print(f"Cost with right child ({right_child.val}) first: {right_first_cost}")
+
+        if right_first_cost < left_first_cost:
+            node.childs[0], node.childs[1] = right_child, left_child
+            for child in node.childs:
+                child.parent = node
+            print(f"Swapped join order for node {node.type} {node.val} to improve cost.")
+            return True
+
+        print(f"No swap needed for node {node.type} {node.val}.")
+        return False
+
     
     def __swap_nodes(self, node1: QueryTree, node2: QueryTree):
         """ Swap node1 position with node2
@@ -88,23 +115,22 @@ class QueryOptimizer:
         if(self.__already_pushed_selection(node)):
             return False
         
-        if "OR" in  node.val:
+        tables = re.findall(r'\b(\w+)\.',node.val)
+        tables = list(set(tables))
+        if len(tables) != 1:
             return False
         
-        match = re.search(r'(\w+)\.',node.val)
-        if not match:
-            return False
-        
-        table_name = match.group(1)
-        # print("Table name: ",table_name)
+        table_name = tables[0]
         table_node = self.__find_matching_table(node,table_name)
-        # print("Table node: ",table_node.val)
         self.__insert_node(node,table_node)
         
         return True
     
-    def perform_operation(self,node: QueryTree):
-        if(node.type == "WHERE"):
+    def perform_operation(self, node: QueryTree, query_cost_calculator: Callable[[QueryTree], int]) -> bool:
+        if node.type == "WHERE":
             return self.pushing_selection(node)
-        
-        return False         
+        elif node.type in ["JOIN", "NATURAL JOIN"]:
+            return self.commutative_join(node, query_cost_calculator)
+        return False       
+    
+    # def perform_pushing_selection

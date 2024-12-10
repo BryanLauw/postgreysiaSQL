@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from StorageManager.classes import Statistic, StorageEngine
-from QueryHelper import *
+from .QueryHelper import *
 from typing import Callable, Union
 
 class QueryValidator:
@@ -96,7 +96,7 @@ class QueryValidator:
                 if attribute.lower() in get_stats(database_name,table.lower()).V_a_r:
                     if attr_with_table:
                         raise ValueError(f"Ambiguous attribute: {attribute}")
-                    attr_with_table = f"{table.upper()}.{attribute}"
+                    attr_with_table = f"{table.lower()}.{attribute}"
                     
         if not attr_with_table:
             raise ValueError(f"{attribute} doesn't exist!")
