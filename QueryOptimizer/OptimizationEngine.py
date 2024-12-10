@@ -119,20 +119,26 @@ class OptimizationEngine:
         return root
 
     def optimize_query(self, query: ParsedQuery):
+        list_nodes = {
+            "JOIN": [],
+            "NATURAL JOIN":[],
+            "SELECT": [],
+            "WHERE": [],
+            "ROOT": [],
+        }
+        
         queue_nodes = Queue()
         queue_nodes.put(query.query_tree)
         while not queue_nodes.empty():
             current_node = queue_nodes.get()
-            if current_node.type == "TABLE":
-                continue
+            if current_node.type in ["SELECT","NATURAL JOIN","JOIN","WHERE"]:
+                list_nodes[current_node.type].append(current_node)
+            
             for child in current_node.childs:
                 queue_nodes.put(child)
-
-            if self.QueryOptimizer.perform_operation(
-                current_node, 
-                lambda node: self.get_cost(ParsedQuery(node, query.query), "database1")
-            ):
-                print(query)
+        
+        for node in list_nodes["WHERE"]:
+            self.QueryOptimizer.pushing_selection(node)
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
@@ -145,15 +151,15 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = "SELECT u.id, product_id FROM users AS u JOIN products AS t ON products.product_id = u.id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
-    print("SELECT QUERY\n",select_query,end="\n\n")
+    select_query = 'SELECT u.id, product_id FROM users AS u , products AS t WHERE u.id > 1 AND t.product_id = "12" OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC'
+    # print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
-    print(parsed_query)
+    # print(parsed_query)
     optim.optimize_query(parsed_query)
-    optim.optimize_query(parsed_query)
+    # optim.optimize_query(parsed_query)
     print("EVALUATION PLAN TREE: \n",parsed_query)
     
-    print(f"COST = {optim.get_cost(parsed_query, 'database1')}")
+    # print(f"COST = {optim.get_cost(parsed_query, 'database1')}")
 
     # try:
     #     invalid_query = "SELECT x.a FROM students AS s"
