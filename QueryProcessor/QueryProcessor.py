@@ -1,48 +1,13 @@
+import signal
 from FailureRecovery.main_log_entry import LogEntry
 from ConcurrencyControlManager.ConcurrencyControlManager import *
 from QueryOptimizer.OptimizationEngine import *
 from StorageManager.classes import *
 from typing import Optional
 import re
+import atexit
 
 import FailureRecovery.main as FailureRecovery
-
-# temp class
-# class Condition:
-#     def __init__(self, column: str, operation: str, operand: Union[str, int]):
-#         self.column = column
-#         self.operation = operation
-#         self.operand = operand
-    
-#     def __repr__(self):
-#         return f"Condition(column={self.column}, operation={self.operation}, operand={self.operand})"
-
-# class DataRetrieval:
-#     def __init__(self, table: str, columns: List[str], conditions: List[Optional[Condition]]):
-#         self.table = table
-#         self.columns = columns
-#         self.conditions = conditions
-
-#     def __repr__(self):
-#         return f"DataRetrieval(table={self.table}, columns={self.columns}, conditions={self.conditions})"
-
-class DataWrite:
-    def __init__(self, table: str, column: List[str], conditions: List[Condition], new_value: List[str]):
-        self.table = table
-        self.column = column
-        self.conditions = conditions
-        self.new_value = new_value
-
-    def __repr__(self):
-        return f"DataWrite(table={self.table}, column={self.column}, conditions={self.conditions}, new_value={self.new_value})"
-
-class DataDeletion:
-    def __init__(self, table: str, conditions: List[Condition]):
-        self.table = table
-        self.conditions = conditions
-
-    def __repr__(self):
-        return f"DataDeletion(table={self.table}, conditions={self.conditions})"
     
 class QueryProcessor:
     # def __init__(self, db_name: str | None):
@@ -54,7 +19,12 @@ class QueryProcessor:
         self.cc = ConcurrencyControlManager()
         self.rm = FailureRecovery.FailureRecovery()
         self.db_name = "database1" #SBD
-        pass
+
+        self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
+
+        # Register exit and signal handler
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGSEGV, self.signal_handler)
 
     def execute_query(self, query : str):
         tables = ["id", "name"]
@@ -71,36 +41,41 @@ class QueryProcessor:
             print("Executing query: " + query)
             if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
                 self.current_transactionId = self.cc.begin_transaction()
-                self.rm.write_log_entry(self.current_transactionId, "BEGIN", None, None, None)
+                self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
                 # self.rm.start_transaction(self.current_transactionId)
                 
-            elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
+            elif(query.upper() == "COMMIT" or query.upper() == "COMMIT TRANSACTION"):
                 self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
                 self.cc.end_transaction(self.current_transactionId)
+                self.sm.commit_buffer(self.current_transactionId)
                 self.current_transactionId = None
             
             elif(query.upper() == "END TRANSACTION"):
                 self.cc.end_transaction(self.current_transactionId)
+                self.sm.save()
                 self.current_transactionId = None
 
             elif(query.upper() == "PRINT"):
                 self.printResult(tables, rows)
-            
-            else:
 
+            else:
                 self.parsedQuery = self.qo.parse_query(query,'database1') #hardcode
-                print("masuk sini")
-                print(self.parsedQuery)
-                if(self.parsedQuery.query_tree.val == "SELECT"):
-                    print("masuk select")
+                # try:
+                #     # self.parsedQuery = self.qo.parse_query(query, self.db_name)
+                #     self.parsedQuery = self.qo.parse_query(query, "database1")
+                # except Exception as e:
+                #     raise Exception(e)
+                    
+                if self.parsedQuery.query_tree.val == "UPDATE":
+                    write = self.ParsedQueryToDataWrite(self.parsedQuery)
+                    # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
+                    b = self.sm.write_block(write, "database1", self.current_transactionId)
+                elif self.parsedQuery.query_tree.val == "SELECT":
                     data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
                     temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
-                    temp = self.__orderBy(temp, "id", True)
+                    temp = self.__orderBy(temp, "id", True) # hardcode
                     self.printResult(temp)
 
-        # if self.parsedQuery.query_tree.val == "UPDATE":
-        #     write = self.ParsedQueryToDataWrite(self.parsedQuery)
-        #     b = self.sm.write_block(write, self.db_name, self.current_transactionId)
     
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
         # if parsed_query.query_tree.type == "JOIN":
@@ -110,7 +85,6 @@ class QueryProcessor:
         #     table = joined_tables  
         # else:
         #     table = parsed_query.query_tree.val  
-
         # columns = [
         #     child.val for child in parsed_query.query_tree.childs if child.type == "COLUMN"
         # ]
@@ -142,7 +116,7 @@ class QueryProcessor:
                 return self.ParsedQueryToDataRetrieval(child)
         # return DataRetrieval(table=table, columns=columns, conditions=conditions)
 
-    def ParsedQueryToDataWrite(parsed_query: ParsedQuery) -> DataWrite:
+    def ParsedQueryToDataWrite(self, parsed_query: ParsedQuery) -> DataWrite:
         # Input: child (QueryTree with only where value)
         # Output: List of condition from child
         def filter_condition(child: QueryTree) -> List[Condition]:
@@ -151,7 +125,10 @@ class QueryProcessor:
             match = re.split(operator, where_val, maxsplit=1)
             parts = [part.strip() for part in match]
             parts[2] = int(parts[2]) if parts[2].isdigit() else parts[2]
-            temp = Condition(parts[0], parts[1], parts[2])
+            print("kondisi0 ", parts[0].split(".")[1])
+            print("kondisi1 ", parts[1])
+            print("kondisi2 ", parts[2])
+            temp = Condition(parts[0].split(".")[1], parts[1], parts[2])
             if not child.childs:
                 return [temp]
             else:
@@ -163,13 +140,16 @@ class QueryProcessor:
         # Get new value
         new_value = parsed_query.query_tree.childs[0].childs[0].val
         match = re.split(r'=', new_value)
-        columns = [match[0].strip()]
-        new_value = [match[1].strip()]
+        columns = match[0].strip().split(".")[1]
+        print("kolom ", columns)
+        new_value = match[1].strip().replace('"', '')
+        
 
         # Get all conditions
-        conditions = filter_condition(parsed_update_query.query_tree.childs[0].childs[0].childs[0])
-
-        return DataWrite([table], columns, conditions, new_value)
+        conditions = filter_condition(parsed_query.query_tree.childs[0].childs[0].childs[0])
+        
+        print("kondisi ", conditions)
+        return DataWrite([table], [columns], conditions, [new_value])
 
     def ParsedQueryToDataDeletion(parsed_query: ParsedQuery) -> DataDeletion:
         data_deletion = DataDeletion(
@@ -282,7 +262,18 @@ class QueryProcessor:
         key_column = obj.get('primary_key')
         key_value = obj.get('key_value')
         return db, table, column, key_column, key_value
-    
+
+    def getLeaf(self,tree:QueryTree):
+        # Base case: if the node has no children, it is a leaf
+        if not tree.childs:
+            return [tree]
+        
+        # Recursive case: collect leaves from all children
+        leaves = []
+        for child in tree.childs:
+            leaves.extend(self.getLeaf(child))
+        return leaves
+
     def __removeAttribute(self, l: List) -> List[str]:
         # removing attribute from <table>.<attribute> for all element in list
         
@@ -488,3 +479,16 @@ class QueryProcessor:
             return sorted(data, key=lambda x: x[order_by], reverse=True)
         else:
             return sorted(data, key=lambda x: x[order_by])
+
+    def signal_handler(self, signum, frame):
+        """
+        Custom signal handler to handle SIGINT and SIGSEV.
+        """
+        self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
+        self.cc.end_transaction(self.current_transactionId)
+        self.sm.commit_buffer(self.current_transactionId)
+        self.sm.save()
+        
+        # Raise the original signal to allow the program to terminate
+        signal.signal(signum, signal.SIG_DFL)
+        signal.raise_signal(signum)

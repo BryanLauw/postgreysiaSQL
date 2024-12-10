@@ -1,6 +1,7 @@
 import pickle
 import os
-from StorageManager.Bplus import BPlusTree
+from .Bplus import BPlusTree
+from .Hash import HashTable
 
 class Condition:
     valid_operations = ["=", "<>", ">", ">=", "<", "<=", "!"] # untuk sementara "!" berarti no operation
@@ -60,11 +61,35 @@ class Statistic:
         print(f"Blocking Factor : {self.b_r}")
         print(f"Number of distinct values that appear in r for attribute A: {self.V_a_r}")
 
+
 class StorageEngine:
     def __init__(self) -> None:
         self.load()
+        self.load_indexes()
         self.buffer = {}
+        self.buffer_index = {}
 
+    def get_database_names(self) -> list[str]:
+        databases = []
+        for database in self.blocks:
+            databases.append(database)
+        return databases
+    
+    def get_tables_of_database(self, database_name:str) -> list[str]:
+        tables = []
+        for table in self.blocks[database_name] :
+            tables.append(table)
+        return tables
+    
+    def get_columns_of_table(self, database_name:str, table_name:str) -> list[str]:
+        columns = []
+        for column in self.blocks[database_name][table_name]["columns"]:
+            columns.append(column["name"])
+        return columns
+    
+    def get_table_metadata(self, database_name:str, table_name:str) -> dict:
+        return self.blocks[database_name][table_name]['columns']
+    
     def load(self) -> None:
         try:
             if not (os.path.isfile("data.dat")):
@@ -76,15 +101,32 @@ class StorageEngine:
     def commit_buffer(self, transaction_id:int) -> None:
         try:
             self.blocks = self.buffer[transaction_id]
+            self.indexes = self.buffer_index[transaction_id]
             self.buffer.pop(transaction_id)
+            self.buffer_index.pop(transaction_id)
         except Exception as e:
             print(f"error, {str(e)}")
+
+    def load_indexes(self) -> None:
+        try:
+            if not os.path.isfile("indexes.dat"):
+                pickle.dump({}, open("indexes.dat", "wb"))
+            self.indexes = pickle.load(open("indexes.dat", "rb"))
+        except Exception as e:
+            print(f"Error initializing indexes: {str(e)}")
+            self.indexes = {}
 
     def save(self) -> None:
         try:
             pickle.dump(self.blocks, open("data.dat", "wb"))
         except Exception as e:
             print(f"error, {str(e)}")
+
+    def save_indexes(self):
+        try:
+            pickle.dump(self.indexes, open("indexes.dat","wb"))
+        except Exception as e:
+             print(f"error, {str(e)}")
 
     def create_database(self, database_name:str) -> bool:
         if database_name in self.blocks:
@@ -98,7 +140,6 @@ class StorageEngine:
                 self.blocks[database_name][table_name] = {
                     "columns" : [{"name" : nama_col, "type" : tipe_col} for nama_col, tipe_col in column_type.items()],
                     "values" : [],
-                    "indexes" : {}
                 }
                 return True
             return Exception(f"Sudah ada table dengan nama {table_name} di database {database_name}")
@@ -112,6 +153,14 @@ class StorageEngine:
                 return True
             return Exception(f"Tidak ada table dengan nama {table_name} di database {database_name}")
         return Exception(f"Tidak ada database dengan nama {database_name}")
+
+    def initialize_index_structure(self, database_name:str, table_name:str, column:str) -> None:
+        if database_name not in self.indexes:
+            self.indexes[database_name] = {}
+        if table_name not in self.indexes[database_name]:
+            self.indexes[database_name][table_name] = {}
+        if column not in self.indexes[database_name][table_name]:
+            self.indexes[database_name][table_name][column] = {}
 
     def read_block(self, data_retrieval:DataRetrieval, database_name:str, transaction_id:int) -> dict|Exception:
         # error handling
@@ -160,45 +209,53 @@ class StorageEngine:
         # return akhir
         return hasil_akhir
 
-    def write_block(self, data_write: DataWrite, database_name: str, transaction_id:int) -> int | Exception:
+    def write_block(self, data_write: DataWrite, database_name: str, transaction_id: int) -> int | Exception:
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")
-        if data_write.table not in self.blocks[database_name]:
-            return Exception(f"Tidak ada tabel dengan nama {data_write.table}")
-        column_tabel_query = [col["name"] for col in self.blocks[database_name][data_write.table]["columns"]]
-        if data_write.conditions:
-            for kondisi in data_write.conditions:
-                if kondisi.column not in column_tabel_query:
-                    return Exception(f"Tidak ada kolom dengan nama {kondisi.column}")
-        if not all(key in column_tabel_query for key in data_write.column):
-            return Exception(f"Beberapa kolom yang akan diubah tidak ada di tabel {data_write.table}")
-
-        # Tidak ada error, lanjutkan proses
-        affected_rows = 0
-        data_baru = []
         
-        for row in self.blocks[database_name][data_write.table]["values"]:
-            update_row = False
+        affected_rows_total = 0  # Total baris yang diubah
+
+        for table in data_write.table:
+            if table not in self.blocks[database_name]:
+                return Exception(f"Tidak ada tabel dengan nama {table} di database {database_name}")
+            
+            column_tabel_query = [col["name"] for col in self.blocks[database_name][table]["columns"]]
             if data_write.conditions:
-                # Cek apakah row memenuhi semua kondisi
-                update_row = all(kondisi.evaluate(row[kondisi.column]) for kondisi in data_write.conditions)
-            else:
-                # Jika tidak ada kondisi, semua baris akan diupdate
-                update_row = True
+                for kondisi in data_write.conditions:
+                    if kondisi.column not in column_tabel_query:
+                        return Exception(f"Tidak ada kolom dengan nama {kondisi.column} di tabel {table}")
+            if not all(key in column_tabel_query for key in data_write.column):
+                return Exception(f"Beberapa kolom yang akan diubah tidak ada di tabel {table}")
+            
+            # Tidak ada error, lanjutkan proses untuk tabel ini
+            affected_rows = 0
+            data_baru = []
 
-            # Update nilai jika memenuhi kondisi
-            if update_row:
-                for col, value in zip(data_write.column, data_write.new_value):
-                    row[col] = value
-                affected_rows += 1
+            for row in self.blocks[database_name][table]["values"]:
+                update_row = False
+                if data_write.conditions:
+                    # Cek apakah row memenuhi semua kondisi
+                    update_row = all(kondisi.evaluate(row[kondisi.column]) for kondisi in data_write.conditions)
+                else:
+                    # Jika tidak ada kondisi, semua baris akan diupdate
+                    update_row = True
 
-            data_baru.append(row)
+                # Update nilai jika memenuhi kondisi
+                if update_row:
+                    for col, value in zip(data_write.column, data_write.new_value):
+                        row[col] = value
+                    affected_rows += 1
+
+                data_baru.append(row)
+
+            # Update data di tabel
+            self.buffer[transaction_id] = self.blocks
+            self.buffer[transaction_id][database_name][table]["values"] = data_baru
+            
+            affected_rows_total += affected_rows  # Tambahkan jumlah baris yang diubah untuk tabel ini
         
-        # Update data di tabel
-        self.buffer[transaction_id] = self.blocks
-        self.buffer[transaction_id][database_name][data_write.table]["values"] = data_baru
-        print(f"Data berhasil diupdate, {affected_rows} baris diubah")
-        return affected_rows
+        print(f"Data berhasil diupdate, total {affected_rows_total} baris diubah di semua tabel")
+        return affected_rows_total
 
 
     def delete_block(self, data_deletion:DataDeletion, database_name:str, transaction_id:int) -> int:
@@ -210,6 +267,8 @@ class StorageEngine:
         column_tabel_query = []
         for kolom in self.blocks[database_name][data_deletion.table]["columns"]:
             column_tabel_query.append(kolom["name"])
+
+
         if data_deletion.conditions:
             for kondisi in data_deletion.conditions:
                 if kondisi.column not in column_tabel_query:
@@ -267,61 +326,106 @@ class StorageEngine:
 
         return Statistic(n_r=nr, b_r=br, l_r=lr, f_r=fr, V_a_r=V_a_r)
     
-    def set_index(self, database_name: str, table_name: str, column: str) -> None:
+    def retrieve_table_of_database(self, database_name:str) -> dict:
         if database_name not in self.blocks:
             raise ValueError(f"Database '{database_name}' does not exist.")
-        
-        if table_name not in self.blocks[database_name]:
-            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
-        
-        table = self.blocks[database_name][table_name]
+        return self.blocks[database_name]
+    
+    def validate_column_buffer(self, database_name: str, table_name: str, column: str, trancaction_id:int) -> None:
+        if database_name not in self.buffer[trancaction_id]:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        if table_name not in self.buffer[trancaction_id][database_name]:
+            raise ValueError(f"Table '{table_name}' does not exist.")
+        table = self.buffer[trancaction_id][database_name][table_name]
         if not any(col["name"] == column for col in table["columns"]):
             raise ValueError(f"Column '{column}' does not exist in table '{table_name}'.")
-        if "indexes" not in table:
-            table["indexes"] = {}
-        bplus_tree = BPlusTree(order=4)
-        for row_index, row in enumerate(table["values"]):
-            if column not in row:
-                raise ValueError(f"Column '{column}' is missing in a row of table '{table_name}'.")
-            
-            key = row[column]  
-            bplus_tree.insert(key, row_index) 
-        table["indexes"][column] = bplus_tree
-        print(f"B+ Tree index created for column '{column}' in table '{table_name}'.")
+        
+    def validate_index_existence(self, database_name: str, table_name: str, column: str) -> None :
+        if database_name not in self.buffer_index or database_name not in self.indexes:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        if table_name not in self.indexes[database_name] or table_name not in self.buffer_index:
+            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
+        if column not in self.indexes[database_name][table_name] or column not in self.buffer_index[database_name][table_name]:
+            raise ValueError(f"No index exists for column '{column}' in table '{table_name}'.")
 
-    def search_with_index(self, database_name: str, table_name: str, column: str, key) -> list :
-        if database_name not in self.blocks:
-            raise ValueError(f"Database '{database_name}' does not exist.")
-        if table_name not in self.blocks[database_name]:
-            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
-        
+    # setindex ke buffer
+    def set_index(self, database_name: str, table_name: str, column: str, transaction_id:int,index_type="bplus") -> None:
+        self.initialize_index_structure(database_name,table_name,column)
+
         table = self.blocks[database_name][table_name]
-        if "indexes" not in table or column not in table["indexes"]:
-            raise ValueError(f"No index exists for column '{column}' in table '{table_name}'.")
-        index = table["indexes"][column]
+        if index_type == "bplus":
+            bplus_tree = self.create_bplus_index(table, column)
+            self.buffer_index[transaction_id][database_name][table_name][column]["bplus"] = bplus_tree
+        elif index_type == "hash":
+            hash_index = self.create_hash_index(table, column)
+            self.buffer_index[transaction_id][database_name][table_name][column]["hash"] = hash_index
+        else:
+            raise ValueError("Invalid index type. Only 'bplus' and 'hash' are supported.")
+        print(f"Index of type '{index_type}' created for column '{column}' in table '{table_name}'.")
+        
+
+
+    def create_bplus_index(self, table : dict, column: str):
+        bplus_tree = BPlusTree(order=4)
+        for block_index, block in enumerate(table["values"]):
+            for offset, row in enumerate(block):
+                if column not in row:
+                    raise ValueError(f"Column '{column}' is missing in a row of the table.")
+                key = row[column]
+                bplus_tree.insert(key,(block_index,offset))
+        return bplus_tree
+    
+    # setelah insert delete
+    def is_bplus_index_exist(self, database_name: str, table_name: str, column: str) -> bool:
+        for transaction_id, dbs in self.buffer_index.items():
+            if database_name not in dbs:
+                continue
+            if table_name not in dbs[database_name]:
+                continue
+            if column not in dbs[database_name][table_name]:
+                continue
+            if "bplus" in dbs[database_name][table_name][column]:
+                if dbs[database_name][table_name][column]["bplus"] is not None:
+                    return True
+        return False
+    
+    def is_hash_index_exist(self, database_name: str, table_name: str, column: str) -> bool:
+        for transaction_id, dbs in self.buffer_index.items():
+            if database_name not in dbs:
+                continue
+            if table_name not in dbs[database_name]:
+                continue
+            if column not in dbs[database_name][table_name]:
+                continue
+            if "bplus" in dbs[database_name][table_name][column]:
+                if dbs[database_name][table_name][column]["hash"] is not None:
+                    return True
+        return False
+    
+  
+    def insert_bplus_tree(self,database_name:str,table_name:str,column:str,key,block_index,offset,transaction_id : int):
+        index = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
+        index.insert(key,(block_index,offset))
+        pass
+
+
+    def search_bplus_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int) -> list:
+        self.validate_column_buffer(database_name,table_name,column,transaction_id)
+        index = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
+        print(index)
         result_indices = index.search(key)
-        values = table["values"]
-        if isinstance(result_indices, list): 
-            return [values[i] for i in result_indices]
-        elif result_indices is not None:  
-            return [values[result_indices]]
-        else:  
-            return []
-        
-    def search_range_with_index(self, database_name:str, table_name: str, column: str, start, end) -> list:
-        if database_name not in self.blocks:
-            raise ValueError(f"Database '{database_name}' does not exist.")
-        if table_name not in self.blocks[database_name]:
-            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
-        
-        table = self.blocks[database_name][table_name]
-        if "indexes" not in table or column not in table["indexes"]:
-            raise ValueError(f"No index exists for column '{column}' in table '{table_name}'.")
-        
-        index = table["indexes"][column]
+        return result_indices
+    
+    def search_bplus_index_range(self, database_name:str,table_name:str, column:str,  transaction_id:int,start,end) -> list:
+        self.validate_column_buffer(database_name,table_name,column,transaction_id)
+        index = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         result_indices = index.search_range(start, end)
-        values = table["values"]
-        return [values[i] for i in result_indices]
+        return result_indices
+
+
 
     def debug(self):
         print(self.blocks)
+
+    def debug_indexes(self):
+        print(self.indexes)
