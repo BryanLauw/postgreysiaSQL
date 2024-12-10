@@ -480,7 +480,11 @@ class StorageEngine:
     def delete_hash_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int):
         index = self.hash_locator(database_name, table_name, column, transaction_id)
         index.delete(key)
-        
+
+    def update_key_hash_index(self,database_name:str,table_name:str,column:str,key,block_index,offset,transaction_id : int):
+        self.delete_hash_index(database_name,table_name,column,key,transaction_id)
+        self.insert_hash_tree(database_name,table_name,column,key,block_index,offset,transaction_id)
+
     def debug(self):
         print(self.blocks)
 
