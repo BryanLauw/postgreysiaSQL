@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from StorageManager.classes import Statistic, StorageEngine
-from QueryHelper import *
+from .QueryHelper import *
 from typing import Callable, Union
 
 class QueryValidator:

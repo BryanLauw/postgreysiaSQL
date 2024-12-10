@@ -9,11 +9,12 @@ import signal
 import random
 
 # class from other files
-from main_checkpoint import CheckpointManager
-from main_recovery import Recovery
-from main_log_entry import LogEntry
-from main_recover_criteria import RecoverCriteria
-from main_threading_manager import ThreadingManager
+import QueryProcessor.QueryProcessor as QueryProcessor
+from .main_checkpoint import CheckpointManager
+from .main_recovery import Recovery
+from .main_log_entry import LogEntry
+from .main_recover_criteria import RecoverCriteria
+from .main_threading_manager import ThreadingManager
 
 
 class FailureRecovery:
@@ -192,34 +193,4 @@ if __name__ == "__main__":
     log_file = "log_edbert.log" # log file name
     recovery = FailureRecovery(log_file, 10, 5)
 
-    # ---------------------------------------------------------------- #
-    #   SIMULATION - Only.                                             #
-    #   Uncomment self._start_checkpoint_thread if run on real time    #
-    # ---------------------------------------------------------------- #
-    arr = [
-        {"id": 0, "event": "START"},
-        {"id": 0, "event": "DATA", "object_value": "{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'}", "old_value": "2000", "new_value": "2050"},
-        {"id": 1, "event": "START"},    
-        {"id": 1, "event": "DATA", "object_value": "{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'}", "old_value": "700", "new_value": "600"},
-        {"id": 1, "event": "COMMIT"},
-        {"id": 2, "event": "START"},
-        {"id": 2, "event": "DATA", "object_value": "{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'}", "old_value": "500", "new_value": "400"},
-        {"id": 0, "event": "ABORT"}, # NORMAL OPERATION ABORT
-        # {"id": 0, "event": "DATA", "object_value": "B", "new_value": "2000"},
-        # {"id": 2, "event": "DATA", "object_value": "A", "new_value": "500"},
-        {"id": 2, "event": "ABORT SYSTEM"}, # SIMULATE SYSTEM ABORT - testing aja. cape timing ctrl+c :V  Though Our Code handled SIGSEGV
-    ]
-
-    for x in arr:
-        result = recovery.write_log_entry(
-            x.get("id", ""),  # Default to an empty string if "id" is missing
-            x.get("event", ""),  # Default to an empty string if "event" is missing
-            x.get("object_value", ""),  # Default to an empty string if "object_value" is missing
-            x.get("old_value", ""),  # Default to an empty string if "old_value" is missing
-            x.get("new_value", "")  # Default to an empty string if "new_value" is missing
-        )
-        # break
-        if result:
-            print(result)
-        time.sleep(1)
-
+    

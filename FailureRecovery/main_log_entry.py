@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import datetime
 
 # class from other files
-from main_recover_criteria import RecoverCriteria
+from .main_recover_criteria import RecoverCriteria
 
 @dataclass
 class LogEntry:

@@ -1,6 +1,6 @@
 from FailureRecovery.main_log_entry import LogEntry
-from ..ConcurrencyControlManager.ConcurrencyControlManager import *
-from ..QueryOptimizer.OptimizationEngine import *
+from ConcurrencyControlManager.ConcurrencyControlManager import *
+from QueryOptimizer.OptimizationEngine import *
 from StorageManager.classes import *
 import re
 
@@ -44,14 +44,15 @@ class DataDeletion:
         return f"DataDeletion(table={self.table}, conditions={self.conditions})"
     
 class QueryProcessor:
-    def __init__(self, db_name: str):
+    # def __init__(self, db_name: str | None):
+    def __init__(self):
         self.current_transactionId = None
         self.parsedQuery = None
-        self.qo = OptimizationEngine()
-        self.cc = ConcurrencyControlManager()
         self.sm = StorageEngine()
+        self.qo = OptimizationEngine(self.sm.get_stats("database1","users"))
+        self.cc = ConcurrencyControlManager()
         self.rm = FailureRecovery.FailureRecovery()
-        self.db_name = db_name
+        # self.db_name = db_name
         pass
 
     def execute_query(self, query : str):

@@ -1,4 +1,4 @@
-from main_log_entry import LogEntry
+from .main_log_entry import LogEntry
 from typing import Optional, List, Set, Union
 # from StorageManager.classes import DataWrite 
 from datetime import datetime
@@ -6,7 +6,7 @@ import logging
 import re
 import ast
 
-from main_util import write_log_entry_to_file
+from .main_util import write_log_entry_to_file
 
 class Recovery:
     """
