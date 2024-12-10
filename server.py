@@ -8,16 +8,16 @@ def handle_client(client_socket, query_processor):
         while True:
             try:
                 query = client_socket.recv(1024).decode("utf-8").strip()
+                
                 if query.lower() == "exit":
                     client_socket.send(b"Goodbye!\n")
                     break
 
                 response = query_processor.execute_query(query)
                 client_socket.send(f"{response}\n".encode("utf-8"))
-
             except Exception as e:
-                client_socket.send(f"Error: {e}\n".encode("utf-8"))
-
+                error_message = f"Error server: {e}"
+                client_socket.send(f"{error_message}\n".encode("utf-8"))
     except Exception as e:
         print(f"Client connection error: {e}")
     finally:
