@@ -139,6 +139,8 @@ class OptimizationEngine:
         
         for node in list_nodes["WHERE"]:
             self.QueryOptimizer.pushing_selection(node)
+        
+        self.QueryOptimizer.pushing_projection(query.query_tree.childs[0].childs[0])
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
@@ -151,7 +153,7 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = 'SELECT u.id, product_id FROM users AS u , products AS t WHERE u.id > 1 AND t.product_id = "12" OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC'
+    select_query = 'SELECT u.id, product_id FROM users AS u JOIN products AS t ON t.product_id = u.id  WHERE u.id > 1 AND t.product_id = "12" OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC'
     # print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
     # print(parsed_query)
