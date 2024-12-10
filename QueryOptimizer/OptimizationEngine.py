@@ -20,10 +20,13 @@ class OptimizationEngine:
         self.QueryOptimizer = QueryOptimizer()
         self.get_stats = get_stats
 
-    def parse_query(self, query: str,database_name: str = "database1") -> ParsedQuery: # hard code database
+    def parse_query(self, query: str,database_name: str) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
-            QueryHelper.normalize_string(query).upper()
+            QueryHelper.normalize_string(query).lower()
         )
+        
+        normalized_query = self.QueryParser.transform_to_upper(normalized_query)
+        print(normalized_query)
 
         # Check Syntax
         normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
@@ -45,11 +48,10 @@ class OptimizationEngine:
                 
         # Rewrite alias with direct table's name for simplicity
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
-        
         # Get attributes and validate their existence
         self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
+        print("SINI ",query_components_value)
         
-        print(query_components_value)
         # Build the initial query evaluation plan tree
         query_tree = self.__build_query_tree(query_components_value,database_name)
         return ParsedQuery(query_tree,normalized_query)
@@ -98,8 +100,18 @@ class OptimizationEngine:
         #     top = where_tree
         
         if "WHERE" in components:
+            # use this if you want to separate the childs
             where_tree = QueryHelper.parse_where_clause(components["WHERE"], top)
             top = where_tree
+
+            # parsed_result = re.split(r'\sAND\s', components["WHERE"])
+            # where_tree = QueryTree(type="WHERE", val=parsed_result)
+            # top.add_child(where_tree)
+            # where_tree.add_parent(top)
+            # if query_type == "SELECT":
+            #     top = select_tree
+            # else:
+            #     top = where_tree
 
         if "FROM" in components:
             join_tree = QueryHelper.build_join_tree(components["FROM"],database_name,self.get_stats)
@@ -109,20 +121,26 @@ class OptimizationEngine:
         return root
 
     def optimize_query(self, query: ParsedQuery):
+        list_nodes = {
+            "JOIN": [],
+            "NATURAL JOIN":[],
+            "SELECT": [],
+            "WHERE": [],
+            "ROOT": [],
+        }
+        
         queue_nodes = Queue()
         queue_nodes.put(query.query_tree)
         while not queue_nodes.empty():
             current_node = queue_nodes.get()
-            if current_node.type == "TABLE":
-                continue
+            if current_node.type in ["SELECT","NATURAL JOIN","JOIN","WHERE"]:
+                list_nodes[current_node.type].append(current_node)
+            
             for child in current_node.childs:
                 queue_nodes.put(child)
-
-            if self.QueryOptimizer.perform_operation(
-                current_node, 
-                lambda node: self.get_cost(ParsedQuery(node, query.query), "database1")
-            ):
-                print(query)
+        
+        for node in list_nodes["WHERE"]:
+            self.QueryOptimizer.pushing_selection(node)
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
@@ -135,13 +153,13 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = "SELECT u.id, product_id FROM users AS u JOIN products AS t ON products.product_id = u.id and products.product_id = u.id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
-    print("SELECT QUERY\n",select_query,end="\n\n")
+    select_query = 'SELECT u.id, product_id FROM users AS u , products AS t WHERE u.id > 1 AND t.product_id = "12" OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC'
+    # print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
-    print(parsed_query)
+    # print(parsed_query)
+    optim.optimize_query(parsed_query)
     # optim.optimize_query(parsed_query)
-    # optim.optimize_query(parsed_query)
-    # print("EVALUATION PLAN TREE: \n",parsed_query)
+    print("EVALUATION PLAN TREE: \n",parsed_query)
     
     # print(f"COST = {optim.get_cost(parsed_query, 'database1')}")
 
