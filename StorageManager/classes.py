@@ -361,22 +361,28 @@ class StorageEngine:
         return False
     
   
-    def insert_bplus_tree(self,database_name:str,table_name:str,column:str,key,block_index,offset,transaction_id : int):
-        index = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
+    def insert_bplus_index(self,database_name:str,table_name:str,column:str,key,block_index,offset,transaction_id : int):
+        index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         index.insert(key,(block_index,offset))
-        pass
 
+    def delete_bplus_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int):
+        index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
+        index.delete(key)
+
+    # panggil kalau yang diupdate search keynya
+    def update_bplus_index(self,database_name:str,table_name:str,column:str,key,block_index,offset,transaction_id : int):
+        self.delete_bplus_index(database_name,table_name,column,key,transaction_id)
+        self.insert_bplus_index(database_name,table_name,column,key,block_index,offset,transaction_id)
 
     def search_bplus_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int) -> list:
         self.validate_column_buffer(database_name,table_name,column,transaction_id)
-        index = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
-        print(index)
+        index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         result_indices = index.search(key)
         return result_indices
     
     def search_bplus_index_range(self, database_name:str,table_name:str, column:str,  transaction_id:int,start,end) -> list:
         self.validate_column_buffer(database_name,table_name,column,transaction_id)
-        index = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
+        index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         result_indices = index.search_range(start, end)
         return result_indices
 
