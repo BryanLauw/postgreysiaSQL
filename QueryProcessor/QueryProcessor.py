@@ -1,9 +1,11 @@
+import signal
 from FailureRecovery.main_log_entry import LogEntry
 from ConcurrencyControlManager.ConcurrencyControlManager import *
 from QueryOptimizer.OptimizationEngine import *
 from StorageManager.classes import *
 from typing import Optional
 import re
+import atexit
 
 import FailureRecovery.main as FailureRecovery
     
@@ -17,6 +19,12 @@ class QueryProcessor:
         self.cc = ConcurrencyControlManager()
         self.rm = FailureRecovery.FailureRecovery()
         self.db_name = "database1" #SBD
+
+        self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
+
+        # Register exit and signal handler
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGSEGV, self.signal_handler)
 
     def execute_query(self, query : str):
         tables = ["id", "name"]
@@ -33,23 +41,24 @@ class QueryProcessor:
             print("Executing query: " + query)
             if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
                 self.current_transactionId = self.cc.begin_transaction()
-                self.rm.write_log_entry(self.current_transactionId, "BEGIN", None, None, None)
+                self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
                 # self.rm.start_transaction(self.current_transactionId)
                 
-            elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
+            elif(query.upper() == "COMMIT" or query.upper() == "COMMIT TRANSACTION"):
                 self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
                 self.cc.end_transaction(self.current_transactionId)
+                self.sm.commit_buffer(self.current_transactionId)
                 self.current_transactionId = None
             
             elif(query.upper() == "END TRANSACTION"):
                 self.cc.end_transaction(self.current_transactionId)
+                self.sm.save()
                 self.current_transactionId = None
 
             elif(query.upper() == "PRINT"):
                 self.printResult(tables, rows)
-            
-            else:
 
+            else:
                 self.parsedQuery = self.qo.parse_query(query,'database1') #hardcode
                 # try:
                 #     # self.parsedQuery = self.qo.parse_query(query, self.db_name)
@@ -470,3 +479,16 @@ class QueryProcessor:
             return sorted(data, key=lambda x: x[order_by], reverse=True)
         else:
             return sorted(data, key=lambda x: x[order_by])
+
+    def signal_handler(self, signum, frame):
+        """
+        Custom signal handler to handle SIGINT and SIGSEV.
+        """
+        self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
+        self.cc.end_transaction(self.current_transactionId)
+        self.sm.commit_buffer(self.current_transactionId)
+        self.sm.save()
+        
+        # Raise the original signal to allow the program to terminate
+        signal.signal(signum, signal.SIG_DFL)
+        signal.raise_signal(signum)
