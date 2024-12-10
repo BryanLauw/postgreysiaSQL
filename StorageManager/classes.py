@@ -1,5 +1,6 @@
 import pickle
 import os
+import copy
 from Bplus import BPlusTree
 from Hash import HashTable
 
@@ -7,10 +8,9 @@ class Condition:
     valid_operations = ["=", "<>", ">", ">=", "<", "<=", "!"] # untuk sementara "!" berarti no operation
     def __init__(self, column:str, operation:str, operand:int|str) -> None:
         self.column = column
-        if operation in Condition.valid_operations:
-            self.operation = operation
-        else:
-            self.operation = "!"
+        if operation not in Condition.valid_operations:
+            operation = "!"
+        self.operation = operation
         self.operand = operand
     
     def evaluate(self, item:int|str):
@@ -92,18 +92,22 @@ class StorageEngine:
     
     def load(self) -> None:
         try:
-            if not (os.path.isfile("data.dat")):
-                pickle.dump({}, open("data.dat", "wb"))
-            self.blocks = pickle.load(open("data.dat", "rb"))
+            if not (os.path.isfile("datav4.dat")):
+                pickle.dump({}, open("datav4.dat", "wb"))
+            self.blocks = pickle.load(open("datav4.dat", "rb"))
         except Exception as e:
             print(f"error, {str(e)}")
 
     def commit_buffer(self, transaction_id:int) -> None:
         try:
-            self.blocks = self.buffer[transaction_id]
-            self.indexes = self.buffer_index[transaction_id]
-            self.buffer.pop(transaction_id)
-            self.buffer_index.pop(transaction_id)
+            tempBlocks = self.buffer.get(transaction_id, [])
+            if tempBlocks != []:
+                self.blocks = tempBlocks
+                self.buffer.pop(transaction_id)
+            tempIndexes = self.buffer_index.get(transaction_id, [])
+            if tempIndexes != []:
+                self.indexes = tempIndexes
+                self.buffer_index.pop(transaction_id)
         except Exception as e:
             print(f"error, {str(e)}")
 
@@ -118,7 +122,7 @@ class StorageEngine:
 
     def save(self) -> None:
         try:
-            pickle.dump(self.blocks, open("data.dat", "wb"))
+            pickle.dump(self.blocks, open("datav4.dat", "wb"))
         except Exception as e:
             print(f"error, {str(e)}")
 
@@ -134,22 +138,43 @@ class StorageEngine:
         self.blocks[database_name] = {}
         return True
     
-    def create_table(self, database_name:str, table_name:str, column_type:dict[str, str]) -> bool|Exception:
+    def create_table(self, database_name:str, table_name:str, column_type:dict[str, str], informasi_tambahan:dict[str, list[str]]) -> bool|Exception:
+        """
+        database_name tinggal string, misal "database1"
+        table_name tinggal string, misal "id_user"
+        column_type isinya dict[nama_column, tipe_column], misal {"id_user" : "INTEGER", "nama_user" : "VARCHAR(255)"} (tolong caps untuk tipenya, biar bisa diitung bytenya)
+        informasi_tambahan misal {"id_user" : ["PRIMARY KEY", "UNIQUE"], "nama_user" : ["UNIQUE", "FOREIGN KEY"]} 
+        """
         if database_name in self.blocks:
             if table_name not in self.blocks[database_name]:
                 self.blocks[database_name][table_name] = {
                     "columns" : [{"name" : nama_col, "type" : tipe_col} for nama_col, tipe_col in column_type.items()],
-                    "values" : [],
-                }
+                    "values" : [[]],
+                } 
+                for info in informasi_tambahan:
+                    for i in range(len(self.blocks[database_name][table_name]["columns"])):
+                        if self.blocks[database_name][table_name]["columns"][i]["name"] == info:
+                            self.blocks[database_name][table_name]["columns"][i]["constraints"] = informasi_tambahan[info]
+                # (STC) calculate max_record in 1 blocks not yet to be implemented
+                # this is a PLACEHOLDER
+                self.blocks[database_name][table_name]["max_record"] = 5
                 return True
             return Exception(f"Sudah ada table dengan nama {table_name} di database {database_name}")
         return Exception(f"Tidak ada database dengan nama {database_name}")
     
     def insert_data(self, database_name:str, table_name:str, data_insert:dict, transaction_id:int) -> bool|Exception:
+        """
+        data_insert tuh isinya kaya {"id_user" : 1, "nama_user" : "mas fuad"}
+        """
         if database_name in self.blocks:
             if table_name in self.blocks[database_name]:
-                self.buffer[transaction_id] = self.blocks
-                self.buffer[transaction_id][database_name][table_name]["values"].append(data_insert)
+                self.buffer[transaction_id] = copy.copy(self.blocks)
+                temp = self.buffer[transaction_id][database_name][table_name]["values"]
+                # (STC) harus ngisi record yang kosong juga (misal kosong di tengah2)
+                if (len(temp[len(temp)-1]) >= self.buffer[transaction_id][database_name][table_name]["max_record"]): # blocks paling akhirnya penuh
+                    self.buffer[transaction_id][database_name][table_name]["values"].append([data_insert])
+                else:
+                    self.buffer[transaction_id][database_name][table_name]["values"][len(temp)-1].append(data_insert)
                 return True
             return Exception(f"Tidak ada table dengan nama {table_name} di database {database_name}")
         return Exception(f"Tidak ada database dengan nama {database_name}")
@@ -184,9 +209,15 @@ class StorageEngine:
         # di bawah ini, udah pasti tidak ada error dari input
 
         # cross terlebih dahulu dari tabel-tabel yang dipilih
-        hasil_cross = self.blocks[database_name][data_retrieval.table[0]]["values"]
+        hasil_cross = []
+        for blocks in self.blocks[database_name][data_retrieval.table[0]]["values"]:
+            for records in blocks:
+                hasil_cross.append(records) 
         for tabel_lainnya in data_retrieval.table[1:]:
-            temp = self.blocks[database_name][tabel_lainnya]["values"]
+            temp = []
+            for blocks in self.blocks[database_name][tabel_lainnya]["values"]:
+                for records in blocks:
+                    temp.append(records)
             temp_hasil = []
             for row_hasil_cross in hasil_cross:
                 for row_hasil_temp in temp:
@@ -204,6 +235,7 @@ class StorageEngine:
             hasil_operasi = hasil_cross
 
         # lalu ambil hanya kolom yang diinginkan
+        # (STC) nanti harusnya return rows
         hasil_akhir = [{key: d[key] for key in data_retrieval.column if key in d} for d in hasil_operasi]
 
         # return akhir
@@ -231,25 +263,28 @@ class StorageEngine:
             affected_rows = 0
             data_baru = []
 
-            for row in self.blocks[database_name][table]["values"]:
-                update_row = False
-                if data_write.conditions:
-                    # Cek apakah row memenuhi semua kondisi
-                    update_row = all(kondisi.evaluate(row[kondisi.column]) for kondisi in data_write.conditions)
-                else:
-                    # Jika tidak ada kondisi, semua baris akan diupdate
-                    update_row = True
+            for block in self.blocks[database_name][table]["values"]:
+                block_baru = []
+                for record in block:
+                    update_row = False
+                    recordBaru = copy.copy(record)
+                    if data_write.conditions:
+                        # Cek apakah row memenuhi semua kondisi
+                        update_row = all(kondisi.evaluate(recordBaru[kondisi.column]) for kondisi in data_write.conditions)
+                    else:
+                        # Jika tidak ada kondisi, semua baris akan diupdate
+                        update_row = True
 
-                # Update nilai jika memenuhi kondisi
-                if update_row:
-                    for col, value in zip(data_write.column, data_write.new_value):
-                        row[col] = value
-                    affected_rows += 1
+                    # Update nilai jika memenuhi kondisi
+                    if update_row:
+                        for col, value in zip(data_write.column, data_write.new_value):
+                            recordBaru[col] = value
+                        affected_rows += 1
 
-                data_baru.append(row)
+                    block_baru.append(recordBaru)
+                data_baru.append(block_baru)
 
-            # Update data di tabel
-            self.buffer[transaction_id] = self.blocks
+            self.buffer[transaction_id] = copy.deepcopy(self.blocks)
             self.buffer[transaction_id][database_name][table]["values"] = data_baru
             
             affected_rows_total += affected_rows  # Tambahkan jumlah baris yang diubah untuk tabel ini
@@ -277,15 +312,21 @@ class StorageEngine:
         # seharusnya tidak ada error di sini
         data_baru = []
         affected_row = 0
-        self.buffer[transaction_id] = self.blocks
-        for kondisi in data_deletion.conditions:
-            for row in self.blocks[database_name][data_deletion.table]["values"]:
-                if not kondisi.evaluate(row[kondisi.column]):
-                    data_baru.append(row)
+        for block in self.blocks[database_name][data_deletion.table]["values"]:
+            block_baru = []
+            for record in block:
+                if data_deletion.conditions:
+                    if not (all(kondisi.evaluate(record[kondisi.column]) for kondisi in data_deletion.conditions)):
+                        # berarti tidak memenuhi kondisi, bakal dicopy
+                        block_baru.append(record)
+                    else:
+                        affected_row += 1
                 else:
-                    affected_row += 1
-            self.buffer[transaction_id][database_name][data_deletion.table]["values"] = data_baru
-            data_baru = []
+                    block_baru.append(record)
+            data_baru.append(block_baru)
+        
+        self.buffer[transaction_id] = copy.deepcopy(self.blocks)
+        self.buffer[transaction_id][database_name][data_deletion.table]["values"] = data_baru 
         print(f"Data berhasil dihapus, {affected_row} baris dihapus")
         return affected_row
     
@@ -412,7 +453,7 @@ class StorageEngine:
             if table_name not in dbs[database_name]:
                 continue
             if column not in dbs[database_name][table_name]:
-                continue                 
+                continue
             if "bplus" in dbs[database_name][table_name][column]:
                 if dbs[database_name][table_name][column]["bplus"] is not None:
                     return True
