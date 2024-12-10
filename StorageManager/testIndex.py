@@ -1,6 +1,6 @@
 from classes import StorageEngine
 
-def create_database(storage):
+def create_database(storage : StorageEngine):
     print("Creating database 'test_db'...")
     storage.create_database("test_db")
 
@@ -11,11 +11,11 @@ def create_table(storage):
 
 def insert_data(storage):
     print("Inserting sample data into 'users' table...")
-    storage.insert_data("test_db", "users", {"id": 1, "name": "John Doe", "age": 30})
-    storage.insert_data("test_db", "users", {"id": 2, "name": "Jane Doe", "age": 25})
-    storage.insert_data("test_db", "users", {"id": 3, "name": "Alice", "age": 25})
-    storage.insert_data("test_db", "users", {"id": 4, "name": "Bob", "age": 22})
-    storage.insert_data("test_db", "users", {"id": 5, "name": "Charlie", "age": 35})
+    storage.insert_data("test_db", "users", {"id": 1, "name": "John Doe", "age": 30},1)
+    storage.insert_data("test_db", "users", {"id": 2, "name": "Jane Doe", "age": 25},1)
+    storage.insert_data("test_db", "users", {"id": 3, "name": "Alice", "age": 25},1)
+    storage.insert_data("test_db", "users", {"id": 4, "name": "Bob", "age": 22},1)
+    storage.insert_data("test_db", "users", {"id": 5, "name": "Charlie", "age": 35},1)
 
 def create_index(storage):
     print("Creating index on 'id' column...")
