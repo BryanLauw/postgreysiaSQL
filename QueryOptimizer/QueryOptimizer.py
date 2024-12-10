@@ -221,3 +221,49 @@ class QueryOptimizer:
             
         
         return True
+    
+    def combine_selection_and_cartesian_product(self, node: QueryTree) -> bool:
+        tables_from_children = self.__find_tables_from_children(node)
+        node_to_combine = node.parent
+        while node_to_combine.type != "ROOT" and not self.__is_where_combinable(node_to_combine, tables_from_children):
+            node_to_combine = node_to_combine.parent
+
+        if node_to_combine.type == "ROOT":
+            return False
+        
+        # change cartesian product node
+        node.type = "JOIN"
+        node.val = node_to_combine.val
+        
+        # remove the selection node
+        parent = node_to_combine.parent
+        child = node_to_combine.childs[0]
+        parent.childs[0] = child
+        child.parent = parent
+        node_to_combine.parent = None
+        node_to_combine.childs = []
+
+        return True
+
+    def __find_tables_from_children(self, node: QueryTree) -> list:
+        tables = []
+        if node.type == "TABLE":
+            tables.append(node.val.strip()) # remove trailing whitespaces
+        
+        for child in node.childs:
+            tables.extend(self.__find_tables_from_children(child))
+        
+        return tables
+    
+    def __is_where_combinable(self, node: QueryTree, tables: list) -> bool:
+        if node.type != "WHERE":
+            return False
+        
+        elif "OR" in node.val:
+            return False
+        
+        elif any(char in node.val for char in ["<>", "<", ">", "<=", ">="]):
+            return False
+        
+        tables_where = [item.split(".")[0] for item in node.val.split(" = ")]
+        return all(table_where in tables for table_where in tables_where)
