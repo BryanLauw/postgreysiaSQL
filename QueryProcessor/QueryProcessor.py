@@ -186,48 +186,37 @@ class QueryProcessor:
         return data_deletion
 
     def printResult(self, data:map):
-        # # Determine the maximum width of each column
-        # column_widths = [max(len(row[i]) for row in data + [column]) for i in range(len(column))]
-
-        # # Function to format a row
-        # def format_row(row):
-        #     return "| " + " | ".join(row[i].ljust(column_widths[i]) for i in range(len(row))) + " |"
-
-        # # Print the header
-        # print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
-        # print(format_row(column))
-        # print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
-
-        # # Print the data
-        # for row in data:
-        #     print(format_row(row))
-
-        # # Print the bottom border
-        # print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
         if not data:
             print("No data to display.")
             return
 
-        # Extract headers from keys of the first dictionary
         headers = list(data[0].keys())
         
-        # Determine the width of each column
         column_widths = [
-            max(len(str(row.get(key, ""))) for row in data)  # Handles missing keys gracefully
+            max(len(str(row.get(key, ""))) for row in data)
             for key in headers
         ]
         column_widths = [max(width, len(header)) for width, header in zip(column_widths, headers)]
-
-        # Create a format string for each row
-        row_format = " | ".join(f"{{:<{width}}}" for width in column_widths)
-
-        # Print the headers
-        print(row_format.format(*headers))
-        print("-+-".join("-" * width for width in column_widths))
-
-        # Print each row of data
+        
+        border = "+" + "+".join("-" * (width + 2) for width in column_widths) + "+"
+        
+        print(border)
+        
+        header_line = "|"
+        for header, width in zip(headers, column_widths):
+            header_line += f" {header:<{width}} |"
+        print(header_line)
+        
+        print(border)
+        
         for row in data:
-            print(row_format.format(*(str(row.get(key, "")) for key in headers)))
+            data_line = "|"
+            for key, width in zip(headers, column_widths):
+                value = str(row.get(key, ""))
+                data_line += f" {value:<{width}} |"
+            print(data_line)
+        
+        print(border)
 
     def parse_query(self, query : str):
         queries = query.split(';')
