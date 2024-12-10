@@ -74,8 +74,8 @@ class QueryProcessor:
                     data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
                     temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
                     temp = self.__orderBy(temp, "id", True) # hardcode
-                    self.printResult(temp)
-
+                    result = self.printResult(temp)
+                    return result
     
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
         # if parsed_query.query_tree.type == "JOIN":
@@ -189,15 +189,18 @@ class QueryProcessor:
         
         print(border)
         
+        data_lines = []
         for row in data:
             data_line = "|"
             for key, width in zip(headers, column_widths):
                 value = str(row.get(key, ""))
                 data_line += f" {value:<{width}} |"
             print(data_line)
+            data_lines.append(data_line)
         
-        print(border)
-
+        result = "\n".join([border, header_line, border] + data_lines + [border])
+        return result.strip()
+        
     def parse_query(self, query : str):
         queries = query.split(';')
         return [q.strip() for q in queries if q.strip()]
