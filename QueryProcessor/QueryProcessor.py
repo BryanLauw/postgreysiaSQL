@@ -95,6 +95,7 @@ class QueryProcessor:
                     print("masuk select")
                     data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
                     temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
+                    temp = self.__orderBy(temp, "id", True)
                     self.printResult(temp)
 
         # if self.parsedQuery.query_tree.val == "UPDATE":
