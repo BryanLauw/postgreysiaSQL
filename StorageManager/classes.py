@@ -340,13 +340,35 @@ class StorageEngine:
         if not any(col["name"] == column for col in table["columns"]):
             raise ValueError(f"Column '{column}' does not exist in table '{table_name}'.")
         
-    def validate_index_existence(self, database_name: str, table_name: str, column: str) -> None :
-        if database_name not in self.buffer_index or database_name not in self.indexes:
+    def validate_column_buffer(self, database_name: str, table_name: str, column: str, trancaction_id:int) -> None:
+        if database_name not in self.buffer[trancaction_id]:
             raise ValueError(f"Database '{database_name}' does not exist.")
-        if table_name not in self.indexes[database_name] or table_name not in self.buffer_index:
-            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
-        if column not in self.indexes[database_name][table_name] or column not in self.buffer_index[database_name][table_name]:
-            raise ValueError(f"No index exists for column '{column}' in table '{table_name}'.")
+        if table_name not in self.buffer[trancaction_id][database_name]:
+            raise ValueError(f"Table '{table_name}' does not exist.")
+        table = self.buffer[trancaction_id][database_name][table_name]
+        if not any(col["name"] == column for col in table["columns"]):
+            raise ValueError(f"Column '{column}' does not exist in table '{table_name}'.")
+        
+    def hash_locator(self, database_name: str, table_name: str, column: str, transaction_id:int) -> None :
+        self.validate_column_buffer(database_name, table_name, column, transaction_id)
+        if self.is_hash_index_in_buffer(database_name, table_name, column, transaction_id):
+            return self.buffer_index[transaction_id][database_name][table_name][column]["hash"]
+        elif self.is_hash_index_in_block(database_name, table_name, column):
+            return self.indexes[database_name][table_name][column]["hash"]
+        else :
+            raise ValueError("Hash index not found")
+
+    def is_hash_index_in_buffer(self, database_name: str, table_name: str, column: str, transaction_id:int) -> bool:
+        return self.buffer_index[transaction_id][database_name][table_name][column]["hash"] is not None
+    
+    def is_hash_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
+        return self.indexes[database_name][table_name][column]["hash"] is not None
+    
+    def is_bplus_index_in_buffer(self, database_name: str, table_name: str, column: str, transaction_id:int) -> bool:
+        return self.buffer_index[transaction_id][database_name][table_name][column]["bplus"] is not None
+    
+    def is_bplus_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
+        return self.indexes[database_name][table_name][column]["bplus"] is not None
 
     # setindex ke buffer
     def set_index(self, database_name: str, table_name: str, column: str, transaction_id:int,index_type="bplus") -> None:
@@ -362,8 +384,6 @@ class StorageEngine:
         else:
             raise ValueError("Invalid index type. Only 'bplus' and 'hash' are supported.")
         print(f"Index of type '{index_type}' created for column '{column}' in table '{table_name}'.")
-        
-
 
     def create_bplus_index(self, table : dict, column: str):
         bplus_tree = BPlusTree(order=4)
@@ -383,7 +403,7 @@ class StorageEngine:
             if table_name not in dbs[database_name]:
                 continue
             if column not in dbs[database_name][table_name]:
-                continue
+                continue                 
             if "bplus" in dbs[database_name][table_name][column]:
                 if dbs[database_name][table_name][column]["bplus"] is not None:
                     return True
@@ -426,6 +446,27 @@ class StorageEngine:
         self.validate_column_buffer(database_name,table_name,column,transaction_id)
         index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         result_indices = index.search_range(start, end)
+        return result_indices
+    
+    def create_hash_index(self, table: dict, column: str):
+        hash_index = HashTable(size=10)
+        for block_index, block in enumerate(table["values"]):
+            for offset, row in enumerate(block):
+                if column not in row:
+                    raise ValueError(f"Column '{column}' is missing in a row of the table.")
+                key = row[column]
+                hash_index.insert(key,(block_index,offset))
+        return hash_index
+    
+    def insert_hash_tree(self, database_name:str, table_name:str, column:str, key, block_index, offset, transaction_id : int):
+        index = self.hash_locator(database_name, table_name, column, transaction_id)
+        index.insert(key, (block_index, offset))
+        if index.search(key) != (block_index, offset):
+            raise ValueError("Error in inserting to hash index")
+
+    def search_hash_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int):  
+        index = self.hash_locator(database_name, table_name, column, transaction_id)
+        result_indices = index.search(key)
         return result_indices
 
 
