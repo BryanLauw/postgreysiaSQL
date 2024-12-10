@@ -118,6 +118,11 @@ class QueryProcessor:
                     where = tree.val
                 for child in tree.childs:
                     return self.evaluateTree(child, select, where)
+                
+    def __filterSelect(self, data: List[dict], select: list[str]) -> List[dict]:
+        # filter select
+        column = [col.split(".")[1] for col in select]
+        return [{key: value for key, value in row.items() if key in column} for row in data]
     
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
         # if parsed_query.query_tree.type == "JOIN":
