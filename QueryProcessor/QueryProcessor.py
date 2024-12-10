@@ -62,18 +62,9 @@ class QueryProcessor:
                     # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
                     b = self.sm.write_block(write, "database1", self.current_transactionId)
                 elif self.parsedQuery.query_tree.val == "SELECT":
-                    print("masuk select")
                     data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
-                    print("halo")
-                    print(data_ret)
-                    print(data_ret.table)
-                    print(data_ret.column)
-                    # hardcode
-                    con = Condition('id','=',1)
-                    testRet = DataRetrieval(['users'],['id','username'],[con])
-                    temp = self.sm.read_block(testRet,self.db_name,self.current_transactionId)
-                    temp = self.__orderBy(temp, "id", True)
-                    print(temp)
+                    temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
+                    temp = self.__orderBy(temp, "id", True) # hardcode
                     self.printResult(temp)
 
     
@@ -85,7 +76,6 @@ class QueryProcessor:
         #     table = joined_tables  
         # else:
         #     table = parsed_query.query_tree.val  
-
         # columns = [
         #     child.val for child in parsed_query.query_tree.childs if child.type == "COLUMN"
         # ]
