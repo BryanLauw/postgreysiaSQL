@@ -22,8 +22,11 @@ class OptimizationEngine:
 
     def parse_query(self, query: str,database_name: str) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
-            QueryHelper.normalize_string(query).upper()
+            QueryHelper.normalize_string(query).lower()
         )
+        
+        normalized_query = self.QueryParser.transform_to_upper(normalized_query)
+        print(normalized_query)
 
         # Check Syntax
         normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
@@ -45,11 +48,10 @@ class OptimizationEngine:
                 
         # Rewrite alias with direct table's name for simplicity
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
-        
         # Get attributes and validate their existence
         self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
+        print("SINI ",query_components_value)
         
-        print(query_components_value)
         # Build the initial query evaluation plan tree
         query_tree = self.__build_query_tree(query_components_value,database_name)
         return ParsedQuery(query_tree,normalized_query)

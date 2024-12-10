@@ -121,9 +121,7 @@ class QueryOptimizer:
             return False
         
         table_name = tables[0]
-        # print("Table name: ",table_name)
         table_node = self.__find_matching_table(node,table_name)
-        # print("Table node: ",table_node.val)
         self.__insert_node(node,table_node)
         
         return True
@@ -134,3 +132,5 @@ class QueryOptimizer:
         elif node.type in ["JOIN", "NATURAL JOIN"]:
             return self.commutative_join(node, query_cost_calculator)
         return False       
+    
+    # def perform_pushing_selection
