@@ -218,39 +218,50 @@ class QueryProcessor:
         # return DataRetrieval(table=table, columns=columns, conditions=conditions)
 
     def ParsedQueryToDataWrite(self, parsed_query: ParsedQuery) -> DataWrite:
-        # Input: child (QueryTree with only where value)
-        # Output: List of condition from child
-        def filter_condition(child: QueryTree) -> List[Condition]:
-            operator = r'(<=|>=|<>|<|>|=)'
-            where_val = child.val
-            match = re.split(operator, where_val, maxsplit=1)
-            parts = [part.strip() for part in match]
-            parts[2] = int(parts[2]) if parts[2].isdigit() else parts[2]
-            print("kondisi0 ", parts[0].split(".")[1])
-            print("kondisi1 ", parts[1])
-            print("kondisi2 ", parts[2])
-            temp = Condition(parts[0].split(".")[1], parts[1], parts[2])
-            if not child.childs:
-                return [temp]
-            else:
-                return [temp] + filter_condition(child.childs[0])
+        try:
+            table = parsed_query.query_tree.childs[0].val
+                
+            # Validate write access
+            response = self.cc.validate_object(table, self.current_transactionId, "write")
+            if not response.allowed:
+                raise Exception(f"Transaction {self.current_transactionId} cannot write to table {table}")
         
-        # Get table name
-        table = parsed_query.query_tree.childs[0].val
+            # Input: child (QueryTree with only where value)
+            # Output: List of condition from child
+            def filter_condition(child: QueryTree) -> List[Condition]:
+                operator = r'(<=|>=|<>|<|>|=)'
+                where_val = child.val
+                match = re.split(operator, where_val, maxsplit=1)
+                parts = [part.strip() for part in match]
+                parts[2] = int(parts[2]) if parts[2].isdigit() else parts[2]
+                print("kondisi0 ", parts[0].split(".")[1])
+                print("kondisi1 ", parts[1])
+                print("kondisi2 ", parts[2])
+                temp = Condition(parts[0].split(".")[1], parts[1], parts[2])
+                if not child.childs:
+                    return [temp]
+                else:
+                    return [temp] + filter_condition(child.childs[0])
+            
+            # Get table name
+            table = parsed_query.query_tree.childs[0].val
 
-        # Get new value
-        new_value = parsed_query.query_tree.childs[0].childs[0].val
-        match = re.split(r'=', new_value)
-        columns = match[0].strip().split(".")[1]
-        print("kolom ", columns)
-        new_value = match[1].strip().replace('"', '')
-        
+            # Get new value
+            new_value = parsed_query.query_tree.childs[0].childs[0].val
+            match = re.split(r'=', new_value)
+            columns = match[0].strip().split(".")[1]
+            print("kolom ", columns)
+            new_value = match[1].strip().replace('"', '')
+            
 
-        # Get all conditions
-        conditions = filter_condition(parsed_query.query_tree.childs[0].childs[0].childs[0])
-        
-        print("kondisi ", conditions)
-        return DataWrite([table], [columns], conditions, [new_value])
+            # Get all conditions
+            conditions = filter_condition(parsed_query.query_tree.childs[0].childs[0].childs[0])
+            
+            print("kondisi ", conditions)
+            return DataWrite([table], [columns], conditions, [new_value])
+        except Exception as e:
+            self.handle_rollback(self.current_transactionId)
+            return e
 
     def ParsedQueryToDataDeletion(parsed_query: ParsedQuery) -> DataDeletion:
         data_deletion = DataDeletion(
