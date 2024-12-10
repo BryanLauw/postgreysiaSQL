@@ -209,45 +209,53 @@ class StorageEngine:
         # return akhir
         return hasil_akhir
 
-    def write_block(self, data_write: DataWrite, database_name: str, transaction_id:int) -> int | Exception:
+    def write_block(self, data_write: DataWrite, database_name: str, transaction_id: int) -> int | Exception:
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")
-        if data_write.table not in self.blocks[database_name]:
-            return Exception(f"Tidak ada tabel dengan nama {data_write.table}")
-        column_tabel_query = [col["name"] for col in self.blocks[database_name][data_write.table]["columns"]]
-        if data_write.conditions:
-            for kondisi in data_write.conditions:
-                if kondisi.column not in column_tabel_query:
-                    return Exception(f"Tidak ada kolom dengan nama {kondisi.column}")
-        if not all(key in column_tabel_query for key in data_write.column):
-            return Exception(f"Beberapa kolom yang akan diubah tidak ada di tabel {data_write.table}")
-
-        # Tidak ada error, lanjutkan proses
-        affected_rows = 0
-        data_baru = []
         
-        for row in self.blocks[database_name][data_write.table]["values"]:
-            update_row = False
+        affected_rows_total = 0  # Total baris yang diubah
+
+        for table in data_write.table:
+            if table not in self.blocks[database_name]:
+                return Exception(f"Tidak ada tabel dengan nama {table} di database {database_name}")
+            
+            column_tabel_query = [col["name"] for col in self.blocks[database_name][table]["columns"]]
             if data_write.conditions:
-                # Cek apakah row memenuhi semua kondisi
-                update_row = all(kondisi.evaluate(row[kondisi.column]) for kondisi in data_write.conditions)
-            else:
-                # Jika tidak ada kondisi, semua baris akan diupdate
-                update_row = True
+                for kondisi in data_write.conditions:
+                    if kondisi.column not in column_tabel_query:
+                        return Exception(f"Tidak ada kolom dengan nama {kondisi.column} di tabel {table}")
+            if not all(key in column_tabel_query for key in data_write.column):
+                return Exception(f"Beberapa kolom yang akan diubah tidak ada di tabel {table}")
+            
+            # Tidak ada error, lanjutkan proses untuk tabel ini
+            affected_rows = 0
+            data_baru = []
 
-            # Update nilai jika memenuhi kondisi
-            if update_row:
-                for col, value in zip(data_write.column, data_write.new_value):
-                    row[col] = value
-                affected_rows += 1
+            for row in self.blocks[database_name][table]["values"]:
+                update_row = False
+                if data_write.conditions:
+                    # Cek apakah row memenuhi semua kondisi
+                    update_row = all(kondisi.evaluate(row[kondisi.column]) for kondisi in data_write.conditions)
+                else:
+                    # Jika tidak ada kondisi, semua baris akan diupdate
+                    update_row = True
 
-            data_baru.append(row)
+                # Update nilai jika memenuhi kondisi
+                if update_row:
+                    for col, value in zip(data_write.column, data_write.new_value):
+                        row[col] = value
+                    affected_rows += 1
+
+                data_baru.append(row)
+
+            # Update data di tabel
+            self.buffer[transaction_id] = self.blocks
+            self.buffer[transaction_id][database_name][table]["values"] = data_baru
+            
+            affected_rows_total += affected_rows  # Tambahkan jumlah baris yang diubah untuk tabel ini
         
-        # Update data di tabel
-        self.buffer[transaction_id] = self.blocks
-        self.buffer[transaction_id][database_name][data_write.table]["values"] = data_baru
-        print(f"Data berhasil diupdate, {affected_rows} baris diubah")
-        return affected_rows
+        print(f"Data berhasil diupdate, total {affected_rows_total} baris diubah di semua tabel")
+        return affected_rows_total
 
 
     def delete_block(self, data_deletion:DataDeletion, database_name:str, transaction_id:int) -> int:
