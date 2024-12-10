@@ -1,6 +1,7 @@
 import pickle
 import os
 from Bplus import BPlusTree
+from Hash import HashTable
 
 class Condition:
     valid_operations = ["=", "<>", ">", ">=", "<", "<=", "!"] # untuk sementara "!" berarti no operation
@@ -68,6 +69,27 @@ class StorageEngine:
         self.buffer = {}
         self.buffer_index = {}
 
+    def get_database_names(self) -> list[str]:
+        databases = []
+        for database in self.blocks:
+            databases.append(database)
+        return databases
+    
+    def get_tables_of_database(self, database_name:str) -> list[str]:
+        tables = []
+        for table in self.blocks[database_name] :
+            tables.append(table)
+        return tables
+    
+    def get_columns_of_table(self, database_name:str, table_name:str) -> list[str]:
+        columns = []
+        for column in self.blocks[database_name][table_name]["columns"]:
+            columns.append(column["name"])
+        return columns
+    
+    def get_table_metadata(self, database_name:str, table_name:str) -> dict:
+        return self.blocks[database_name][table_name]['columns']
+    
     def load(self) -> None:
         try:
             if not (os.path.isfile("data.dat")):
@@ -295,6 +317,11 @@ class StorageEngine:
             V_a_r[attribute] = len(set(row[attribute] for row in rows if attribute in row))
 
         return Statistic(n_r=nr, b_r=br, l_r=lr, f_r=fr, V_a_r=V_a_r)
+    
+    def retrieve_table_of_database(self, database_name:str) -> dict:
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        return self.blocks[database_name]
     
     def validate_column_buffer(self, database_name: str, table_name: str, column: str, trancaction_id:int) -> None:
         if database_name not in self.buffer[trancaction_id]:
