@@ -20,7 +20,7 @@ class OptimizationEngine:
         self.QueryOptimizer = QueryOptimizer()
         self.get_stats = get_stats
 
-    def parse_query(self, query: str,database_name: str) -> ParsedQuery:
+    def parse_query(self, query: str,database_name: str = "database1") -> ParsedQuery: # hard code database
         normalized_query = QueryHelper.remove_excessive_whitespace(
             QueryHelper.normalize_string(query).upper()
         )

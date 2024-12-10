@@ -2,6 +2,7 @@ from FailureRecovery.main_log_entry import LogEntry
 from ConcurrencyControlManager.ConcurrencyControlManager import *
 from QueryOptimizer.OptimizationEngine import *
 from StorageManager.classes import *
+from typing import Optional
 import re
 
 import FailureRecovery.main as FailureRecovery
@@ -9,13 +10,13 @@ import FailureRecovery.main as FailureRecovery
 class QueryProcessor:
     # def __init__(self, db_name: str | None):
     def __init__(self):
-        self.current_transactionId = None
+        self.current_transactionId = 0 #SBD
         self.parsedQuery = None
         self.sm = StorageEngine()
         self.qo = OptimizationEngine(self.sm.get_stats)
         self.cc = ConcurrencyControlManager()
         self.rm = FailureRecovery.FailureRecovery()
-        # self.db_name = db_name
+        self.db_name = "database1" #SBD
         pass
 
     def execute_query(self, query : str):
@@ -56,34 +57,63 @@ class QueryProcessor:
                 # except Exception as e:
                 #     raise Exception(e)
                     
-            print(self.parsedQuery.query_tree.val)
-            if self.parsedQuery.query_tree.val == "UPDATE":
-                write = self.ParsedQueryToDataWrite(self.parsedQuery)
-                # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
-                b = self.sm.write_block(write, "database1", self.current_transactionId)
-    
-    def ParsedQueryToDataRetrieval(self, parsed_query: ParsedQuery) -> DataRetrieval:
-        if parsed_query.query_tree.type == "JOIN":
-            joined_tables = [
-                child.val for child in parsed_query.query_tree.childs if child.type == "TABLE"
-            ]
-            table = joined_tables  
+                if self.parsedQuery.query_tree.val == "UPDATE":
+                    write = self.ParsedQueryToDataWrite(self.parsedQuery)
+                    # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
+                    b = self.sm.write_block(write, "database1", self.current_transactionId)
+                elif self.parsedQuery.query_tree.val == "SELECT":
+                    print("masuk select")
+                    data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
+                    print("halo")
+                    print(data_ret)
+                    print(data_ret.table)
+                    print(data_ret.column)
+                    # hardcode
+                    con = Condition('id','=',1)
+                    testRet = DataRetrieval(['users'],['id','username'],[con])
+                    temp = self.sm.read_block(testRet,self.db_name,self.current_transactionId)
+                    print(temp)
+                    self.printResult(temp)
+
+    def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
+        # if parsed_query.query_tree.type == "JOIN":
+        #     joined_tables = [
+        #         child.val for child in parsed_query.query_tree.childs if child.type == "TABLE"
+        #     ]
+        #     table = joined_tables  
+        # else:
+        #     table = parsed_query.query_tree.val  
+
+        # columns = [
+        #     child.val for child in parsed_query.query_tree.childs if child.type == "COLUMN"
+        # ]
+        # conditions = [
+        #     Condition(
+        #         column=cond.childs[0].val,
+        #         operation=cond.childs[1].val,
+        #         operand=cond.childs[2].val
+        #     )
+        #     for cond in parsed_query.query_tree.childs if cond.type == "CONDITION"
+        # ]
+        # print(parsed_query.query_tree)
+        if parsed_query.type == "SELECT":
+            tables = {}
+            cols = {}
+            # print(parsed_query.type)
+            # print(parsed_query.val)
+            for s in parsed_query.val:
+                # print(s.split('/.'))
+                tables[s.split(".")[0]] = 1
+                cols[s.split(".")[1]] = 1    
+            t = list(tables.keys())
+            c = list(cols.keys())
+            print(t)
+            print(c)
+            return DataRetrieval(tables=t, columns=c, conditions=[] )
         else:
-            table = parsed_query.query_tree.val  
-
-        columns = [
-            child.val for child in parsed_query.query_tree.childs if child.type == "COLUMN"
-        ]
-        conditions = [
-            Condition(
-                column=cond.childs[0].val,
-                operation=cond.childs[1].val,
-                operand=cond.childs[2].val
-            )
-            for cond in parsed_query.query_tree.childs if cond.type == "CONDITION"
-        ]
-
-        return DataRetrieval(table=table, columns=columns, conditions=conditions)
+            for child in parsed_query.childs:
+                return self.ParsedQueryToDataRetrieval(child)
+        # return DataRetrieval(table=table, columns=columns, conditions=conditions)
 
     def ParsedQueryToDataWrite(self, parsed_query: ParsedQuery) -> DataWrite:
         # Input: child (QueryTree with only where value)
@@ -166,25 +196,49 @@ class QueryProcessor:
         )
         return data_deletion
 
-    def printResult(self,column, data):
-        # Determine the maximum width of each column
-        column_widths = [max(len(row[i]) for row in data + [column]) for i in range(len(column))]
+    def printResult(self, data:map):
+        # # Determine the maximum width of each column
+        # column_widths = [max(len(row[i]) for row in data + [column]) for i in range(len(column))]
 
-        # Function to format a row
-        def format_row(row):
-            return "| " + " | ".join(row[i].ljust(column_widths[i]) for i in range(len(row))) + " |"
+        # # Function to format a row
+        # def format_row(row):
+        #     return "| " + " | ".join(row[i].ljust(column_widths[i]) for i in range(len(row))) + " |"
 
-        # Print the header
-        print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
-        print(format_row(column))
-        print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
+        # # Print the header
+        # print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
+        # print(format_row(column))
+        # print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
 
-        # Print the data
+        # # Print the data
+        # for row in data:
+        #     print(format_row(row))
+
+        # # Print the bottom border
+        # print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
+        if not data:
+            print("No data to display.")
+            return
+
+        # Extract headers from keys of the first dictionary
+        headers = list(data[0].keys())
+        
+        # Determine the width of each column
+        column_widths = [
+            max(len(str(row.get(key, ""))) for row in data)  # Handles missing keys gracefully
+            for key in headers
+        ]
+        column_widths = [max(width, len(header)) for width, header in zip(column_widths, headers)]
+
+        # Create a format string for each row
+        row_format = " | ".join(f"{{:<{width}}}" for width in column_widths)
+
+        # Print the headers
+        print(row_format.format(*headers))
+        print("-+-".join("-" * width for width in column_widths))
+
+        # Print each row of data
         for row in data:
-            print(format_row(row))
-
-        # Print the bottom border
-        print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
+            print(row_format.format(*(str(row.get(key, "")) for key in headers)))
 
     def parse_query(self, query : str):
         queries = query.split(';')
