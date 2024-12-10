@@ -76,6 +76,48 @@ class QueryProcessor:
                     temp = self.__orderBy(temp, "id", True) # hardcode
                     result = self.printResult(temp)
                     return result
+
+    def evaluateTree(self, tree: QueryTree, select: list[str], where: list[str]) -> list[dict]:
+        if not tree.childs:
+            if len(select) > 0 and len(where) > 0:
+                # evaluasi select dan where
+                return None
+            elif len(select) > 0:
+                # evaluasi select
+                return None
+            elif len(where) > 0:
+                # evaluasi where
+                return None
+            else:
+                # evaluasi root
+                return None
+        else:
+            if tree.type == "JOIN":
+                temp = self.__joinOn(
+                    "temp1", "temp2",
+                    self.evaluateTree(tree.childs[0], [], []),
+                    self.evaluateTree(tree.childs[1], [], []),
+                    tree.val
+                )
+                if len(select) > 0 and len(where) > 0:
+                    # evaluasi select dan where
+                    return None
+                elif len(select) > 0:
+                    # evaluasi select
+                    return None
+                elif len(where) > 0:
+                    # evaluasi where
+                    return None
+                else:
+                    # evaluasi root
+                    return None
+            else:
+                if tree.type == "SELECT":
+                    select = tree.val
+                elif tree.type == "WHERE":
+                    where = tree.val
+                for child in tree.childs:
+                    return self.evaluateTree(child, select, where)
     
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
         # if parsed_query.query_tree.type == "JOIN":
