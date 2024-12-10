@@ -73,40 +73,49 @@ class QueryProcessor:
                     result = self.printResult(temp)
                     return result
 
-    def evaluateTree(self, tree: QueryTree, select: list[str], where: list[str]) -> list[dict]:
+    def evaluateTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
         if not tree.childs:
             if len(select) > 0 and len(where) > 0:
-                # evaluasi select dan where
-                return None
+                cond = self.__makeCondition(where)
+                dataRetriev = DataRetrieval(tree.val, select, cond)
+                return self.__getData(dataRetriev, self.db_name)
             elif len(select) > 0:
-                # evaluasi select
-                return None
+                dataRetriev = DataRetrieval(tree.val, select, [])
+                return self.__getData(dataRetriev, self.db_name)
             elif len(where) > 0:
-                # evaluasi where
-                return None
+                cond = self.__makeCondition(where)
+                dataRetriev = DataRetrieval(tree.val, [], cond)
+                return self.__getData(dataRetriev, self.db_name)
             else:
-                # evaluasi root
-                return None
+                dataRetriev = DataRetrieval(tree.val, [], [])
+                return self.__getData(dataRetriev, self.db_name)
         else:
-            if tree.type == "JOIN":
-                temp = self.__joinOn(
-                    "temp1", "temp2",
-                    self.evaluateTree(tree.childs[0], [], []),
-                    self.evaluateTree(tree.childs[1], [], []),
-                    tree.val
-                )
+            if tree.type == "JOIN" or tree.type == "NATURAL JOIN":
+                if tree.type == "JOIN":
+                    temp = self.__joinOn(
+                        "temp1", "temp2",
+                        self.evaluateTree(tree.childs[0], [], []),
+                        self.evaluateTree(tree.childs[1], [], []),
+                        tree.val
+                    )
+                elif tree.type == "NATURAL JOIN":
+                    temp = self.__naturalJoin(
+                        "temp1", "temp2",
+                        self.evaluateTree(tree.childs[0], [], []),
+                        self.evaluateTree(tree.childs[1], [], []))
+                    
                 if len(select) > 0 and len(where) > 0:
-                    # evaluasi select dan where
-                    return None
+                    temp = self.__filterSelect(temp, select)
+                    temp = self.__filterWhere(temp, where)
+                    return temp
                 elif len(select) > 0:
-                    # evaluasi select
-                    return None
+                    temp = self.__filterSelect(temp, select)
+                    return temp
                 elif len(where) > 0:
-                    # evaluasi where
-                    return None
+                    temp = self.__filterWhere(temp, where)
+                    return temp
                 else:
-                    # evaluasi root
-                    return None
+                    return temp
             else:
                 if tree.type == "SELECT":
                     select = tree.val
@@ -120,8 +129,7 @@ class QueryProcessor:
         column = [col.split(".")[1] for col in select]
         return [{key: value for key, value in row.items() if key in column} for row in data]
     
-
-    def evalWhere(self, row:map, conds:list[Condition]):
+    def __evalWhere(self, row:map, conds:list[Condition]):
         for cond in conds:
             if(cond.operation == "<>" and row[cond.column] != row[cond.operand]):
                 return True
@@ -136,8 +144,16 @@ class QueryProcessor:
             elif(cond.operation == "<" and row[cond.column] < row[cond.operand]):
                 return True
         return False
-    def filterWhere(self,data: list[map], where: str) -> list[map]:
+    
+    def __filterWhere(self,data: list[map], where: str) -> list[map]:
         result = []
+        cond = self.__makeCondition(where)
+        for row in data:
+            if self.__evalWhere(row,cond):
+                result.append(row)
+        return result
+    
+    def __makeCondition(self, where: str) -> List[Condition]:      
         eqs = where.split("OR")
         cond = [] 
         for eq in eqs:
@@ -159,10 +175,7 @@ class QueryProcessor:
             elif("<" in eq):
                 temp = eq.split("<")
                 cond.append(Condition(temp[0].strip(),"<",temp[1].strip()))
-        for row in data:
-            if self.evalWhere(row,cond):
-                result.append(row)
-        return result
+        return cond
 
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
         # if parsed_query.query_tree.type == "JOIN":
