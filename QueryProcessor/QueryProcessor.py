@@ -334,6 +334,42 @@ class QueryProcessor:
                             row[col] = r2[col]
                     result.append(row)
         return result
+    
+    def __naturalJoin(self, tablename1: str, tablename2: str, table1: List[dict], table2: List[dict]) -> List[dict]:
+        """
+        input: 
+        tablename1 = "table1"
+        tablename2 = "table2"
+
+        table1 = [
+            {"id": "1", "name": "Alice"},
+            {"id": "2", "name": "Bob"},
+            {"id": "3", "name": "Charlie"}
+        ]
+
+        table2 = [
+            {"id": "1", "age": "25"},
+            {"id": "2", "age": "30"},
+            {"id": "4", "age": "35"}
+        ]
+
+        result = [
+            {"id": "1", "name": "Alice", "age": "25"},
+            {"id": "2", "name": "Bob", "age": "30"}
+        ]
+        """
+        common_columns = list(set(table1[0].keys()) & set(table2[0].keys()))
+        
+        result = []
+
+        for row1 in table1:
+            for row2 in table2:
+                if all(row1[col] == row2[col] for col in common_columns):
+                    combined_row = {**row1, **{key: row2[key] for key in row2 if key not in common_columns}}
+                    result.append(combined_row)
+
+        return result   
+
     def __get_filters_for_table(tree: QueryTree, table_name: str) -> List[tuple]:
         # contoh query SELECT students.name, students.age FROM students WHERE students.age > 20 AND students.grade = 'A';
         # contoh query tree
