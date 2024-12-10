@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Literal, Union
+from threading import Lock, Condition
 
 type Action = Union[Literal["write"], Literal["read"]]
 
@@ -11,18 +12,25 @@ class Row:
 class Response:
     allowed: bool
     transaction_id: int
+    condition: Condition
 
 
 class ConcurrencyControlManager:
     last_transaction: int
     timestamp: Dict[Row, Dict[Action, int]] = {}
+    mutex: Lock = Lock()
+    condition: Condition = Condition()
 
     def __init__(self) -> None:
         self.last_transaction = 0
 
     def begin_transaction(self) -> int:
+        self.mutex.acquire()
+
         tmp = self.last_transaction
         self.last_transaction += 1
+
+        self.mutex.release()
         return tmp
 
     def log_object(self, object: Row, transaction_id: int):
@@ -40,8 +48,12 @@ class ConcurrencyControlManager:
     def validate_object(
         self, object: Row, transaction_id: int, action: Action
     ) -> Response:
+        self.mutex.acquire()
+
         result = Response()
+        result.allowed = True
         result.transaction_id = transaction_id
+        result.condition = self.condition
         current_timestamp = transaction_id
         timestamp = self.__get_timestamp__(object)
 
@@ -49,16 +61,20 @@ class ConcurrencyControlManager:
             max_timestamp = max(timestamp["read"], timestamp["write"])
             if current_timestamp < max_timestamp:
                 result = False
-                return result
             timestamp["write"] = current_timestamp
         elif action == "read":
             if timestamp["write"] > current_timestamp:
                 result = False
-                return result
             timestamp["read"] = current_timestamp
 
-        result.allowed = True
+        self.mutex.release()
         return result
 
     def end_transaction(self, transaction_id: int):
-        transaction_id
+        self.mutex.acquire()
+
+        with self.condition:
+            self.condition.notify_all()
+            transaction_id
+
+        self.mutex.release()
