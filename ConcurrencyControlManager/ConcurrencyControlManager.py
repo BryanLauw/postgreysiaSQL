@@ -25,13 +25,10 @@ class ConcurrencyControlManager:
         self.last_transaction = 0
 
     def begin_transaction(self) -> int:
-        self.mutex.acquire()
-
-        tmp = self.last_transaction
-        self.last_transaction += 1
-
-        self.mutex.release()
-        return tmp
+        with self.mutex:
+            tmp = self.last_transaction
+            self.last_transaction += 1
+            return tmp
 
     def log_object(self, object: Row, transaction_id: int):
         print(object, transaction_id)
@@ -48,33 +45,27 @@ class ConcurrencyControlManager:
     def validate_object(
         self, object: Row, transaction_id: int, action: Action
     ) -> Response:
-        self.mutex.acquire()
+        with self.mutex:
+            result = Response()
+            result.allowed = True
+            result.transaction_id = transaction_id
+            result.condition = self.condition
+            current_timestamp = transaction_id
+            timestamp = self.__get_timestamp__(object)
 
-        result = Response()
-        result.allowed = True
-        result.transaction_id = transaction_id
-        result.condition = self.condition
-        current_timestamp = transaction_id
-        timestamp = self.__get_timestamp__(object)
+            if action == "write":
+                max_timestamp = max(timestamp["read"], timestamp["write"])
+                if current_timestamp < max_timestamp:
+                    result.allowed = False
+                timestamp["write"] = current_timestamp
+            elif action == "read":
+                if timestamp["write"] > current_timestamp:
+                    result.allowed = False
+                timestamp["read"] = current_timestamp
 
-        if action == "write":
-            max_timestamp = max(timestamp["read"], timestamp["write"])
-            if current_timestamp < max_timestamp:
-                result = False
-            timestamp["write"] = current_timestamp
-        elif action == "read":
-            if timestamp["write"] > current_timestamp:
-                result = False
-            timestamp["read"] = current_timestamp
-
-        self.mutex.release()
-        return result
+            return result
 
     def end_transaction(self, transaction_id: int):
-        self.mutex.acquire()
-
-        with self.condition:
-            self.condition.notify_all()
-            transaction_id
-
-        self.mutex.release()
+        with self.mutex:
+            with self.condition:
+                self.condition.notify()
