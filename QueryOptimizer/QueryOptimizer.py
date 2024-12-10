@@ -259,7 +259,7 @@ class QueryOptimizer:
         return tables
     
     def __is_where_combinable(self, node: QueryTree, tables: list) -> bool:
-        if not "WHERE" in node.type:
+        if node.type != "WHERE":
             return False
         
         tables_where = [item.split(".")[0] for item in node.val.split(" = ")]
