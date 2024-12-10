@@ -1,7 +1,7 @@
 from FailureRecovery.main_log_entry import LogEntry
-from ..ConcurrencyControlManager.ConcurrencyControlManager import *
-from ..QueryOptimizer.OptimizationEngine import *
-from ..FailureRecovery import *
+from ConcurrencyControlManager.ConcurrencyControlManager import *
+from QueryOptimizer.OptimizationEngine import *
+from FailureRecovery import *
 from StorageManager.classes import *
 import re
 
@@ -45,14 +45,14 @@ class DataDeletion:
         return f"DataDeletion(table={self.table}, conditions={self.conditions})"
     
 class QueryProcessor:
-    def __init__(self, db_name: str):
+    def __init__(self, db_name: str = None):
         self.current_transactionId = None
         self.parsedQuery = None
         self.qo = OptimizationEngine()
         self.cc = ConcurrencyControlManager()
         self.sm = StorageEngine()
-        self.rm = FailureRecovery()
-        self.db_name = db_name
+        self.rm = FailureRecovery.FailureRecovery()
+        self.db_name = db_name if db_name else "no_db_name_was_set"
         pass
 
     def execute_query(self, query : str):

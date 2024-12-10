@@ -1,3 +1,12 @@
+import os,sys
+cwd = os.getcwd()
+sys.path.append(cwd + '/FailureRecovery/')
+sys.path.append(cwd + '/ConcurrencyControlManager/')
+sys.path.append(cwd + '/QueryOptimizer/')
+sys.path.append(cwd + '/QueryProcessor/')
+sys.path.append(cwd + '/StorageManager/')
+
+
 from QueryProcessor.QueryProcessor import QueryProcessor
 
 queryProcessor = QueryProcessor()
