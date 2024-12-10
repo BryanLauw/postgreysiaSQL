@@ -276,20 +276,44 @@ class QueryProcessor:
         except Exception as e:
             return e
     
-    def __transCond(cond: str) -> list:
-        pass
+    def __transCond(self, tablename1:str, tablename2: str, cond: str) -> list:
+        result = []
+        eqs = cond.split("AND")  # Split on commas
+        for eq in eqs:
+            temp = eq.split("=") # [t1.a , t2.b]
+            # print(temp)
+            lhs = temp[0].split(".") # [t1,a]
+            if(lhs[0]==tablename1):
+                result.append([lhs[1].strip(),temp[1].split(".")[1].strip()])
+            else: 
+                result.append([temp[1].split(".")[1].strip(), lhs[1].strip()])
+        return result
+    
     def __joinOn(self,tablename1: str, tablename2:str, table1: List[map], table2: List[map], cond: str):
         result = []
-        # condList = self.__transCond(cond)
-        condList = [['key1','key2'],['key3','key4']]
+        condList = self.__transCond(tablename1,tablename2,cond)
+        # condList = [['key1','key2'],['key3','key4']]
         for r1 in table1:
             for r2 in table2:
                 isValid = True
-                for cond in condList:
+                for cond in condList: 
                     if r1[cond[0]] != r2[cond[1]]:
                         isValid = False
+                        break
                 if(isValid):
-                    result.append(table1 | table2) # belom handle duplikat column di 2 tabel
+                    row = {}
+                    for col in r1:
+                        if (col in r2):
+                            row[tablename1+"."+col] = r1[col]
+                            row[tablename2+"."+col] = r2[col]
+                        else:
+                            row[col] = r1[col]
+                    for col in r2:
+                        if (col in r1):
+                            pass
+                        else:
+                            row[col] = r2[col]
+                    result.append(row)
         return result
     def __get_filters_for_table(tree: QueryTree, table_name: str) -> List[tuple]:
         # contoh query SELECT students.name, students.age FROM students WHERE students.age > 20 AND students.grade = 'A';
