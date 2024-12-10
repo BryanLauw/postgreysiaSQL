@@ -72,7 +72,98 @@ class QueryProcessor:
                     temp = self.__orderBy(temp, "id", True) # hardcode
                     result = self.printResult(temp)
                     return result
+
+    def evaluateTree(self, tree: QueryTree, select: list[str], where: list[str]) -> list[dict]:
+        if not tree.childs:
+            if len(select) > 0 and len(where) > 0:
+                # evaluasi select dan where
+                return None
+            elif len(select) > 0:
+                # evaluasi select
+                return None
+            elif len(where) > 0:
+                # evaluasi where
+                return None
+            else:
+                # evaluasi root
+                return None
+        else:
+            if tree.type == "JOIN":
+                temp = self.__joinOn(
+                    "temp1", "temp2",
+                    self.evaluateTree(tree.childs[0], [], []),
+                    self.evaluateTree(tree.childs[1], [], []),
+                    tree.val
+                )
+                if len(select) > 0 and len(where) > 0:
+                    # evaluasi select dan where
+                    return None
+                elif len(select) > 0:
+                    # evaluasi select
+                    return None
+                elif len(where) > 0:
+                    # evaluasi where
+                    return None
+                else:
+                    # evaluasi root
+                    return None
+            else:
+                if tree.type == "SELECT":
+                    select = tree.val
+                elif tree.type == "WHERE":
+                    where = tree.val
+                for child in tree.childs:
+                    return self.evaluateTree(child, select, where)
+                
+    def __filterSelect(self, data: List[dict], select: list[str]) -> List[dict]:
+        # filter select
+        column = [col.split(".")[1] for col in select]
+        return [{key: value for key, value in row.items() if key in column} for row in data]
     
+
+    def evalWhere(self, row:map, conds:list[Condition]):
+        for cond in conds:
+            if(cond.operation == "<>" and row[cond.column] != row[cond.operand]):
+                return True
+            elif(cond.operation == ">=" and row[cond.column] >= row[cond.operand]):
+                return True
+            elif(cond.operation == "<=" and row[cond.column] <= row[cond.operand]):
+                return True
+            elif(cond.operation == "=" and row[cond.column] == row[cond.operand]):
+                return True
+            elif(cond.operation == ">" and row[cond.column] > row[cond.operand]):
+                return True
+            elif(cond.operation == "<" and row[cond.column] < row[cond.operand]):
+                return True
+        return False
+    def filterWhere(self,data: list[map], where: str) -> list[map]:
+        result = []
+        eqs = where.split("OR")
+        cond = [] 
+        for eq in eqs:
+            if("<>" in eq):
+                temp = eq.split("<>")
+                cond.append(Condition(temp[0].strip(),"<>",temp[1].strip()))
+            elif(">=" in eq):
+                temp = eq.split(">=")
+                cond.append(Condition(temp[0].strip(),">=",temp[1].strip()))
+            elif("<=" in eq):
+                temp = eq.split("<=")
+                cond.append(Condition(temp[0].strip(),"<=",temp[1].strip()))
+            elif("=" in eq):
+                temp = eq.split("=")
+                cond.append(Condition(temp[0].strip(),"=",temp[1].strip()))
+            elif(">" in eq):
+                temp = eq.split(">")
+                cond.append(Condition(temp[0].strip(),">",temp[1].strip()))
+            elif("<" in eq):
+                temp = eq.split("<")
+                cond.append(Condition(temp[0].strip(),"<",temp[1].strip()))
+        for row in data:
+            if self.evalWhere(row,cond):
+                result.append(row)
+        return result
+
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
         # if parsed_query.query_tree.type == "JOIN":
         #     joined_tables = [
