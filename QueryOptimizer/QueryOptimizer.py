@@ -115,14 +115,12 @@ class QueryOptimizer:
         if(self.__already_pushed_selection(node)):
             return False
         
-        if "OR" in  node.val:
+        tables = re.findall(r'\b(\w+)\.',node.val)
+        tables = list(set(tables))
+        if len(tables) != 1:
             return False
         
-        match = re.search(r'(\w+)\.',node.val)
-        if not match:
-            return False
-        
-        table_name = match.group(1)
+        table_name = tables[0]
         # print("Table name: ",table_name)
         table_node = self.__find_matching_table(node,table_name)
         # print("Table node: ",table_node.val)
