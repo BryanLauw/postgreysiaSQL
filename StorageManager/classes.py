@@ -1,8 +1,8 @@
 import pickle
 import os
 import copy
-from Bplus import BPlusTree
-from Hash import HashTable
+from StorageManager.Bplus import BPlusTree
+from StorageManager.Hash import HashTable
 
 class Condition:
     valid_operations = ["=", "<>", ">", ">=", "<", "<=", "!"] # untuk sementara "!" berarti no operation
@@ -28,9 +28,9 @@ class Condition:
             return item <= self.operand
 
 class DataRetrieval:
-    def __init__(self, table:list[str], column:list[str], conditions:list[Condition]) -> None:
-        self.table = table
-        self.column = column
+    def __init__(self, tables:list[str], columns:list[str], conditions:list[Condition]) -> None:
+        self.table = tables
+        self.column = columns
         self.conditions = conditions
 
 class DataWrite:
