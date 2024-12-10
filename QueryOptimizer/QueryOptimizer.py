@@ -223,6 +223,9 @@ class QueryOptimizer:
         return True
     
     def combine_selection_and_cartesian_product(self, node: QueryTree) -> bool:
+        if len(node.val) > 0:
+            return False
+        
         tables_from_children = self.__find_tables_from_children(node)
         node_to_combine = node.parent
         while node_to_combine.type != "ROOT" and not self.__is_where_combinable(node_to_combine, tables_from_children):

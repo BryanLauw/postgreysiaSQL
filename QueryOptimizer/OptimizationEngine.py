@@ -142,6 +142,9 @@ class OptimizationEngine:
         for node in list_nodes["WHERE"]:
             self.QueryOptimizer.pushing_selection(node)
         
+        for node in list_nodes["NATURAL JOIN"]:
+            self.QueryOptimizer.combine_selection_and_cartesian_product(node)
+        
         self.QueryOptimizer.pushing_projection(query.query_tree.childs[0].childs[0])
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
