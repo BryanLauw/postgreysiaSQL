@@ -56,7 +56,7 @@ class OptimizationEngine:
         where_clause = query_components_value.get("WHERE", "")
 
         if next(iter(query_components_value), None) == "SELECT":
-            attribute_types = get_attribute_types(where_clause, database_name, table_arr, storage)
+            attribute_types = self.QueryValidator.get_attribute_types(where_clause, database_name, table_arr)
             # Validate comparisons
             self.QueryValidator.validate_comparisons(where_clause, attribute_types)
 
@@ -158,55 +158,6 @@ class OptimizationEngine:
         # implementasi sementara hanya menghitung size cost
         query_cost = QueryCost(self.get_stats, database_name)
         return query_cost.calculate_size_cost(query.query_tree)
-
-
-def get_attribute_types(where_clause: str, database_name: str, table_arr: list[str], storage_engine: StorageEngine) -> dict:
-    # Regex to find comparisons (attribute and literal pairs)
-    comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
-    matches = re.findall(comparison_pattern, where_clause)
-
-    # Initialize the result dictionary
-    attribute_types = {}
-
-    # Process each match (attribute and literal)
-    for left_attr, operator, right_attr in matches:
-        for attr in [left_attr, right_attr]:
-            # Skip literals
-            if attr.isdigit() or attr.replace(".", "", 1).isdigit() or (attr.startswith(("'", '"')) and attr.endswith(("'", '"'))):
-                continue
-
-            if "." in attr:
-                # Attribute is qualified with a table name
-                table, column = attr.split(".")
-                if table not in table_arr:
-                    raise ValueError(f"Table {table} is not in the query context.")
-            else:
-                # Attribute is unqualified, disambiguate
-                table, column = None, attr
-                for tbl in table_arr:
-                    table_data = storage_engine.blocks.get(database_name, {}).get(tbl, None)
-                    if not table_data:
-                        continue
-                    columns = table_data["columns"]
-                    if any(col["name"] == column for col in columns):
-                        if table is not None:
-                            raise ValueError(f"Ambiguous column {column} found in multiple tables.")
-                        table = tbl
-                if table is None:
-                    raise ValueError(f"Column {column} does not exist in any table.")
-
-            # Retrieve the column type
-            table_data = storage_engine.blocks.get(database_name, {}).get(table, None)
-            if not table_data:
-                raise ValueError(f"Table {table} not found in database {database_name}.")
-            columns = table_data["columns"]
-            column_type = next((col["type"] for col in columns if col["name"] == column), None)
-            if not column_type:
-                raise ValueError(f"Column {column} does not exist in table {table}.")
-            attribute_types[f"{table}.{column}"] = column_type.lower()
-
-    return attribute_types
-
 
 if __name__ == "__main__":
     storage = StorageEngine()

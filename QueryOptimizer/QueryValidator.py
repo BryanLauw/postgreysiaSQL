@@ -16,9 +16,11 @@ class QueryValidator:
         "varchar": {"char", "varchar"},
     }
 
-    def get_attribute_types(where_clause: str, database_name: str, table_arr: list[str], storage_engine: StorageEngine) -> dict:
+    def get_attribute_types(self, where_clause: str, database_name: str, table_arr: list[str]) -> dict:
+        storage_engine = StorageEngine()
         # Regex to find comparisons (attribute and literal pairs)
         comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
+        print(where_clause)
         matches = re.findall(comparison_pattern, where_clause)
 
         # Initialize the result dictionary
