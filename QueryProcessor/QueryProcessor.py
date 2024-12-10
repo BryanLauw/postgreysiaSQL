@@ -5,43 +5,6 @@ from StorageManager.classes import *
 import re
 
 import FailureRecovery.main as FailureRecovery
-
-# temp class
-class Condition:
-    def __init__(self, column: str, operation: str, operand: Union[str, int]):
-        self.column = column
-        self.operation = operation
-        self.operand = operand
-    
-    def __repr__(self):
-        return f"Condition(column={self.column}, operation={self.operation}, operand={self.operand})"
-
-class DataRetrieval:
-    def __init__(self, table: str, columns: List[str], conditions: List[Condition]):
-        self.table = table
-        self.columns = columns
-        self.conditions = conditions
-
-    def __repr__(self):
-        return f"DataRetrieval(table={self.table}, columns={self.columns}, conditions={self.conditions})"
-
-class DataWrite:
-    def __init__(self, table: str, column: List[str], conditions: List[Condition], new_value: List[str]):
-        self.table = table
-        self.column = column
-        self.conditions = conditions
-        self.new_value = new_value
-
-    def __repr__(self):
-        return f"DataWrite(table={self.table}, column={self.column}, conditions={self.conditions}, new_value={self.new_value})"
-
-class DataDeletion:
-    def __init__(self, table: str, conditions: List[Condition]):
-        self.table = table
-        self.conditions = conditions
-
-    def __repr__(self):
-        return f"DataDeletion(table={self.table}, conditions={self.conditions})"
     
 class QueryProcessor:
     # def __init__(self, db_name: str | None):
@@ -49,7 +12,7 @@ class QueryProcessor:
         self.current_transactionId = None
         self.parsedQuery = None
         self.sm = StorageEngine()
-        self.qo = OptimizationEngine(self.sm.get_stats("database1","users"))
+        self.qo = OptimizationEngine(self.sm.get_stats)
         self.cc = ConcurrencyControlManager()
         self.rm = FailureRecovery.FailureRecovery()
         # self.db_name = db_name
@@ -86,13 +49,20 @@ class QueryProcessor:
                 self.printResult(tables, rows)
             
             else:
-                self.parsedQuery = self.qo.parse_query(query)
-
-        if self.parsedQuery.query_tree.val == "UPDATE":
-            write = self.ParsedQueryToDataWrite(self.parsedQuery)
-            b = self.sm.write_block(write, self.db_name, self.current_transactionId)
+                self.parsedQuery = self.qo.parse_query(query, "database1")
+                # try:
+                #     # self.parsedQuery = self.qo.parse_query(query, self.db_name)
+                #     self.parsedQuery = self.qo.parse_query(query, "database1")
+                # except Exception as e:
+                #     raise Exception(e)
+                    
+            print(self.parsedQuery.query_tree.val)
+            if self.parsedQuery.query_tree.val == "UPDATE":
+                write = self.ParsedQueryToDataWrite(self.parsedQuery)
+                # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
+                b = self.sm.write_block(write, "database1", self.current_transactionId)
     
-    def ParsedQueryToDataRetrieval(parsed_query: ParsedQuery) -> DataRetrieval:
+    def ParsedQueryToDataRetrieval(self, parsed_query: ParsedQuery) -> DataRetrieval:
         if parsed_query.query_tree.type == "JOIN":
             joined_tables = [
                 child.val for child in parsed_query.query_tree.childs if child.type == "TABLE"
@@ -115,16 +85,51 @@ class QueryProcessor:
 
         return DataRetrieval(table=table, columns=columns, conditions=conditions)
 
-    def ParsedQueryToDataWrite(parsed_query: ParsedQuery) -> DataWrite:
+    def ParsedQueryToDataWrite(self, parsed_query: ParsedQuery) -> DataWrite:
         # Input: child (QueryTree with only where value)
         # Output: List of condition from child
+        # print(parsed_query)
+        # if parsed_query.query_tree.type == "JOIN":
+        #     raise ValueError("DataWrite cannot be applied to JOIN operations.")
+        # table = parsed_query.query_tree.val
+        # columns = [
+        #     child.val for child in parsed_query.query_tree.childs if child.type == "COLUMN"
+        # ]
+        # values = [
+        #     child.val for child in parsed_query.query_tree.childs if child.type not in ["COLUMN", "CONDITION"]
+        # ]
+        # def infer_type(value: str):
+        #     if value.startswith(("'", '"')) and value.endswith(("'", '"')):
+        #         return value.strip("'\"")
+        #     try:
+        #         if '.' in value:
+        #             return float(value) 
+        #         return int(value) 
+        #     except ValueError:
+        #         return value 
+
+        # new_values = [infer_type(value) for value in values]
+        # conditions = [
+        #     Condition(
+        #         column=cond.childs[0].val,
+        #         operation=cond.childs[1].val,
+        #         operand=cond.childs[2].val
+        #     )
+        #     for cond in parsed_query.query_tree.childs if cond.type == "CONDITION"
+        # ]
+
+        # return DataWrite(table=table, column=columns, conditions=conditions, new_value=new_values)
+
         def filter_condition(child: QueryTree) -> List[Condition]:
             operator = r'(<=|>=|<>|<|>|=)'
             where_val = child.val
             match = re.split(operator, where_val, maxsplit=1)
             parts = [part.strip() for part in match]
             parts[2] = int(parts[2]) if parts[2].isdigit() else parts[2]
-            temp = Condition(parts[0], parts[1], parts[2])
+            print("kondisi0 ", parts[0].split(".")[1])
+            print("kondisi1 ", parts[1])
+            print("kondisi2 ", parts[2])
+            temp = Condition(parts[0].split(".")[1], parts[1], parts[2])
             if not child.childs:
                 return [temp]
             else:
@@ -136,13 +141,16 @@ class QueryProcessor:
         # Get new value
         new_value = parsed_query.query_tree.childs[0].childs[0].val
         match = re.split(r'=', new_value)
-        columns = [match[0].strip()]
-        new_value = [match[1].strip()]
+        columns = match[0].strip().split(".")[1]
+        print("kolom ", columns)
+        new_value = match[1].strip().replace('"', '')
+        
 
         # Get all conditions
-        conditions = filter_condition(parsed_update_query.query_tree.childs[0].childs[0].childs[0])
-
-        return DataWrite([table], columns, conditions, new_value)
+        conditions = filter_condition(parsed_query.query_tree.childs[0].childs[0].childs[0])
+        
+        print("kondisi ", conditions)
+        return DataWrite([table], [columns], conditions, [new_value])
 
     def ParsedQueryToDataDeletion(parsed_query: ParsedQuery) -> DataDeletion:
         data_deletion = DataDeletion(
