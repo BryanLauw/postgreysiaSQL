@@ -1,10 +1,18 @@
 from typing import List, Dict
 
 class QueryTree:
-    def __init__(self, type: str, val: str = None,method: str="", childs: List['QueryTree'] = None, parent: 'QueryTree' = None):
+    def __init__(self, type: str, val = None,method: str="", childs: List['QueryTree'] = None, parent: 'QueryTree' = None):
         self.type = type
         self.val = val
-        self.method = method
+        if not method:
+            if type == "WHERE":
+                self.method = "FULL SCAN"
+            elif type in ["JOIN","NATURAL JOIN"]:
+                self.method = "BLOCK JOIN"
+            else:
+                self.method = ""
+        else:
+            self.method = method
         self.childs = childs if childs else []
         self.parent = parent
 
@@ -26,7 +34,7 @@ class QueryTree:
         return None # No more siblings
 
     def __repr__(self, level=0):
-        ret = "\t" * level + f"({self.type}: {self.val})\n"
+        ret = "\t" * level + f"({self.type}-{self.method}: {self.val})\n"
         for child in self.childs:
             ret += child.__repr__(level + 1)
         return ret
