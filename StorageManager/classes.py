@@ -304,7 +304,14 @@ class StorageEngine:
         table = self.buffer[trancaction_id][database_name][table_name]
         if not any(col["name"] == column for col in table["columns"]):
             raise ValueError(f"Column '{column}' does not exist in table '{table_name}'.")
-
+        
+    def validate_index_existence(self, database_name: str, table_name: str, column: str) -> None :
+        if database_name not in self.buffer_index or database_name not in self.indexes:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        if table_name not in self.indexes[database_name] or table_name not in self.buffer_index:
+            raise ValueError(f"Table '{table_name}' does not exist in database '{database_name}'.")
+        if column not in self.indexes[database_name][table_name] or column not in self.buffer_index[database_name][table_name]:
+            raise ValueError(f"No index exists for column '{column}' in table '{table_name}'.")
 
     # setindex ke buffer
     def set_index(self, database_name: str, table_name: str, column: str, transaction_id:int,index_type="bplus") -> None:
