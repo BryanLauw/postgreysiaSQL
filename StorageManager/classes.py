@@ -349,6 +349,15 @@ class StorageEngine:
         if not any(col["name"] == column for col in table["columns"]):
             raise ValueError(f"Column '{column}' does not exist in table '{table_name}'.")
         
+    def bplus_locator(self, database_name: str, table_name: str, column: str, transaction_id:int) -> None:
+        self.validate_column_buffer(database_name, table_name, column, transaction_id)
+        if self.is_bplus_index_in_buffer(database_name, table_name, column, transaction_id): # index adanya di buffer
+            return self.buffer_index[transaction_id][database_name][table_name][column]["bplus"]
+        elif self.is_bplus_index_in_block(database_name, table_name, column): # index adanya di block
+            return self.indexes[database_name][table_name][column]["bplus"]
+        else :
+            raise ValueError("BPlus index not found")
+        
     def hash_locator(self, database_name: str, table_name: str, column: str, transaction_id:int) -> None :
         self.validate_column_buffer(database_name, table_name, column, transaction_id)
         if self.is_hash_index_in_buffer(database_name, table_name, column, transaction_id):
@@ -422,7 +431,6 @@ class StorageEngine:
                     return True
         return False
     
-  
     def insert_bplus_index(self,database_name:str,table_name:str,column:str,key,block_index,offset,transaction_id : int):
         index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         index.insert(key,(block_index,offset))
@@ -468,7 +476,6 @@ class StorageEngine:
         index = self.hash_locator(database_name, table_name, column, transaction_id)
         result_indices = index.search(key)
         return result_indices
-
 
 
     def debug(self):
