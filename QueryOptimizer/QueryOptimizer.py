@@ -131,6 +131,142 @@ class QueryOptimizer:
             return self.pushing_selection(node)
         elif node.type in ["JOIN", "NATURAL JOIN"]:
             return self.commutative_join(node, query_cost_calculator)
+        if node.type == "SELECT":
+            # print("masuk sini")
+            return self.pushing_projection(node)
         return False       
     
-    # def perform_pushing_selection
+    def get_table_column(self, data) : 
+        matches = re.findall(r'\b[a-zA-Z_]+\.[a-zA-Z_]+\b', data)
+        return matches
+       
+    def __split_projection(self, node_select : QueryTree, result:dict) : 
+        for item in node_select.val:
+            key = item.split('.')[0] 
+            if key not in result:
+                result[key] = []
+            result[key].append(item)
+    
+    def __split_join(self, node_join : QueryTree, result:dict) :
+        result = {}
+        tabel1, tabel2 = node_join.val.split('=')
+        key = tabel1.split('.')[0] 
+        if key not in result:
+            result[key] = []
+        if tabel1.strip() not in result[key]  : 
+            result[key].append(tabel1)
+        key = tabel2.split('.')[0] 
+        if key not in result:
+            result[key] = []
+        if tabel2.strip() not in result[key] : 
+            result[key].append(tabel2)
+        return result
+    
+    def __split_where(self, node_where : QueryTree, result:dict) :
+        if "OR" in  node_where.val:
+            value = self.get_table_column(node_where.val)
+            key = value[0].split('.')[0] 
+            if key not in result:
+                result[key] = []
+            if value[0].strip() not in result[key] : 
+                result[key].append(value[0])
+
+            key = value[1].split('.')[1] 
+            if key not in result:
+                result[key] = []
+            if value[1].strip() not in result[key]: 
+                result[key].append(value[1])
+        else :
+            value = node_where.val.split()[0] 
+            key = value.split('.')[0] 
+            if key not in result:
+                result[key] = []
+            if value.strip() not in result[key]: 
+                result[key].append(value)
+    
+    def do_pushing_projection(self, node_select:QueryTree, result:dict = []) : 
+        print("REKURSIF: ",node_select.val,node_select.type)
+        print("RESULT: ",result)
+        if node_select.type == "TABLE" :
+            node_baru = QueryTree("SELECT", result[node_select.val.strip()])
+            node_baru.parent = node_select.parent
+            node_select.parent.childs[0] = node_baru
+            node_baru.add_child(node_select)
+        elif node_select.type == "WHERE" : 
+            self.__split_where(node_select, result)
+            self.do_pushing_projection(node_select.childs[0], result)
+        elif node_select.type == "JOIN" : 
+            self.__split_join(node_select, result)
+            self.do_pushing_projection(node_select.childs[0], result)
+            self.do_pushing_projection(node_select.childs[1], result)
+        elif node_select.type == "NATURAL JOIN" :
+            self.__split_projection(node_select, result)
+            self.do_pushing_projection(node_select.childs[0], result)
+            self.do_pushing_projection(node_select.childs[1], result)
+        else : 
+            self.do_pushing_projection(node_select.childs[0], result)
+
+
+
+
+
+    def pushing_projection(self, node: QueryTree) :
+        print("PUSHING PROJECTION: ",node.val,node.type)
+
+        if node.type == "SELECT" : 
+            # node_select:QueryTree = node
+            result:dict = {}
+            self.__split_projection(node, result)
+            self.do_pushing_projection(node, result) 
+            
+        
+        return True
+    
+    def combine_selection_and_cartesian_product(self, node: QueryTree) -> bool:
+        if len(node.val) > 0:
+            return False
+        
+        tables_from_children = self.__find_tables_from_children(node)
+        node_to_combine = node.parent
+        while node_to_combine.type != "ROOT" and not self.__is_where_combinable(node_to_combine, tables_from_children):
+            node_to_combine = node_to_combine.parent
+
+        if node_to_combine.type == "ROOT":
+            return False
+        
+        # change cartesian product node
+        node.type = "JOIN"
+        node.val = node_to_combine.val
+        
+        # remove the selection node
+        parent = node_to_combine.parent
+        child = node_to_combine.childs[0]
+        parent.childs[0] = child
+        child.parent = parent
+        node_to_combine.parent = None
+        node_to_combine.childs = []
+
+        return True
+
+    def __find_tables_from_children(self, node: QueryTree) -> list:
+        tables = []
+        if node.type == "TABLE":
+            tables.append(node.val.strip()) # remove trailing whitespaces
+        
+        for child in node.childs:
+            tables.extend(self.__find_tables_from_children(child))
+        
+        return tables
+    
+    def __is_where_combinable(self, node: QueryTree, tables: list) -> bool:
+        if node.type != "WHERE":
+            return False
+        
+        elif "OR" in node.val:
+            return False
+        
+        elif any(char in node.val for char in ["<>", "<", ">", "<=", ">="]):
+            return False
+        
+        tables_where = [item.split(".")[0] for item in node.val.split(" = ")]
+        return all(table_where in tables for table_where in tables_where)
