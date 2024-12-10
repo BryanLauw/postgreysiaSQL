@@ -314,15 +314,14 @@ class QueryProcessor:
         Parameters:
             transaction_id (int): The ID of the transaction to rollback.
         """
-        undo_list = self.rm.rollback(transaction_id).get("undo", [])
+        undo_list = self.rm.rollback(transaction_id)
 
         # Retrieve undo instructions from FailureRecovery
         for instruction in undo_list:
             object_value = instruction["object_value"]
             old_value = instruction["old_value"]
-            # Parse object_value to get database, table, column, key_column, and key_value
             db, table, column, key_column, key_value = self.__parse_object_value(object_value)
-            # Create DataWrite object to revert data
+
             conditions = []
             if key_column and key_value:
                 conditions.append(Condition(
@@ -337,15 +336,13 @@ class QueryProcessor:
                 conditions=conditions,
                 new_value=[old_value]
             )
-            # Use write_block to update the data
+
             result = self.sm.write_block(data_write, db, self.current_transactionId)
             if isinstance(result, Exception):
-                # Handle the exception if needed
                 print(f"Error during rollback: {result}")
             else:
                 print(f"Rollback successful, {result} rows updated.")
 
-        # Release any locks held by the transaction
         self.cc.end_transaction(transaction_id)
 
     def __parse_object_value(self, object_value: str):
@@ -427,9 +424,14 @@ class QueryProcessor:
         # getData(data_retrieval, database) = {'a': [2, 3, 4, 5]}
 
         try:
+            for table in data_retrieval.table:
+                response = self.cc.validate_object(table, database, self.current_transactionId)
+                if not response.allowed:
+                    raise Exception(f"Transaction {self.current_transactionId} cannot read table {table}")
             data = self.sm.read_block(data_retrieval, database)
             return data
         except Exception as e:
+            self.handle_rollback(self.current_transactionId)
             return e
     
     def __transCond(self, tablename1:str, tablename2: str, cond: str) -> list:
