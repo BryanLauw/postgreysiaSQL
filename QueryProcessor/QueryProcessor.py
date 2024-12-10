@@ -1,7 +1,6 @@
 from FailureRecovery.main_log_entry import LogEntry
 from ..ConcurrencyControlManager.ConcurrencyControlManager import *
 from ..QueryOptimizer.OptimizationEngine import *
-from ..FailureRecovery import *
 from StorageManager.classes import *
 import re
 
@@ -51,7 +50,7 @@ class QueryProcessor:
         self.qo = OptimizationEngine()
         self.cc = ConcurrencyControlManager()
         self.sm = StorageEngine()
-        self.rm = FailureRecovery()
+        self.rm = FailureRecovery.FailureRecovery()
         self.db_name = db_name
         pass
 
@@ -70,9 +69,11 @@ class QueryProcessor:
             print("Executing query: " + query)
             if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
                 self.current_transactionId = self.cc.begin_transaction()
-                self.rm.start_transaction(self.current_transactionId)
+                self.rm.write_log_entry(self.current_transactionId, "BEGIN", None, None, None)
+                # self.rm.start_transaction(self.current_transactionId)
                 
             elif(query.upper() == "COMMIT" or query.upper() == "BEGIN TRANSACTION"):
+                self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
                 self.cc.end_transaction(self.current_transactionId)
                 self.current_transactionId = None
             
@@ -176,31 +177,47 @@ class QueryProcessor:
         # Print the bottom border
         print("+-" + "-+-".join("-" * width for width in column_widths) + "-+")
 
-
     def parse_query(self, query : str):
         queries = query.split(';')
         return [q.strip() for q in queries if q.strip()]
     
-    def __handle_rollback(self, transaction_id: int):
+    def handle_rollback(self, transaction_id: int):
         """
         Handle rollback when FailureRecovery calls rollback.
 
         Parameters:
             transaction_id (int): The ID of the transaction to rollback.
         """
-        # Retrieve undo instructions from FailureRecovery
-        undo_list = self.rm.rollback(transaction_id).get("undo")
+        undo_list = self.rm.rollback(transaction_id).get("undo", [])
 
-        # Reverse the changes made by the transaction
+        # Retrieve undo instructions from FailureRecovery
         for instruction in undo_list:
-            transaction_id = instruction["transaction_id"]
-            old_value = instruction["old_value"]
-            new_value = instruction["new_value"]
             object_value = instruction["object_value"]
             old_value = instruction["old_value"]
-            db, table, column = self.__parse_object_value(object_value)
-            # Revert the data to the old value using StorageManager
-            self.sm.update_data(object_value, old_value) # TODO : Implement update_data in StorageManager
+            # Parse object_value to get database, table, column, key_column, and key_value
+            db, table, column, key_column, key_value = self.__parse_object_value(object_value)
+            # Create DataWrite object to revert data
+            conditions = []
+            if key_column and key_value:
+                conditions.append(Condition(
+                    column=key_column,
+                    operation="=",
+                    operand=key_value
+                ))
+
+            data_write = DataWrite(
+                table=table,
+                column=[column],
+                conditions=conditions,
+                new_value=[old_value]
+            )
+            # Use write_block to update the data
+            result = self.sm.write_block(data_write, db, self.current_transactionId)
+            if isinstance(result, Exception):
+                # Handle the exception if needed
+                print(f"Error during rollback: {result}")
+            else:
+                print(f"Rollback successful, {result} rows updated.")
 
         # Release any locks held by the transaction
         self.cc.end_transaction(transaction_id)
@@ -218,10 +235,12 @@ class QueryProcessor:
         # Assuming object_value is a string in the format "{'nama_db':'db_name','nama_kolom':'table_a','primary_key':'column_a'}"
         matches = re.findall(r"'(\w+)':'([^']*)'", object_value)
         obj = dict(matches)
-        table = obj['nama_kolom']
-        column = obj['primary_key']
         db = obj['nama_db']
-        return db, table, column
+        table = obj['nama_tabel']
+        column = obj['nama_kolom']
+        key_column = obj.get('primary_key')
+        key_value = obj.get('key_value')
+        return db, table, column, key_column, key_value
     
     def __removeAttribute(self, l: List) -> List[str]:
         # removing attribute from <table>.<attribute> for all element in list
@@ -276,20 +295,44 @@ class QueryProcessor:
         except Exception as e:
             return e
     
-    def __transCond(cond: str) -> list:
-        pass
+    def __transCond(self, tablename1:str, tablename2: str, cond: str) -> list:
+        result = []
+        eqs = cond.split("AND")  # Split on commas
+        for eq in eqs:
+            temp = eq.split("=") # [t1.a , t2.b]
+            # print(temp)
+            lhs = temp[0].split(".") # [t1,a]
+            if(lhs[0]==tablename1):
+                result.append([lhs[1].strip(),temp[1].split(".")[1].strip()])
+            else: 
+                result.append([temp[1].split(".")[1].strip(), lhs[1].strip()])
+        return result
+    
     def __joinOn(self,tablename1: str, tablename2:str, table1: List[map], table2: List[map], cond: str):
         result = []
-        # condList = self.__transCond(cond)
-        condList = [['key1','key2'],['key3','key4']]
+        condList = self.__transCond(tablename1,tablename2,cond)
+        # condList = [['key1','key2'],['key3','key4']]
         for r1 in table1:
             for r2 in table2:
                 isValid = True
-                for cond in condList:
+                for cond in condList: 
                     if r1[cond[0]] != r2[cond[1]]:
                         isValid = False
+                        break
                 if(isValid):
-                    result.append(table1 | table2) # belom handle duplikat column di 2 tabel
+                    row = {}
+                    for col in r1:
+                        if (col in r2):
+                            row[tablename1+"."+col] = r1[col]
+                            row[tablename2+"."+col] = r2[col]
+                        else:
+                            row[col] = r1[col]
+                    for col in r2:
+                        if (col in r1):
+                            pass
+                        else:
+                            row[col] = r2[col]
+                    result.append(row)
         return result
     def __get_filters_for_table(tree: QueryTree, table_name: str) -> List[tuple]:
         # contoh query SELECT students.name, students.age FROM students WHERE students.age > 20 AND students.grade = 'A';
