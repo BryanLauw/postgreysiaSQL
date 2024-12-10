@@ -164,41 +164,26 @@ class OptimizationEngine:
 
         return root
 
-    def optimize_query(self, query: ParsedQuery) -> ParsedQuery:
-        # Placeholder for future optimization logic
-        pass
+    def optimize_query(self, query: ParsedQuery):
+        queue_nodes = Queue()
+        queue_nodes.put(query.query_tree)
+        while not queue_nodes.empty():
+            current_node = queue_nodes.get()
+            if current_node.type == "TABLE":
+                continue
+            for child in current_node.childs:
+                queue_nodes.put(child)
 
-    def __get_cost(self, query: ParsedQuery) -> int:
-        # Placeholder for query cost estimation
-        pass
+            if self.QueryOptimizer.perform_operation(
+                current_node, 
+                lambda node: self.get_cost(ParsedQuery(node, query.query), "database1")
+            ):
+                print(query)
 
-# def removeAttribute(self,l: List):
-#     return [element.split('.')[0] for element in l]
-
-# def getTables(self,tree: QueryTree):
-#     # print(tree.type)
-#     if tree.type.upper() == "SELECT":
-#         return self.removeAttribute(tree.val)
-#     elif len(tree.childs) == 0:
-#         return ""
-#     else:
-#         for child in tree.childs:
-#             return self.getTables(child)
-
-# def getJoin(tree: QueryTree):
-#     print(tree.type)
-#     if tree.type.upper() == "JOIN":
-#         return (tree.val)
-#     elif len(tree.childs) == 0:
-#         return ""
-#     else:
-#         for child in tree.childs:
-#             return getJoin(child)
-
-                        
-        
-
-        
+    def get_cost(self, query: ParsedQuery, database_name: str) -> int:
+        # implementasi sementara hanya menghitung size cost
+        query_cost = QueryCost(self.get_stats, database_name)
+        return query_cost.calculate_size_cost(query.query_tree)
 
 
 if __name__ == "__main__":
@@ -206,12 +191,15 @@ if __name__ == "__main__":
     storage = StorageEngine()
 
     # Test SELECT query with JOIN
-    select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5"
-    # select_query = "SELECT student.a, teacher.b FROM students JOIN teacher ON students.id = teacher.id"
-    # print(select_query)
-    parsed_query = optim.parse_query(select_query,"database1",storage.get_stats)
-    print(parsed_query.query_tree)
-    # print(parsed_query.query_tree)
+    select_query = "SELECT u.id, product_id FROM users AS u JOIN products AS t ON products.product_id = u.id WHERE u.id > 1 AND t.product_id = 2 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC"
+    print("SELECT QUERY\n",select_query,end="\n\n")
+    parsed_query = optim.parse_query(select_query,"database1")
+    print(parsed_query)
+    optim.optimize_query(parsed_query)
+    optim.optimize_query(parsed_query)
+    print("EVALUATION PLAN TREE: \n",parsed_query)
+    
+    print(f"COST = {optim.get_cost(parsed_query, 'database1')}")
 
     # try:
     #     invalid_query = "SELECT x.a FROM students AS s"

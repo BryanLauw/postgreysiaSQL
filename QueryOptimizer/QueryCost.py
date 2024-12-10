@@ -1,6 +1,6 @@
 from typing import Callable, Union
 from math import prod
-# from time import sleep
+from time import sleep
 from StorageManager.classes import *
 from QueryTree import *
 
@@ -9,65 +9,89 @@ class QueryCost:
     def __init__(self, get_stats: Callable[[str, str, int], Union[Statistic, Exception]], database: str):
         self.__get_stats = get_stats
         self.__database = database
+        self.__n_r_total = 0
+
+    def calculate_size_cost(self, query_tree: QueryTree) -> int:
+        self.__get_size_cost(query_tree)
+        return self.__n_r_total
+    
+    # remove leading and trailing whitespaces
+    # make lowercase
+    @staticmethod
+    def __format_name(string: str) -> str:
+        return string.strip().lower()
 
 
     # Size Cost
     # Calculate the size cost of the query tree
 
-    def get_cost_size(self, query_tree: QueryTree) -> Statistic:
-        # print(f"cost for type: {query_tree.type}, val: {query_tree.val}")
-        # sleep(1)
+    def __get_size_cost(self, query_tree: QueryTree) -> Statistic:
         if query_tree.type == "TABLE":
-            return self.__get_stats(self.__database, query_tree.val)
-        
-        elif query_tree.type == "WHERE":
-            if not query_tree.childs:
-                # search the root of all the WHERE clause
-                root_where = query_tree
-                while root_where.get_next_sibling() is None:
-                    root_where = root_where.parent
-                
-                node_to_check = root_where.get_next_sibling()
-            else:
-                node_to_check = query_tree.childs[0]
-            
-            if "OR" in query_tree.val:
-                return self.get_cost_size(node_to_check)
-            elif "=" in query_tree.val:
-                statistic = self.get_cost_size(node_to_check)
-                attribute = query_tree.val.split(" = ")[0].split(".")[1]
-                return self.where_equals(statistic, attribute)
-            elif "<>" in query_tree.val:
-                statistic = self.get_cost_size(node_to_check)
-                attribute = query_tree.val.split(" <> ")[0].split(".")[1]
-                return self.where_not_equals(statistic, attribute)
-            else:
-                return self.where_comparison(self.get_cost_size(node_to_check))
-        
-        elif query_tree.type == "JOIN":
-            statistic1 = self.get_cost_size(query_tree.childs[0])
-            statistic2 = self.get_cost_size(query_tree.childs[1])
-            attributes = {item.split('.')[0]: item.split('.')[1] for item in query_tree.val.split(" = ")}
-            table1 = query_tree.childs[0].val.strip()
-            table2 = query_tree.childs[1].val.strip()
-            return self.join_on(statistic1, statistic2, attributes[table1], attributes[table2])
-
-        elif query_tree.type == "NATURAL JOIN":
-            statistic1 = self.get_cost_size(query_tree.childs[0])
-            statistic2 = self.get_cost_size(query_tree.childs[1])
-            attributes = query_tree.val
-            return self.natural_join(statistic1, statistic2, attributes)
+            result = self.__get_stats(self.__database, QueryCost.__format_name(query_tree.val))
         
         elif query_tree.type == "SELECT": 
-            statistic = self.get_cost_size(query_tree.childs[0])
+            statistic = self.__get_size_cost(query_tree.childs[0])
             attributes = [item.split('.')[1] for item in query_tree.val]
-            return self.select(statistic, attributes)
+            attributes = [QueryCost.__format_name(attribute) for attribute in attributes]
+            result = self.__select(statistic, attributes)
+        
+        elif query_tree.type == "WHERE":
+            statistic = self.__get_size_cost(query_tree.childs[0])
+            if "OR" in query_tree.val:
+                result = statistic
+            elif "=" in query_tree.val:
+                attribute = query_tree.val.split(" = ")[0].split(".")[1]
+                attribute = QueryCost.__format_name(attribute)
+                result = self.__where_equals(statistic, attribute)
+            elif "<>" in query_tree.val:
+                attribute = query_tree.val.split(" <> ")[0].split(".")[1]
+                attribute = QueryCost.__format_name(attribute)
+                result = self.__where_not_equals(statistic, attribute)
+            else:
+                result = self.__where_comparison(statistic)
+        
+        elif query_tree.type == "JOIN":
+            statistic1 = self.__get_size_cost(query_tree.childs[0])
+            statistic2 = self.__get_size_cost(query_tree.childs[1])
+            attributes = [item.split('.')[1] for item in query_tree.val.split(" = ")]
+            attributes = [QueryCost.__format_name(attribute) for attribute in attributes]
+            attribute1, attribute2 = attributes
+            
+            if attribute1 not in statistic1.V_a_r or attribute2 not in statistic2.V_a_r:
+                attribute1, attribute2 = attribute2, attribute1
+            
+            result = self.__join_on(statistic1, statistic2, attribute1, attribute2)
+
+        elif query_tree.type == "NATURAL JOIN":
+            statistic1 = self.__get_size_cost(query_tree.childs[0])
+            statistic2 = self.__get_size_cost(query_tree.childs[1])
+            attributes = query_tree.val
+            attributes = [QueryCost.__format_name(attribute) for attribute in attributes]
+            result = self.__natural_join(statistic1, statistic2, attributes)
 
         else:
-            return self.get_cost_size(query_tree.childs[0])
+            result = self.__get_size_cost(query_tree.childs[0])
+        
+        self.__n_r_total += result.n_r
+        # print(f"type: {query_tree.type}, val: {query_tree.val}")
+        # print(self.__n_r_total)
+        # sleep(1)
+        return result
     
-    def where_equals(self, statistic: Statistic, attribute: str) -> Statistic:
-        n_r_result = statistic.n_r / statistic.V_a_r[attribute]
+    def __select(self, statistic: Statistic, attributes: list[str]) -> Statistic:
+        n_r_result = 1
+        for attribute in attributes:
+            n_r_result *= statistic.V_a_r[attribute]
+
+        V_a_r_result = {}
+        for attribute in attributes:
+            V_a_r_result[attribute] = statistic.V_a_r[attribute]
+        
+        result: Statistic = Statistic(n_r=n_r_result, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
+        return result
+
+    def __where_equals(self, statistic: Statistic, attribute: str) -> Statistic:
+        n_r_result = statistic.n_r // statistic.V_a_r[attribute]
 
         V_a_r_result = {}
         for attribute in statistic.V_a_r:
@@ -76,7 +100,7 @@ class QueryCost:
         result: Statistic = Statistic(n_r=n_r_result, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
         return result
 
-    def where_not_equals(self, statistic: Statistic, attribute: str) -> Statistic:
+    def __where_not_equals(self, statistic: Statistic, attribute: str) -> Statistic:
         n_r_result = statistic.n_r - self.where_equals(statistic, attribute).n_r
         
         V_a_r_result = {}
@@ -86,7 +110,7 @@ class QueryCost:
         result: Statistic = Statistic(n_r=n_r_result, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
         return result
 
-    def where_comparison(self, statistic: Statistic) -> Statistic:
+    def __where_comparison(self, statistic: Statistic) -> Statistic:
         n_r_result = statistic.n_r // 2
         
         V_a_r_result = {}
@@ -96,7 +120,7 @@ class QueryCost:
         result: Statistic = Statistic(n_r=n_r_result, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
         return result
     
-    def cross_join(self, statistic1: Statistic, statistic2: Statistic) -> Statistic:
+    def __cross_join(self, statistic1: Statistic, statistic2: Statistic) -> Statistic:
         n_r_result = statistic1.n_r * statistic2.n_r
         
         V_a_r_result = {}
@@ -108,8 +132,7 @@ class QueryCost:
         result: Statistic = Statistic(n_r=n_r_result, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
         return result
 
-    def join_on(self, statistic1: Statistic, statistic2: Statistic, attribute1: str, attribute2: str) -> Statistic:
-        # print(f"statistic1: {statistic1}, statistic2: {statistic2}, attribute1: {attribute1}, attribute2: {attribute2}")
+    def __join_on(self, statistic1: Statistic, statistic2: Statistic, attribute1: str, attribute2: str) -> Statistic:
         n_r_result_1 = statistic1.n_r * statistic2.n_r // statistic2.V_a_r[attribute2]
         n_r_result_2 = statistic1.n_r * statistic2.n_r // statistic1.V_a_r[attribute1]
         n_r_result = min(n_r_result_1, n_r_result_2)
@@ -123,7 +146,7 @@ class QueryCost:
         result: Statistic = Statistic(n_r=n_r_result, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
         return result
     
-    def natural_join(self, statistic1: Statistic, statistic2: Statistic, attributes: list[str]) -> Statistic:
+    def __natural_join(self, statistic1: Statistic, statistic2: Statistic, attributes: list[str]) -> Statistic:
         V_a_r_2_all = prod([statistic2.V_a_r[attribute] for attribute in attributes])
         n_r_result_1 = statistic1.n_r * statistic2.n_r // V_a_r_2_all
         V_a_r_1_all = prod([statistic1.V_a_r[attribute] for attribute in attributes])
@@ -139,18 +162,6 @@ class QueryCost:
         result: Statistic = Statistic(n_r=n_r_result, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
         return result
 
-    def select(self, statistic: Statistic, attributes: list[str]) -> Statistic:
-        n_r_result = 1
-        for attribute in attributes:
-            n_r_result *= statistic.V_a_r[attribute]
-
-        V_a_r_result = {}
-        for attribute in attributes:
-            V_a_r_result[attribute] = statistic.V_a_r[attribute]
-        
-        result: Statistic = Statistic(n_r=n_r_result, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
-        return result
-    
 
     # Time Cost
     # Calculate the time cost of the query tree
