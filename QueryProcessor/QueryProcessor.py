@@ -73,7 +73,7 @@ class QueryProcessor:
                     result = self.printResult(temp)
                     return result
 
-    def evaluateTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
+    def evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
         if not tree.childs:
             if len(select) > 0 and len(where) > 0:
                 cond = self.__makeCondition(where)
@@ -94,15 +94,15 @@ class QueryProcessor:
                 if tree.type == "JOIN":
                     temp = self.__joinOn(
                         "temp1", "temp2",
-                        self.evaluateTree(tree.childs[0], [], []),
-                        self.evaluateTree(tree.childs[1], [], []),
+                        self.evaluateSelectTree(tree.childs[0], [], []),
+                        self.evaluateSelectTree(tree.childs[1], [], []),
                         tree.val
                     )
                 elif tree.type == "NATURAL JOIN":
                     temp = self.__naturalJoin(
                         "temp1", "temp2",
-                        self.evaluateTree(tree.childs[0], [], []),
-                        self.evaluateTree(tree.childs[1], [], []))
+                        self.evaluateSelectTree(tree.childs[0], [], []),
+                        self.evaluateSelectTree(tree.childs[1], [], []))
                     
                 if len(select) > 0 and len(where) > 0:
                     temp = self.__filterSelect(temp, select)
@@ -122,7 +122,7 @@ class QueryProcessor:
                 elif tree.type == "WHERE":
                     where = tree.val
                 for child in tree.childs:
-                    return self.evaluateTree(child, select, where)
+                    return self.evaluateSelectTree(child, select, where)
                 
     def __filterSelect(self, data: List[dict], select: list[str]) -> List[dict]:
         # filter select
