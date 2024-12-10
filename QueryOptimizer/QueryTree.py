@@ -1,9 +1,10 @@
 from typing import List, Dict
 
 class QueryTree:
-    def __init__(self, type: str, val: str = None, childs: List['QueryTree'] = None, parent: 'QueryTree' = None):
+    def __init__(self, type: str, val: str = None,method: str="", childs: List['QueryTree'] = None, parent: 'QueryTree' = None):
         self.type = type
         self.val = val
+        self.method = method
         self.childs = childs if childs else []
         self.parent = parent
 
