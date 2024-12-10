@@ -333,6 +333,48 @@ class StorageEngine:
                 bplus_tree.insert(key,(block_index,offset))
         return bplus_tree
     
+    def is_bplus_index_exist(self, database_name: str, table_name: str, column: str) -> bool:
+        for transaction_id, dbs in self.buffer_index.items():
+            if database_name not in dbs:
+                continue
+            if table_name not in dbs[database_name]:
+                continue
+            if column not in dbs[database_name][table_name]:
+                continue
+            if "bplus" in dbs[database_name][table_name][column]:
+                if dbs[database_name][table_name][column]["bplus"] is not None:
+                    return True
+        return False
+    
+    def is_hash_index_exist(self, database_name: str, table_name: str, column: str) -> bool:
+        for transaction_id, dbs in self.buffer_index.items():
+            if database_name not in dbs:
+                continue
+            if table_name not in dbs[database_name]:
+                continue
+            if column not in dbs[database_name][table_name]:
+                continue
+            if "bplus" in dbs[database_name][table_name][column]:
+                if dbs[database_name][table_name][column]["hash"] is not None:
+                    return True
+        return False
+    
+    def is_bplus_index_exist(self, database_name: str, table_name: str, column: str) -> bool:
+        for transaction_id, dbs in self.buffer_index.items():
+            if database_name not in dbs:
+                continue
+            if table_name not in dbs[database_name]:
+                continue
+            if column not in dbs[database_name][table_name]:
+                continue
+            if "bplus" in dbs[database_name][table_name][column]:
+                if dbs[database_name][table_name][column]["bplus"] is not None:
+                    return True
+        return False
+    
+    def insert_bplus_tree():
+        pass
+
 
     def search_bplus_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int) -> list:
         self.validate_column_buffer(database_name,table_name,column,transaction_id)
