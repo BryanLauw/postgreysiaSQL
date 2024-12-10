@@ -6,7 +6,7 @@ class ConcurrencyTester:
         
     def run_action(self, transaction_id: int, object: Row, action: Action):
         res = self.cm.validate_object(object, transaction_id, action)
-        if res == False:
+        if not res.allowed:
             raise Exception(f"Transaction {transaction_id} not allowed to {action} data")
             
 
@@ -86,19 +86,18 @@ class ConcurrencyTester:
         t2 = self.cm.begin_transaction()
         
         self.r(t1, a)  # t1 reads A
-        self.w(t2, b)  # t2 write B
+        self.r(t2, b)  # t2 write B
         self.r(t1, b)  # t1 read B
         self.w(t2, c)  # t2 writes C
         self.w(t1, c)  # t1 write C , should fail since t1 has lower timestamp
 
-    def test_cycle_prevention(self):
+    def test_cycle(self):
         """Test prevention of dependency cycles:
         t1: R(A) -> W(B)
         t2: R(B) -> W(C)
         t3: R(C) -> W(A)
         
-        should create cycle t1 -> t2 -> t3 -> t1
-        the timestamp ordering protocol should prevent this cycle
+        This is completely fine in timestamp based concurrency :D
         """
         a, b, c = Row(), Row(), Row()
         t1 = self.cm.begin_transaction() 
@@ -106,12 +105,67 @@ class ConcurrencyTester:
         t3 = self.cm.begin_transaction() 
         
         self.r(t1, a)  # t1 reads A
-        self.r(t2, b)  # t2 reads B
-        self.r(t3, c)  # t3 reads C
-        
         self.w(t1, b)  # t1 write B
+        self.r(t2, b)  # t2 reads B
         self.w(t2, c)  # t2 write C
-        self.w(t3, a)  # t3 writesA, should fail since it creates a cycle
+        self.r(t3, c)  # t3 reads C
+        self.w(t3, a)  # t3 write A
+
+    def test_write_read_violation(self):
+        """
+        A transaction is not allowed to WRITE 
+        something if it was READ by a younger transaction.
+        """
+        a = Row()
+        
+        t1 = self.cm.begin_transaction() 
+        t2 = self.cm.begin_transaction()  
+        
+        self.r(t2, a)
+        self.w(t1, a)
+    
+
+    def test_write_written_violation(self):
+        """
+        A transaction is not allowed to WRITE 
+        something if it was WRITTEN by a younger transaction.
+        """
+        a = Row()
+        
+        t1 = self.cm.begin_transaction() 
+        t2 = self.cm.begin_transaction()  
+        
+        self.w(t2, a)
+        self.w(t1, a)
+    
+    def test_read_written_violation(self) :
+        """
+        A transaction is not allowed to READ something if it 
+        was WRITTEN by a younger transaction
+        """
+        a = Row()
+        
+        t1 = self.cm.begin_transaction() 
+        t2 = self.cm.begin_transaction()  
+        
+        self.w(t2, a)
+        self.r(t1, a)
+    
+    def test_random_violation(self) :
+
+        T1,T2,T3,T4 = [self.cm.begin_transaction() for _ in range(4)]
+        A,B,C = [Row() for _ in range(3)]
+
+        self.r(T1, A)   # T1 reads A
+        self.w(T3, C)   # T3 writes C
+        self.r(T2, B)   # T2 reads B
+        self.r(T4, C)   # T4 reads C
+        self.w(T4, A)   # T4 writes A
+        self.w(T1, B)   # T1 writes B
+        self.r(T4, B)   # T4 reads B
+
+        # sixth operation is not allowed due to the third operation.
+
 
 def run_all_tests():
     tester = ConcurrencyTester()
@@ -121,7 +175,11 @@ def run_all_tests():
         (tester.test_multiple_object_scenario, "Multiple Object Scenario Test"),
         (tester.test_cascading_conflicts, "Cascading Conflicts Test"),
         (tester.test_interleaved_operations, "Interleaved Operations Test"),
-        (tester.test_cycle_prevention, "Cycle Prevention Test"),
+        (tester.test_cycle, "Cycle Test"),
+        (tester.test_write_read_violation, "Write Read Violation Test"),
+        (tester.test_write_written_violation, "Write Written Violation Test"),
+        (tester.test_read_written_violation, "Read Written Violation Test"),
+        (tester.test_random_violation, "Random Violation Test"),
     ]
     
     for test_func, test_name in tests:
