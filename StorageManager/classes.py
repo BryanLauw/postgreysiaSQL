@@ -477,7 +477,10 @@ class StorageEngine:
         result_indices = index.search(key)
         return result_indices
 
-
+    def delete_hash_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int):
+        index = self.hash_locator(database_name, table_name, column, transaction_id)
+        index.delete(key)
+        
     def debug(self):
         print(self.blocks)
 
