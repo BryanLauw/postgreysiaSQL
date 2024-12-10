@@ -79,7 +79,7 @@ class QueryValidator:
     
     def validate_tables(self,table_arr: list[str], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
         for table in table_arr:
-            get_stats(database_name,table.lower())
+            get_stats(database_name,table)
     
     def validate_attribute(self,attribute: str,database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]],table_arr: list[str]):
         if attribute in ["AND","OR"]:
@@ -88,15 +88,15 @@ class QueryValidator:
         attr_with_table = ""
         if '.' in attribute:
             table, attr = attribute.split('.')
-            if attr.lower() not in get_stats(database_name,table.lower()).V_a_r:
+            if attr not in get_stats(database_name,table).V_a_r:
                 raise ValueError(f"{attr} doesn't exist at table {table}")
             attr_with_table = attribute
         else:
             for table in table_arr:
-                if attribute.lower() in get_stats(database_name,table.lower()).V_a_r:
+                if attribute in get_stats(database_name,table).V_a_r:
                     if attr_with_table:
                         raise ValueError(f"Ambiguous attribute: {attribute}")
-                    attr_with_table = f"{table.lower()}.{attribute}"
+                    attr_with_table = f"{table}.{attribute}"
                     
         if not attr_with_table:
             raise ValueError(f"{attribute} doesn't exist!")
