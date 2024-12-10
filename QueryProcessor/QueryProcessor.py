@@ -6,43 +6,6 @@ from typing import Optional
 import re
 
 import FailureRecovery.main as FailureRecovery
-
-# temp class
-# class Condition:
-#     def __init__(self, column: str, operation: str, operand: Union[str, int]):
-#         self.column = column
-#         self.operation = operation
-#         self.operand = operand
-    
-#     def __repr__(self):
-#         return f"Condition(column={self.column}, operation={self.operation}, operand={self.operand})"
-
-# class DataRetrieval:
-#     def __init__(self, table: str, columns: List[str], conditions: List[Optional[Condition]]):
-#         self.table = table
-#         self.columns = columns
-#         self.conditions = conditions
-
-#     def __repr__(self):
-#         return f"DataRetrieval(table={self.table}, columns={self.columns}, conditions={self.conditions})"
-
-class DataWrite:
-    def __init__(self, table: str, column: List[str], conditions: List[Condition], new_value: List[str]):
-        self.table = table
-        self.column = column
-        self.conditions = conditions
-        self.new_value = new_value
-
-    def __repr__(self):
-        return f"DataWrite(table={self.table}, column={self.column}, conditions={self.conditions}, new_value={self.new_value})"
-
-class DataDeletion:
-    def __init__(self, table: str, conditions: List[Condition]):
-        self.table = table
-        self.conditions = conditions
-
-    def __repr__(self):
-        return f"DataDeletion(table={self.table}, conditions={self.conditions})"
     
 class QueryProcessor:
     # def __init__(self, db_name: str | None):
@@ -54,7 +17,6 @@ class QueryProcessor:
         self.cc = ConcurrencyControlManager()
         self.rm = FailureRecovery.FailureRecovery()
         self.db_name = "database1" #SBD
-        pass
 
     def execute_query(self, query : str):
         tables = ["id", "name"]
@@ -89,18 +51,31 @@ class QueryProcessor:
             else:
 
                 self.parsedQuery = self.qo.parse_query(query,'database1') #hardcode
-                print("masuk sini")
-                print(self.parsedQuery)
-                if(self.parsedQuery.query_tree.val == "SELECT"):
+                # try:
+                #     # self.parsedQuery = self.qo.parse_query(query, self.db_name)
+                #     self.parsedQuery = self.qo.parse_query(query, "database1")
+                # except Exception as e:
+                #     raise Exception(e)
+                    
+                if self.parsedQuery.query_tree.val == "UPDATE":
+                    write = self.ParsedQueryToDataWrite(self.parsedQuery)
+                    # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
+                    b = self.sm.write_block(write, "database1", self.current_transactionId)
+                elif self.parsedQuery.query_tree.val == "SELECT":
                     print("masuk select")
                     data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
-                    temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
+                    print("halo")
+                    print(data_ret)
+                    print(data_ret.table)
+                    print(data_ret.column)
+                    # hardcode
+                    con = Condition('id','=',1)
+                    testRet = DataRetrieval(['users'],['id','username'],[con])
+                    temp = self.sm.read_block(testRet,self.db_name,self.current_transactionId)
                     temp = self.__orderBy(temp, "id", True)
+                    print(temp)
                     self.printResult(temp)
 
-        # if self.parsedQuery.query_tree.val == "UPDATE":
-        #     write = self.ParsedQueryToDataWrite(self.parsedQuery)
-        #     b = self.sm.write_block(write, self.db_name, self.current_transactionId)
     
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
         # if parsed_query.query_tree.type == "JOIN":
@@ -142,7 +117,7 @@ class QueryProcessor:
                 return self.ParsedQueryToDataRetrieval(child)
         # return DataRetrieval(table=table, columns=columns, conditions=conditions)
 
-    def ParsedQueryToDataWrite(parsed_query: ParsedQuery) -> DataWrite:
+    def ParsedQueryToDataWrite(self, parsed_query: ParsedQuery) -> DataWrite:
         # Input: child (QueryTree with only where value)
         # Output: List of condition from child
         def filter_condition(child: QueryTree) -> List[Condition]:
@@ -151,7 +126,10 @@ class QueryProcessor:
             match = re.split(operator, where_val, maxsplit=1)
             parts = [part.strip() for part in match]
             parts[2] = int(parts[2]) if parts[2].isdigit() else parts[2]
-            temp = Condition(parts[0], parts[1], parts[2])
+            print("kondisi0 ", parts[0].split(".")[1])
+            print("kondisi1 ", parts[1])
+            print("kondisi2 ", parts[2])
+            temp = Condition(parts[0].split(".")[1], parts[1], parts[2])
             if not child.childs:
                 return [temp]
             else:
@@ -163,13 +141,16 @@ class QueryProcessor:
         # Get new value
         new_value = parsed_query.query_tree.childs[0].childs[0].val
         match = re.split(r'=', new_value)
-        columns = [match[0].strip()]
-        new_value = [match[1].strip()]
+        columns = match[0].strip().split(".")[1]
+        print("kolom ", columns)
+        new_value = match[1].strip().replace('"', '')
+        
 
         # Get all conditions
-        conditions = filter_condition(parsed_update_query.query_tree.childs[0].childs[0].childs[0])
-
-        return DataWrite([table], columns, conditions, new_value)
+        conditions = filter_condition(parsed_query.query_tree.childs[0].childs[0].childs[0])
+        
+        print("kondisi ", conditions)
+        return DataWrite([table], [columns], conditions, [new_value])
 
     def ParsedQueryToDataDeletion(parsed_query: ParsedQuery) -> DataDeletion:
         data_deletion = DataDeletion(
