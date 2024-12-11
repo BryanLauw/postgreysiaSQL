@@ -13,11 +13,11 @@ class QueryParser:
     # Valid Keywords
     keywords = [
         'SELECT', 'DELETE', 'FROM', 'WHERE', 'JOIN', 'NATURAL', 'ON', 'ORDER', 
-        'BY', 'LIMIT', 'UPDATE', 'SET', 'AS', 'DESC' , 'ASC'
+        'BY', 'LIMIT', 'UPDATE', 'SET', 'AS', 'DESC' , 'ASC', 'CREATE','INDEX','USING'
     ]
     
     # Main Components
-    components = ["SELECT", "UPDATE", "DELETE", "FROM", "SET", "WHERE", "ORDER BY", "LIMIT"]
+    components = ["SELECT", "UPDATE", "DELETE","CREATE","INDEX", "USING","FROM", "SET", "WHERE", "ORDER BY", "LIMIT"]
     
     def __init__(self, dfa_path: str):
         self.start_state = ""
@@ -124,6 +124,8 @@ class QueryParser:
     def check_valid_syntax(self,query: str):
         def isString(token: str):
             return re.match(r'^".*"$', token)
+        def isTableAttr(token: str):
+            return re.match(r'\w+\(\w+\)', token)
         def isAttribute(token: str):
             return re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', token.replace('.', '')) and token.count('.') <= 1
         def isNumber(token: str):
@@ -141,7 +143,8 @@ class QueryParser:
                    (rule_token == "<X>" and (isString(token) or isAttribute(token) or isNumber(token))) or
                    (rule_token == "<N>" and isNumber(token)) or 
                    (rule_token == "<CO>" and token in self.CO) or
-                   (rule_token == "<MO>" and token in self.MO)
+                   (rule_token == "<MO>" and token in self.MO) or
+                   (rule_token == "<TABLE_ATTR>" and isTableAttr(token))
                 ):
                     next_state = rule[1]
                     break
@@ -194,6 +197,8 @@ class QueryParser:
         return values.strip()
 
     def extract_ORDERBY(self,values: str):
+        if "ASC" not in values and "DESC" not in values:
+            values += " ASC"
         return values.strip()
 
     def extract_LIMIT(self,values: str):
@@ -226,6 +231,10 @@ class QueryParser:
             extracted = self.extract_UPDATE(extracted)
         elif before == "SET":
             extracted = self.extract_SET(extracted)
+        elif before == "CREATE":
+            extracted = after
+        else:
+            extracted = extracted.strip()
         return extracted
     
     def get_components_values(self,query: str):
