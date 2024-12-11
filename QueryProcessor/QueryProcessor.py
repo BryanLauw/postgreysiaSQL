@@ -3,9 +3,7 @@ from FailureRecovery.main_log_entry import LogEntry
 from ConcurrencyControlManager.ConcurrencyControlManager import *
 from QueryOptimizer.OptimizationEngine import *
 from StorageManager.classes import *
-from typing import Optional
 import re
-import atexit
 
 import FailureRecovery.main as FailureRecovery
     
@@ -18,6 +16,7 @@ class QueryProcessor:
         self.cc = ConcurrencyControlManager()
         self.rm = FailureRecovery.FailureRecovery()
         self.db_name = "database1" #SBD
+        # self.db_name = db_name
 
         self.current_transactionId = self.cc.begin_transaction() #SBD
         self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
@@ -26,16 +25,7 @@ class QueryProcessor:
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGSEGV, self.signal_handler)
 
-    def execute_query(self, query : str):
-        tables = ["id", "name"]
-        rows = [
-            ['1', 'benfsjdjfdsfhuisdfosidfdjsopfjsduifbsdhyufdiogjdfbndifiodfuuiguirfhifhui'],
-            ['2', 'tazki'],
-            ['3', 'agil'],
-            ['4', 'filbert'],
-            ['5', 'bryan']
-        ]
-        
+    def execute_query(self, query : str):        
         queries = self.parse_query(query)
         for query in queries:
             print("Executing query: " + query)
@@ -66,7 +56,7 @@ class QueryProcessor:
                 # if self.parsedQuery.query_tree.val == "UPDATE":
                 #     write = self.ParsedQueryToDataWrite(self.parsedQuery)
                 #     # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
-                #     b = self.sm.write_block(write, "database1", self.current_transactionId)
+                #     b = self.sm.write_block(write, "database1", self.current_transactionId) # hardcode
                 # elif self.parsedQuery.query_tree.val == "SELECT":
                 #     data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
                 #     temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
@@ -234,9 +224,6 @@ class QueryProcessor:
                 match = re.split(operator, where_val, maxsplit=1)
                 parts = [part.strip() for part in match]
                 parts[2] = int(parts[2]) if parts[2].isdigit() else parts[2]
-                print("kondisi0 ", parts[0].split(".")[1])
-                print("kondisi1 ", parts[1])
-                print("kondisi2 ", parts[2])
                 temp = Condition(parts[0].split(".")[1], parts[1], parts[2])
                 if not child.childs:
                     return [temp]
@@ -250,14 +237,11 @@ class QueryProcessor:
             new_value = parsed_query.query_tree.childs[0].childs[0].val
             match = re.split(r'=', new_value)
             columns = match[0].strip().split(".")[1]
-            print("kolom ", columns)
             new_value = match[1].strip().replace('"', '')
             
 
             # Get all conditions
             conditions = filter_condition(parsed_query.query_tree.childs[0].childs[0].childs[0])
-            
-            print("kondisi ", conditions)
             return DataWrite([table], [columns], conditions, [new_value])
         except Exception as e:
             self.handle_rollback(self.current_transactionId)
