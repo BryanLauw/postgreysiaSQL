@@ -122,6 +122,14 @@ class QueryParser:
         return final_tokens
     
     def check_valid_syntax(self,query: str):
+        def isString(token: str):
+            return re.match(r'^".*"$', token)
+        def isTableAttr(token: str):
+            return re.match(r'\w+\(\w+\)', token)
+        def isAttribute(token: str):
+            return re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', token.replace('.', '')) and token.count('.') <= 1
+        def isNumber(token: str):
+            return re.match(r'^\d+(\.\d+)*$', token.replace('.', '')) and token.count('.') <= 1
         tokens = self.tokenize_query(query)
         cur_state = self.start_state
         for index,token in enumerate(tokens):
@@ -129,13 +137,19 @@ class QueryParser:
             cur_state_rules = self.transitions[cur_state]
             for rule in cur_state_rules:
                 rule_token = rule[0]
-                if((token == rule_token) or (rule_token == "<X>" and (re.match(r'^[A-Za-z_][A-Za-z0-9_]*$|^\d+(\.\d+)*$', token.replace('.', '')) and token.count('.') <= 1 or re.match(r'^".*"$', token))) or
-                   ((rule_token == "<N>" or rule_token == "<X>") and token.isnumeric()) or (rule_token == "<CO>" and token in self.CO) or
-                   (rule_token == "<MO>" and token in self.MO)
+                if((token == rule_token) or
+                   (rule_token == "<ATTR>" and isAttribute(token)) or
+                   (rule_token == "<WORD>" and token.isalpha()) or 
+                   (rule_token == "<X>" and (isString(token) or isAttribute(token) or isNumber(token))) or
+                   (rule_token == "<N>" and isNumber(token)) or 
+                   (rule_token == "<CO>" and token in self.CO) or
+                   (rule_token == "<MO>" and token in self.MO) or
+                   (rule_token == "<TABLE_ATTR>" and isTableAttr(token))
                 ):
                     next_state = rule[1]
                     break
             if not next_state:
+                print("ERROR: ",cur_state)
                 start = index-2 if index-2>=0 else 0
                 end = index+2 if index+2<len(tokens) else len(tokens)-1
                 raise ValueError(f"Syntax error at: {tokens[start:end+1]}")
