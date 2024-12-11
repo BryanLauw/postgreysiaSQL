@@ -52,10 +52,14 @@ class OptimizationEngine:
             self.QueryValidator.validate_aliases(query_components_value, alias_map, table_arr)
         
         # Validate wrong tables
-        self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
+        list_attributes = self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
+        
+        if "SELECT" in query_components_value and query_components_value["SELECT"][0] == "*":
+            query_components_value["SELECT"] = list_attributes
                 
         # Rewrite alias with direct table's name for simplicity
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
+
         # Get attributes and validate their existence
         self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
 
@@ -171,7 +175,7 @@ class OptimizationEngine:
             if len(node.val) == 0:
                 self.QueryOptimizer.combine_selection_and_cartesian_product(node)
         
-        self.QueryOptimizer.pushing_projection(query.query_tree.childs[0].childs[0])
+        # self.QueryOptimizer.pushing_projection(query.query_tree.childs[0].childs[0])
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
@@ -183,8 +187,8 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
-    # select_query = 'select users.id from users join products on users.id_user=products.product_id order by id_user'
+    # select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
+    select_query = 'select * from users join products on users.id=products.product_id where users.id>1 and products.product_id<1 order by id'
     # create_index_query = 'CREATE INDEX nama_idx ON users(id) USING hash'
     # print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
