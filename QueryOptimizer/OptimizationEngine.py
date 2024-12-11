@@ -120,6 +120,12 @@ class OptimizationEngine:
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
+            
+        if "USING" in components:
+            where_tree = QueryTree(type="USING", val=components["USING"])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
 
         # if "DELETE" in components:
         #     where_tree = QueryTree(type="DELETE", val=components["DELETE"])
