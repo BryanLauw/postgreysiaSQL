@@ -58,9 +58,20 @@ class QueryProcessor:
                 # print(f"Read {len(result)} row(s).")
 
                 if self.parsedQuery.query_tree.val == "UPDATE":
-                    write = self.ParsedQueryToDataWrite(self.parsedQuery)
-                    # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
-                    b = self.sm.write_block(write, "database1", self.current_transactionId) # hardcode
+                    try:
+                        write = self.ParsedQueryToDataWrite(self.parsedQuery)
+                        # baca data lama
+                        data_lama = self.sm.read_block(DataRetrieval(write.table, write.column, write.conditions), self.db_name, self.current_transactionId).get_data()[0].get(write.column[0])
+                        print(data_lama)
+                        self.sm.write_block(write, self.db_name, self.current_transactionId)
+
+                        object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}'}}"
+                        print(object_value)
+                        self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_lama, write.new_value[0])
+                        
+                    except Exception as e:
+                        self.handle_rollback(self.current_transactionId)
+                        print(e) 
                 elif self.parsedQuery.query_tree.val == "SELECT":
                     # data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
                     # temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
@@ -361,7 +372,8 @@ class QueryProcessor:
         Parameters:
             transaction_id (int): The ID of the transaction to rollback.
         """
-        undo_list = self.rm.rollback(transaction_id)
+        undo_list = self.rm.write_log_entry(transaction_id, "ABORT", None, None, None)
+
 
         # Retrieve undo instructions from FailureRecovery
         for instruction in undo_list:
@@ -630,6 +642,7 @@ class QueryProcessor:
         Custom signal handler to handle SIGINT and SIGSEV.
         """
         self.cc.end_transaction(self.current_transactionId)
+        self.sm.commit_buffer(self.current_transactionId)
         self.sm.save()
         print("Bye!")
         self.rm.signal_handler(signum, frame)
