@@ -164,8 +164,9 @@ class OptimizationEngine:
         for node in list_nodes["NATURAL JOIN"]:
             if len(node.val) == 0:
                 self.QueryOptimizer.combine_selection_and_cartesian_product(node)
-        
-        self.QueryOptimizer.pushing_projection(query.query_tree.childs[0].childs[0])
+
+        for node in list_nodes["SELECT"] :
+            self.QueryOptimizer.pushing_projection(node)
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
@@ -178,11 +179,12 @@ if __name__ == "__main__":
 
     # Test SELECT query with JOIN
     # select_query = 'SELECT u.id, product_id FROM users AS u JOIN products AS t ON t.product_id = u.id  WHERE u.id > 1 AND t.name = "12" OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC'
-    # select_query = 'select users.id from users join products on users.id_user=products.product_id order by id_user'
-    create_index_query = 'CREATE INDEX nama_idx ON users(id) USING hash'
+    select_query = 'SELECT u.id, product_id FROM users AS u NATURAL JOIN users as k JOIN products AS t ON t.product_id = u.id  WHERE u.id > 1 AND t.product_id = 12 OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC'
+    # select_query = 'select users.id from users join products on users.idr=products.product_id order by id'
+    # create_index_query = 'CREATE INDEX nama_idx ON users(id) USING hash'
     # print("SELECT QUERY\n",select_query,end="\n\n")
-    # parsed_query = optim.parse_query(select_query,"database1")
-    parsed_query = optim.parse_query(create_index_query,"database1")
+    parsed_query = optim.parse_query(select_query,"database1")
+    # parsed_query = optim.parse_query(create_index_query,"database1")
     print(parsed_query)
     optim.optimize_query(parsed_query)
     # optim.optimize_query(parsed_query)

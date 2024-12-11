@@ -146,10 +146,34 @@ class QueryOptimizer:
             if key not in result:
                 result[key] = []
             result[key].append(item)
+
+    def __split_natural_join(self, node_natural : QueryTree, result:dict) : 
+        table_left = self.__find_tables_from_children(node_natural.childs[0])
+        # print(table_left)
+        table_right = self.__find_tables_from_children(node_natural.childs[1])
+        # print(table_right)
+
+        for item in node_natural.val:
+            value_left = table_left[0] + "." + item
+            # print(value_left)
+            if table_left[0] not in result:
+                result[table_left[0]]= []
+            if value_left.strip() not in result[table_left[0]] : 
+                result[table_left[0]].append(value_left)
+            
+            value_right = table_right[0] + "." + item
+            # print(value_right)
+            if table_right[0] not in result:
+                result[table_right[0]] = []
+            if value_right.strip() not in result[table_right[0]]  : 
+                result[table_right[0]].append(value_right[0])
+
     
     def __split_join(self, node_join : QueryTree, result:dict) :
-        result = {}
-        tabel1, tabel2 = node_join.val.split('=')
+        tabel = self.get_table_column(node_join.val)
+        tabel1 = tabel[0]
+        tabel2 = tabel[1]
+        # tabel1, tabel2 = node_join.val.split('=')
         key = tabel1.split('.')[0] 
         if key not in result:
             result[key] = []
@@ -184,31 +208,31 @@ class QueryOptimizer:
             if value.strip() not in result[key]: 
                 result[key].append(value)
     
-    def do_pushing_projection(self, node_select:QueryTree, result:dict = []) : 
-        print("REKURSIF: ",node_select.val,node_select.type)
-        print("RESULT: ",result)
+    def __do_pushing_projection(self, node_select:QueryTree, result:dict = []) : 
+        # print("REKURSIF: ",node_select.val,node_select.type)
+        # print("RESULT: ",result)
         if node_select.type == "TABLE" :
-            node_baru = QueryTree("SELECT", result[node_select.val.strip()])
-            node_baru.parent = node_select.parent
-            node_select.parent.childs[0] = node_baru
-            node_baru.add_child(node_select)
+            parent = node_select.parent
+            for i in range(len(parent.childs)) :
+                node_baru = QueryTree("SELECT", result[node_select.val.strip()])
+                node_baru.parent = node_select.parent
+                node_select.parent.childs[i] = node_baru
+                node_baru.add_child(node_select)
+            
         elif node_select.type == "WHERE" : 
             self.__split_where(node_select, result)
-            self.do_pushing_projection(node_select.childs[0], result)
+            self.__do_pushing_projection(node_select.childs[0], result)
         elif node_select.type == "JOIN" : 
             self.__split_join(node_select, result)
-            self.do_pushing_projection(node_select.childs[0], result)
-            self.do_pushing_projection(node_select.childs[1], result)
+            self.__do_pushing_projection(node_select.childs[0], result)
+            self.__do_pushing_projection(node_select.childs[1], result)
         elif node_select.type == "NATURAL JOIN" :
-            self.__split_projection(node_select, result)
-            self.do_pushing_projection(node_select.childs[0], result)
-            self.do_pushing_projection(node_select.childs[1], result)
+            self.__split_natural_join(node_select, result)
+            # self.__split_projection(node_select, result)
+            self.__do_pushing_projection(node_select.childs[0], result)
+            self.__do_pushing_projection(node_select.childs[1], result)
         else : 
-            self.do_pushing_projection(node_select.childs[0], result)
-
-
-
-
+            self.__do_pushing_projection(node_select.childs[0], result)
 
     def pushing_projection(self, node: QueryTree) :
         print("PUSHING PROJECTION: ",node.val,node.type)
@@ -217,8 +241,7 @@ class QueryOptimizer:
             # node_select:QueryTree = node
             result:dict = {}
             self.__split_projection(node, result)
-            self.do_pushing_projection(node, result) 
-            
+            self.__do_pushing_projection(node, result) 
         
         return True
     
