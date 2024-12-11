@@ -194,11 +194,17 @@ class QueryValidator:
                         ON_idx = tokens.index('ON')
                         len_tokens = len(tokens)
                         for i in range(ON_idx+1,len_tokens):
+                            
+                            # isAttribute
                             if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', tokens[i].replace('.', '')) and tokens[i].count('.') <= 1:
                                 tokens[i] = self.validate_attribute(tokens[i], database_name, get_stats, table_arr)
                         components_values[key][index] = " ".join(tokens).strip()
                     except ValueError:
                         continue
-                    
+            
             elif key == 'SELECT':
                 components_values[key] = [self.validate_attribute(attr, database_name, get_stats, table_arr) for attr in components_values[key]]
+                
+            elif key == "INDEX":
+                splitted = components_values[key].split()
+                self.validate_attribute(splitted[4],database_name,get_stats,table_arr)

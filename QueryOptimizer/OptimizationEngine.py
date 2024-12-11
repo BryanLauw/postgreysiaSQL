@@ -32,25 +32,33 @@ class OptimizationEngine:
         normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
 
         query_components_value = self.QueryParser.get_components_values(normalized_query)
-        comp_with_attr = "FROM" if "FROM" in query_components_value else "UPDATE"
         
+        if "FROM" in query_components_value:
+            comp_with_attr = "FROM"
+            table_tokens = query_components_value["FROM"]
+        elif "UPDATE" in query_components_value:
+            comp_with_attr = "UPDATE"
+            table_tokens = [query_components_value["UPDATE"]]
+        else:
+            splitted = query_components_value["INDEX"].split()
+            table_tokens = [splitted[2]]
+            
         # Get list Tables and Aliases
-        alias_map, table_arr = QueryHelper.extract_table_and_aliases(query_components_value[comp_with_attr] if comp_with_attr=="FROM" else [query_components_value[comp_with_attr]] )
+        alias_map, table_arr = QueryHelper.extract_table_and_aliases(table_tokens )
         
-        # Remove alias
-        query_components_value[comp_with_attr] = QueryHelper.remove_aliases(query_components_value[comp_with_attr])
-        
-        # Validate wrong aliases
-        self.QueryValidator.validate_aliases(query_components_value, alias_map, table_arr)
+        if "CREATE" not in query_components_value:
+            # Remove alias
+            query_components_value[comp_with_attr] = QueryHelper.remove_aliases(query_components_value[comp_with_attr])
+            self.QueryValidator.validate_aliases(query_components_value, alias_map, table_arr)
         
         # Validate wrong tables
         self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
                 
         # Rewrite alias with direct table's name for simplicity
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
+        
         # Get attributes and validate their existence
         self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
-        print("SINI ",query_components_value)
 
         # WHERE clause
         where_clause = query_components_value.get("WHERE", "")
@@ -100,6 +108,19 @@ class OptimizationEngine:
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
+            
+        if "CREATE" in components:
+            root.val = "CREATE"
+            where_tree = QueryTree(type="CREATE", val=components["CREATE"])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
+            
+        if "INDEX" in components:
+            where_tree = QueryTree(type="INDEX", val=components["INDEX"])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
 
         # if "DELETE" in components:
         #     where_tree = QueryTree(type="DELETE", val=components["DELETE"])
@@ -111,15 +132,6 @@ class OptimizationEngine:
             # use this if you want to separate the childs
             where_tree = QueryHelper.parse_where_clause(components["WHERE"], top)
             top = where_tree
-
-            # parsed_result = re.split(r'\sAND\s', components["WHERE"])
-            # where_tree = QueryTree(type="WHERE", val=parsed_result)
-            # top.add_child(where_tree)
-            # where_tree.add_parent(top)
-            # if query_type == "SELECT":
-            #     top = select_tree
-            # else:
-            #     top = where_tree
 
         if "FROM" in components:
             join_tree = QueryHelper.build_join_tree(components["FROM"],database_name,self.get_stats)
@@ -166,10 +178,13 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     # Test SELECT query with JOIN
-    select_query = 'SELECT u.id, product_id FROM users AS u JOIN products AS t ON t.product_id = u.id  WHERE u.id > 1 AND t.name = "12" OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC'
+    # select_query = 'SELECT u.id, product_id FROM users AS u JOIN products AS t ON t.product_id = u.id  WHERE u.id > 1 AND t.name = "12" OR t.product_id < 5 AND t.product_id = 10 order by u.id ASC'
+    # select_query = 'select users.id from users join products on users.id_user=products.product_id order by id_user'
+    create_index_query = 'CREATE INDEX nama_idx ON users(id) USING hash'
     # print("SELECT QUERY\n",select_query,end="\n\n")
-    parsed_query = optim.parse_query(select_query,"database1")
-    # print(parsed_query)
+    # parsed_query = optim.parse_query(select_query,"database1")
+    parsed_query = optim.parse_query(create_index_query,"database1")
+    print(parsed_query)
     optim.optimize_query(parsed_query)
     # optim.optimize_query(parsed_query)
     print("EVALUATION PLAN TREE: \n",parsed_query)

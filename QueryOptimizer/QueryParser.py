@@ -139,7 +139,7 @@ class QueryParser:
                 rule_token = rule[0]
                 if((token == rule_token) or
                    (rule_token == "<ATTR>" and isAttribute(token)) or
-                   (rule_token == "<WORD>" and token.isalpha()) or 
+                   (rule_token == "<WORD>" and re.match(r'^[a-zA-Z_]+$', token)) or 
                    (rule_token == "<X>" and (isString(token) or isAttribute(token) or isNumber(token))) or
                    (rule_token == "<N>" and isNumber(token)) or 
                    (rule_token == "<CO>" and token in self.CO) or

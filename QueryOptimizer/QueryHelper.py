@@ -19,10 +19,10 @@ class QueryHelper:
         return new_query
     
     @staticmethod
-    def extract_table_and_aliases(from_tokens: list[str]) -> {dict,list[str]}:
+    def extract_table_and_aliases(table_tokens: list[str]) -> {dict,list[str]}:
         alias_map = {}
         attribute_arr = []
-        for token in from_tokens:
+        for token in table_tokens:
             if token in ["JOIN","NATURAL JOIN",","]:
                 continue
             
