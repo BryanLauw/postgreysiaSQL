@@ -26,8 +26,12 @@ class QueryCost:
     # Calculate the size cost of the query tree
 
     def __get_size_cost(self, query_tree: QueryTree) -> Statistic:
+        
         if query_tree.type == "TABLE":
             result = self.__get_stats(self.__database, QueryCost.__format_name(query_tree.val))
+            # result.n_r *= 1000
+            # print(result.V_a_r)
+            # result.V_a_r = {key: value * 10 for key, value in result.V_a_r.items()}
         
         elif query_tree.type == "SELECT": 
             statistic = self.__get_size_cost(query_tree.childs[0])
@@ -65,15 +69,22 @@ class QueryCost:
         elif query_tree.type == "NATURAL JOIN":
             statistic1 = self.__get_size_cost(query_tree.childs[0])
             statistic2 = self.__get_size_cost(query_tree.childs[1])
-            attributes = query_tree.val
-            attributes = [QueryCost.__format_name(attribute) for attribute in attributes]
-            result = self.__natural_join(statistic1, statistic2, attributes)
+            if len(query_tree.val) == 0:
+                result = self.__cross_join(statistic1, statistic2)
+            else:
+                attributes = query_tree.val
+                attributes = [QueryCost.__format_name(attribute) for attribute in attributes]
+                result = self.__natural_join(statistic1, statistic2, attributes)
 
         else:
             result = self.__get_size_cost(query_tree.childs[0])
         
-        self.__n_r_total += result.n_r
+
+        if query_tree.type != "ROOT":
+            self.__n_r_total += result.n_r
+
         # print(f"type: {query_tree.type}, val: {query_tree.val}")
+        # print(f"n_r: {result.n_r}, V_a_r: {result.V_a_r}")
         # print(self.__n_r_total)
         # sleep(1)
         return result
@@ -82,6 +93,7 @@ class QueryCost:
         n_r_result = 1
         for attribute in attributes:
             n_r_result *= statistic.V_a_r[attribute]
+        n_r_result = min(n_r_result, statistic.n_r)
 
         V_a_r_result = {}
         for attribute in attributes:
