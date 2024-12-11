@@ -26,7 +26,11 @@ class QueryProcessor:
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGSEGV, self.signal_handler)
 
-    def execute_query(self, query : str):        
+    def execute_query(self, query : str):   
+        # Check for ;
+        if (not ";" in query):
+            raise Exception("Invalid semicolon.")
+
         queries = self.parse_query(query)
         for query in queries:
             print("Executing query: " + query)
@@ -59,7 +63,7 @@ class QueryProcessor:
 
                 if self.parsedQuery.query_tree.val == "UPDATE":
                     try:
-                        write = self.ParsedQueryToDataWrite(self.parsedQuery)
+                        write = self.ParsedQueryToDataWrite()
                         # baca data lama
                         data_lama = self.sm.read_block(DataRetrieval(write.table, write.column, write.conditions), self.db_name, self.current_transactionId).get_data()[0].get(write.column[0])
                         print(data_lama)
@@ -70,7 +74,7 @@ class QueryProcessor:
                         self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_lama, write.new_value[0])
                         
                     except Exception as e:
-                        self.handle_rollback(self.current_transactionId)
+                        self.handle_rollback()
                         print(e) 
                 elif self.parsedQuery.query_tree.val == "SELECT":
                     # print(self.parsedQuery.query_tree)
@@ -78,9 +82,10 @@ class QueryProcessor:
                     ret_val = self.printResult(result)
                     print(f"Read {len(result)} row(s).")
                     return ret_val                            
-                # elif self.parsedQuery.query_tree.val == "SET INDEX":
-                #   index = self.ParsedQueryToSetIndex(self.parsedQuery)
-                #   sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
+                elif self.parsedQuery.query_tree.val == "CREATE" and self.parsedQuery.query_tree.childs[0].val == "INDEX":
+                    index = self.ParsedQueryToSetIndex()
+                    # TODO: nama index ada di index[3], belum tau mau dipake di mana
+                    self.sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
     
 
     def  evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
@@ -200,30 +205,9 @@ class QueryProcessor:
         return cond
 
     def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
-        # if parsed_query.query_tree.type == "JOIN":
-        #     joined_tables = [
-        #         child.val for child in parsed_query.query_tree.childs if child.type == "TABLE"
-        #     ]
-        #     table = joined_tables  
-        # else:
-        #     table = parsed_query.query_tree.val  
-        # columns = [
-        #     child.val for child in parsed_query.query_tree.childs if child.type == "COLUMN"
-        # ]
-        # conditions = [
-        #     Condition(
-        #         column=cond.childs[0].val,
-        #         operation=cond.childs[1].val,
-        #         operand=cond.childs[2].val
-        #     )
-        #     for cond in parsed_query.query_tree.childs if cond.type == "CONDITION"
-        # ]
-        # print(parsed_query.query_tree)
         if parsed_query.type == "SELECT":
             tables = {}
             cols = {}
-            # print(parsed_query.type)
-            # print(parsed_query.val)
             for s in parsed_query.val:
                 # print(s.split('/.'))
                 tables[s.split(".")[0]] = 1
@@ -238,7 +222,7 @@ class QueryProcessor:
                 return self.ParsedQueryToDataRetrieval(child)
         # return DataRetrieval(table=table, columns=columns, conditions=conditions)
 
-    def ParsedQueryToDataWrite(self, parsed_query: ParsedQuery) -> DataWrite:
+    def ParsedQueryToDataWrite(self) -> DataWrite:
         try:
             # Input: child (QueryTree with only where value)
             # Output: List of condition from child
@@ -256,7 +240,7 @@ class QueryProcessor:
                     return [temp] + filter_condition(child.childs[0])
                 
             # Get table name
-            table = parsed_query.query_tree.childs[0].val
+            table = self.parsedQuery.query_tree.childs[0].val
                 
             # Validate write access
             response = self.cc.validate_object(table, self.current_transactionId, "write")
@@ -264,41 +248,46 @@ class QueryProcessor:
                 raise Exception(f"Transaction {self.current_transactionId} cannot write to table {table}")
 
             # Get new value
-            new_value = parsed_query.query_tree.childs[0].childs[0].val
+            new_value = self.parsedQuery.query_tree.childs[0].childs[0].val
             match = re.split(r'=', new_value)
             columns = match[0].strip()        
             new_value = match[1].strip().replace('"', '')
             
 
             # Get all conditions
-            conditions = filter_condition(parsed_query.query_tree.childs[0].childs[0].childs[0])
+            conditions = filter_condition(self.parsedQuery.query_tree.childs[0].childs[0].childs[0])
             return DataWrite([table], [columns], conditions, [new_value])
         except Exception as e:
-            self.handle_rollback(self.current_transactionId)
+            self.handle_rollback()
             return e
 
-    def ParsedQueryToDataDeletion(parsed_query: ParsedQuery) -> DataDeletion:
+    def ParsedQueryToDataDeletion(self) -> DataDeletion:
         data_deletion = DataDeletion(
-            table=parsed_query.query_tree.val,
+            table=self.parsedQuery.query_tree.val,
             conditions=[
                 Condition(
                     column=cond.childs[0].val,
                     operation=cond.childs[1].val,
                     operand=cond.childs[2].val
                 )
-                for cond in parsed_query.query_tree.childs if cond.type == "CONDITION"
+                for cond in self.parsedQuery.query_tree.childs if cond.type == "CONDITION"
             ]
         )
         return data_deletion
 
-    def ParsedQueryToSetIndex(parsed_query: ParsedQuery) -> Tuple[str, str, str]:
-        # TODO
-        pass
+    def ParsedQueryToSetIndex(self) -> Tuple[str, str, str, str]:
+        # Retreive index_name, table, and column
+        main_query = self.parsedQuery.query_tree.childs[0].childs[0].val
+        pattern = r"(\w+)\sON\s(\w+)\s\(\s(\w+)\s\)"
+        match = re.match(pattern, main_query)
+        if (match):
+            nama_index, table, column = match.groups()
+
+        # Retreive index_type
+        index_type = self.parsedQuery.query_tree.childs[0].childs[0].childs[0].val
+        return table, column, index_type, nama_index
 
     def printResult(self, data:map):
-        # print("printResult")
-        # print(len(data))
-        # print(data)
         if not data:
             print("No data to display.")
             return
@@ -340,14 +329,14 @@ class QueryProcessor:
         queries = query.split(';')
         return [q.strip() for q in queries if q.strip()]
     
-    def handle_rollback(self, transaction_id: int):
+    def handle_rollback(self):
         """
         Handle rollback when FailureRecovery calls rollback.
 
         Parameters:
             transaction_id (int): The ID of the transaction to rollback.
         """
-        undo_list = self.rm.write_log_entry(transaction_id, "ABORT", None, None, None)
+        undo_list = self.rm.write_log_entry(self.current_transactionId, "ABORT", None, None, None)
 
 
         # Retrieve undo instructions from FailureRecovery
@@ -432,19 +421,6 @@ class QueryProcessor:
         else:
             for child in tree.childs:
                 return self.__getTables(child)
-
-    # def __makeCondition(self, tree: QueryTree) -> List[Condition]:
-    #     # Make Condition from Query Tree
-    #     cons = self.__getTables(tree)
-    #     ret = []
-    #     for con in cons:
-    #         if "." in con[0]:
-    #             column = con.split(".")[1]
-    #         else:
-    #             column = con
-    #         temp = Condition(column, con[1], con[2])
-    #         ret.append(temp)
-    #     return ret
     
     def __getData(self, data_retrieval: DataRetrieval) -> dict|Exception:
         # fetches the required rows of data from the storage manager
@@ -465,7 +441,7 @@ class QueryProcessor:
             data = self.sm.read_block(data_retrieval, self.db_name, self.current_transactionId)
             return data.data
         except Exception as e:
-            self.handle_rollback(self.current_transactionId)
+            self.handle_rollback()
             return e
     
     def __transCond(self, cond: str) -> list:
