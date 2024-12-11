@@ -16,6 +16,11 @@ class QueryValidator:
         "varchar": {"char", "varchar"},
     }
 
+    def normalize_type(self, column_type: str) -> str:
+        if column_type.startswith("varchar"):
+            return "varchar"
+        return column_type
+
     def get_attribute_types(self, where_clause: str, database_name: str, table_arr: list[str]) -> dict:
         storage_engine = StorageEngine()
         # Regex to find comparisons (attribute and literal pairs)
@@ -76,6 +81,8 @@ class QueryValidator:
             left_type = attribute_types.get(left_attr)
             if left_type is None:
                 raise ValueError(f"Unknown attribute: {left_attr}")
+            
+            left_type = self.normalize_type(left_type)
 
             # Determine the type of the right attribute or literal
             if right_attr in attribute_types:  # It's an attribute
@@ -90,6 +97,8 @@ class QueryValidator:
                         right_type = self.__infer_literal_type(right_attr)
                     except ValueError:
                         raise ValueError(f"Unknown literal type for value: {right_attr}")
+            
+            right_type = self.normalize_type(right_type)
 
             # Check if both types are supported
             if left_type not in self.SUPPORTED_TYPES or right_type not in self.SUPPORTED_TYPES:
