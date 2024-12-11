@@ -42,8 +42,8 @@ class QueryProcessor:
                 self.sm.save()
                 self.current_transactionId = None
 
-            elif(query.upper() == "PRINT"):
-                self.printResult(tables, rows)
+            # elif(query.upper() == "PRINT"):
+            #     self.printResult(tables, rows)
 
             else:
                 self.parsedQuery = self.qo.parse_query(query,'database1') #hardcode
@@ -74,10 +74,18 @@ class QueryProcessor:
         if not tree.childs:
             if len(select) > 0 and len(where) > 0:
                 cond = self.__makeCondition(where)
-                dataRetriev = DataRetrieval([tree.val], select, cond)
+                tempSelect = []
+                for col in select:
+                    tempSelect.append(col.split(".")[1])
+                select = tempSelect
+                dataRetriev = DataRetrieval([tree.val], tempSelect, cond)
                 return self.__getData(dataRetriev)
             elif len(select) > 0:
-                dataRetriev = DataRetrieval([tree.val], select, [])
+                tempSelect = []
+                for col in select:
+                    tempSelect.append(col.split(".")[1])
+                select = tempSelect
+                dataRetriev = DataRetrieval([tree.val], tempSelect, [])
                 return self.__getData(dataRetriev)
             elif len(where) > 0:
                 cond = self.__makeCondition(where)
@@ -435,7 +443,7 @@ class QueryProcessor:
                 if not response.allowed:
                     raise Exception(f"Transaction {self.current_transactionId} cannot read table {table}")
             data = self.sm.read_block(data_retrieval, self.db_name, self.current_transactionId)
-            return data.data
+            return data.get_data()
         except Exception as e:
             self.handle_rollback(self.current_transactionId)
             return e
