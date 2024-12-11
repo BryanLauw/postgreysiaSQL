@@ -62,17 +62,11 @@ class QueryProcessor:
                     # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
                     b = self.sm.write_block(write, "database1", self.current_transactionId) # hardcode
                 elif self.parsedQuery.query_tree.val == "SELECT":
-                    # data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
-                    # temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
-                    # temp = self.__orderBy(temp, "id", True) # hardcode
-                    # result = self.printResult(temp)
-                    # print(f"Read {len(temp)} row(s).")
-                    # return result
-
+                    # print(self.parsedQuery.query_tree)
                     result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
                     ret_val = self.printResult(result)
                     print(f"Read {len(result)} row(s).")
-                    return ret_val
+                    return ret_val                            
                 # elif self.parsedQuery.query_tree.val == "SET INDEX":
                 #   index = self.ParsedQueryToSetIndex(self.parsedQuery)
                 #   sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
@@ -80,32 +74,14 @@ class QueryProcessor:
 
     def  evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
         if not tree.childs:
-            if len(select) > 0 and len(where) > 0:
-                cond = self.__makeCondition(where)
-                select = self.removeTablename(select)
-                dataRetriev = DataRetrieval([tree.val], select, cond)
-                temp = self.transformData(tree.val,self.__getData(dataRetriev))
-                # print(temp)
-                return temp
-            elif len(select) > 0:
-                select = self.removeTablename(select)
-                dataRetriev = DataRetrieval([tree.val], select, [])
-                temp = self.transformData(tree.val,self.__getData(dataRetriev))
-                # print(temp)
-                return temp
-            elif len(where) > 0:
-                cond = self.__makeCondition(where)
-                dataRetriev = DataRetrieval([tree.val], [], cond)
-                temp = self.transformData(tree.val,self.__getData(dataRetriev))
-                # print(temp)
-                return temp
-            else:
-                dataRetriev = DataRetrieval([tree.val], [], [])
-                temp = self.transformData(tree.val,self.__getData(dataRetriev))
-                # print(temp)
-                return temp
+            condition = []
+            if len(where) > 0:
+                condition = self.__makeCondition(where)
+            select = self.removeTablename(select)
+            dataRetriev = DataRetrieval([tree.val], select, condition)
+            temp = self.transformData(tree.val,self.__getData(dataRetriev))
+            return temp
         else:
-            # print("masukjoin")
             if tree.type == "JOIN" or tree.type == "NATURAL JOIN":
                 temp = []
                 if tree.type == "JOIN":
@@ -114,31 +90,35 @@ class QueryProcessor:
                         self.evaluateSelectTree(tree.childs[1], [], []),
                         tree.val
                     )
-                    # return temp
                 elif tree.type == "NATURAL JOIN":
                     temp = self.__naturalJoin(
                         "temp1", "temp2",
                         self.evaluateSelectTree(tree.childs[0], [], []),
-                        self.evaluateSelectTree(tree.childs[1], [], []))
-                    # return temp
-                # print("evalselect")
-                # print(select)
+                        self.evaluateSelectTree(tree.childs[1], [], [])
+                        )
                 if len(select) > 0 and len(where) > 0:
                     temp = self.__filterSelect(temp, select)
                     temp = self.__filterWhere(temp, where)
-                    return temp
                 elif len(select) > 0:
                     temp = self.__filterSelect(temp, select)
-                    return temp
                 elif len(where) > 0:
                     temp = self.__filterWhere(temp, where)
-                    return temp
-                else:
-                    return temp
+                return temp
+            elif tree.type == "ORDER BY":
+                parse = tree.val.split()
+                order_by_column = parse[0]
+                is_asc = parse[1] == "ASC"
+                return self.__orderBy(
+                    self.evaluateSelectTree(tree.childs[0], select, where),
+                    order_by_column,
+                    is_asc
+                )
+            elif tree.type == "LIMIT":
+                limit = int(tree.val)
+                return self.evaluateSelectTree(tree.childs[0], select, where)[:limit]
             else:
                 if tree.type == "SELECT":
                     select = tree.val
-                    # print(select)
                 elif tree.type == "WHERE":
                     where = tree.val
                 for child in tree.childs:
@@ -158,11 +138,6 @@ class QueryProcessor:
         return result
     
     def __filterSelect(self, data: List[dict], select: list[str]) -> List[dict]:
-        
-        # filter select
-        # column = [col.split(".")[1] for col in select]
-        # print("filterselect")
-        # print(select)
         return [{key: value for key, value in row.items() if key in select} for row in data]
     
     def __evalWhere(self, row:map, conds:list[Condition]):
@@ -605,7 +580,7 @@ class QueryProcessor:
         except Exception as e:
             return e
         
-    def __orderBy(self, data: List[dict], order_by: str, is_desc: bool) -> List[dict]:
+    def __orderBy(self, data: List[dict], order_by: str, is_asc: bool) -> List[dict]:
         # order the data based on the given attribute
         # data = [
         #     {"id": "1", "name": "Alice"},
@@ -620,10 +595,10 @@ class QueryProcessor:
         #     {"id": "3", "name": "Charlie"}
         # ]
 
-        if is_desc:
-            return sorted(data, key=lambda x: x[order_by], reverse=True)
-        else:
+        if is_asc:
             return sorted(data, key=lambda x: x[order_by])
+        else:
+            return sorted(data, key=lambda x: x[order_by], reverse=True)
 
     def signal_handler(self, signum, frame):
         """
