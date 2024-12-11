@@ -3,6 +3,7 @@ import os
 import copy
 from StorageManager.Bplus import BPlusTree
 from StorageManager.Hash import HashTable
+from QueryProcessor.Rows import Rows
 
 class Condition:
     valid_operations = ["=", "<>", ">", ">=", "<", "<=", "!"] # untuk sementara "!" berarti no operation
@@ -92,13 +93,16 @@ class StorageEngine:
     
     def load(self) -> None:
         try:
-            if not (os.path.isfile("datav4.dat")):
-                pickle.dump({}, open("datav4.dat", "wb"))
-            self.blocks = pickle.load(open("datav4.dat", "rb"))
+            if not (os.path.isfile("data.dat")):
+                pickle.dump({}, open("data.dat", "wb"))
+            self.blocks = pickle.load(open("data.dat", "rb"))
         except Exception as e:
             print(f"error, {str(e)}")
 
     def commit_buffer(self, transaction_id:int) -> None:
+        """
+        fungsi untuk commit transaction_id buat disave ke file utama
+        """
         try:
             tempBlocks = self.buffer.get(transaction_id, [])
             if tempBlocks != []:
@@ -121,8 +125,11 @@ class StorageEngine:
             self.indexes = {}
 
     def save(self) -> None:
+        """
+        bakal ngedump file utama di variabel ke file binary (data.dat)
+        """
         try:
-            pickle.dump(self.blocks, open("datav4.dat", "wb"))
+            pickle.dump(self.blocks, open("data.dat", "wb"))
         except Exception as e:
             print(f"error, {str(e)}")
 
@@ -133,6 +140,9 @@ class StorageEngine:
              print(f"error, {str(e)}")
 
     def create_database(self, database_name:str) -> bool:
+        """
+        bikin database baru, tinggal masuking string aja, misal "database1"
+        """
         if database_name in self.blocks:
             return Exception(f"Sudah ada database dengan nama {database_name}")
         self.blocks[database_name] = {}
@@ -140,9 +150,10 @@ class StorageEngine:
     
     def create_table(self, database_name:str, table_name:str, column_type:dict[str, str], informasi_tambahan:dict[str, list[str]]) -> bool|Exception:
         """
-        database_name tinggal string, misal "database1"
-        table_name tinggal string, misal "id_user"
-        column_type isinya dict[nama_column, tipe_column], misal {"id_user" : "INTEGER", "nama_user" : "VARCHAR(255)"} (tolong caps untuk tipenya, biar bisa diitung bytenya)
+        bikin tabel baru\n
+        database_name tinggal string, misal "database1"\n
+        table_name tinggal string, misal "id_user"\n
+        column_type isinya dict[nama_column, tipe_column], misal {"id_user" : "INTEGER", "nama_user" : "VARCHAR(255)"} (tolong caps untuk tipenya, biar bisa diitung bytenya)\n
         informasi_tambahan misal {"id_user" : ["PRIMARY KEY", "UNIQUE"], "nama_user" : ["UNIQUE", "FOREIGN KEY"]} 
         """
         if database_name in self.blocks:
@@ -164,6 +175,9 @@ class StorageEngine:
     
     def insert_data(self, database_name:str, table_name:str, data_insert:dict, transaction_id:int) -> bool|Exception:
         """
+        ngeinsert data baru. (Tidak menghandle duplicate data.)\n
+        database_name tinggal string, misal "database1"\n
+        table_name tinggal string, misal "id_user"\n
         data_insert tuh isinya kaya {"id_user" : 1, "nama_user" : "mas fuad"}
         """
         if database_name in self.blocks:
@@ -187,7 +201,13 @@ class StorageEngine:
         if column not in self.indexes[database_name][table_name]:
             self.indexes[database_name][table_name][column] = {}
 
-    def read_block(self, data_retrieval:DataRetrieval, database_name:str, transaction_id:int) -> dict|Exception:
+    def read_block(self, data_retrieval:DataRetrieval, database_name:str, transaction_id:int) -> Rows|Exception:
+        """
+        Bakal ngeread block dan akan mereturn tipe bentukan Row (liat QueryProcessor/Rows.py)\n
+        untuk argumennya silahkan liat tipe bentukan DataRetrieval di atas\n
+        akan mencoba mereturn data hasil edit transaction_id, jika tidak ada, akan direturn data default.\n
+        kalo mau ngambil data default, kasih transaction_id = -1 (atau angka apapun yang gaakan dipakai untuk transaction_id)
+        """
         # error handling
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")
@@ -209,13 +229,16 @@ class StorageEngine:
         # di bawah ini, udah pasti tidak ada error dari input
 
         # cross terlebih dahulu dari tabel-tabel yang dipilih
+
+        data_dibaca = self.buffer.get(transaction_id, copy.deepcopy(self.blocks))
+
         hasil_cross = []
-        for blocks in self.blocks[database_name][data_retrieval.table[0]]["values"]:
+        for blocks in data_dibaca[database_name][data_retrieval.table[0]]["values"]:
             for records in blocks:
                 hasil_cross.append(records) 
         for tabel_lainnya in data_retrieval.table[1:]:
             temp = []
-            for blocks in self.blocks[database_name][tabel_lainnya]["values"]:
+            for blocks in data_dibaca[database_name][tabel_lainnya]["values"]:
                 for records in blocks:
                     temp.append(records)
             temp_hasil = []
@@ -235,11 +258,12 @@ class StorageEngine:
             hasil_operasi = hasil_cross
 
         # lalu ambil hanya kolom yang diinginkan
-        # (STC) nanti harusnya return rows
-        hasil_akhir = [{key: d[key] for key in data_retrieval.column if key in d} for d in hasil_operasi]
-
+        if data_retrieval.column:
+            hasil_akhir = [{key: d[key] for key in data_retrieval.column if key in d} for d in hasil_operasi]
+        else: 
+            hasil_akhir = hasil_operasi
         # return akhir
-        return hasil_akhir
+        return Rows(hasil_akhir, len(hasil_akhir))
 
     def write_block(self, data_write: DataWrite, database_name: str, transaction_id: int) -> int | Exception:
         if database_name not in self.blocks:
