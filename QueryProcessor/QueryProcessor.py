@@ -52,21 +52,27 @@ class QueryProcessor:
                 #     self.parsedQuery = self.qo.parse_query(query, "database1")
                 # except Exception as e:
                 #     raise Exception(e)
-                result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
-                # print("exec")
-                # print(result)
-                self.printResult(result)
-                print(f"Read {len(result)} row(s).")
-                # if self.parsedQuery.query_tree.val == "UPDATE":
-                #     write = self.ParsedQueryToDataWrite(self.parsedQuery)
-                #     # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
-                #     b = self.sm.write_block(write, "database1", self.current_transactionId) # hardcode
-                # elif self.parsedQuery.query_tree.val == "SELECT":
-                #     data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
-                #     temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
-                #     temp = self.__orderBy(temp, "id", True) # hardcode
-                #     result = self.printResult(temp)
-                #     return result
+
+                # result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
+                # self.printResult(result)
+                # print(f"Read {len(result)} row(s).")
+
+                if self.parsedQuery.query_tree.val == "UPDATE":
+                    write = self.ParsedQueryToDataWrite(self.parsedQuery)
+                    # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
+                    b = self.sm.write_block(write, "database1", self.current_transactionId) # hardcode
+                elif self.parsedQuery.query_tree.val == "SELECT":
+                    # data_ret:DataRetrieval = self.ParsedQueryToDataRetrieval(self.parsedQuery.query_tree)
+                    # temp = self.sm.read_block(data_ret,self.db_name,self.current_transactionId)
+                    # temp = self.__orderBy(temp, "id", True) # hardcode
+                    # result = self.printResult(temp)
+                    # print(f"Read {len(temp)} row(s).")
+                    # return result
+
+                    result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
+                    ret_val = self.printResult(result)
+                    print(f"Read {len(result)} row(s).")
+                    return ret_val
                 # elif self.parsedQuery.query_tree.val == "SET INDEX":
                 #   index = self.ParsedQueryToSetIndex(self.parsedQuery)
                 #   sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
@@ -248,34 +254,33 @@ class QueryProcessor:
 
     def ParsedQueryToDataWrite(self, parsed_query: ParsedQuery) -> DataWrite:
         try:
-            table = parsed_query.query_tree.childs[0].val
-                
-            # Validate write access
-            response = self.cc.validate_object(table, self.current_transactionId, "write")
-            if not response.allowed:
-                raise Exception(f"Transaction {self.current_transactionId} cannot write to table {table}")
-        
             # Input: child (QueryTree with only where value)
             # Output: List of condition from child
+            # Function to retreive update condition (only and)
             def filter_condition(child: QueryTree) -> List[Condition]:
                 operator = r'(<=|>=|<>|<|>|=)'
                 where_val = child.val
                 match = re.split(operator, where_val, maxsplit=1)
                 parts = [part.strip() for part in match]
                 parts[2] = int(parts[2]) if parts[2].isdigit() else parts[2]
-                temp = Condition(parts[0].split(".")[1], parts[1], parts[2])
+                temp = Condition(parts[0], parts[1], parts[2])
                 if not child.childs:
                     return [temp]
                 else:
                     return [temp] + filter_condition(child.childs[0])
-            
+                
             # Get table name
             table = parsed_query.query_tree.childs[0].val
+                
+            # Validate write access
+            response = self.cc.validate_object(table, self.current_transactionId, "write")
+            if not response.allowed:
+                raise Exception(f"Transaction {self.current_transactionId} cannot write to table {table}")
 
             # Get new value
             new_value = parsed_query.query_tree.childs[0].childs[0].val
             match = re.split(r'=', new_value)
-            columns = match[0].strip().split(".")[1]
+            columns = match[0].strip()        
             new_value = match[1].strip().replace('"', '')
             
 
