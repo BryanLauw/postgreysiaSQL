@@ -1,8 +1,8 @@
 import pickle
 import os
 import copy
-from StorageManager.Bplus import BPlusTree
-from StorageManager.Hash import HashTable
+from Bplus import BPlusTree
+from Hash import HashTable
 
 class Condition:
     valid_operations = ["=", "<>", ">", ">=", "<", "<=", "!"] # untuk sementara "!" berarti no operation
@@ -332,9 +332,9 @@ class StorageEngine:
     
     def get_stats(self, database_name:str , table_name: str, block_size=4096) -> Statistic | Exception:
         if database_name not in self.blocks:
-            return Exception(f"Tidak ada database dengan nama {database_name}")
+            raise ValueError(f"Tidak ada database dengan nama {database_name}")
         if table_name not in self.blocks[database_name]:
-            return Exception(f"Tidak ada table dengan nama {table_name}")
+            raise ValueError(f"Tidak ada table dengan nama {table_name}")
         
         table = self.blocks[database_name][table_name]
         rows = table["values"]
