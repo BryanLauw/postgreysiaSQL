@@ -19,10 +19,10 @@ class QueryHelper:
         return new_query
     
     @staticmethod
-    def extract_table_and_aliases(from_tokens: list[str]) -> {dict,list[str]}:
+    def extract_table_and_aliases(table_tokens: list[str]) -> {dict,list[str]}:
         alias_map = {}
         attribute_arr = []
-        for token in from_tokens:
+        for token in table_tokens:
             if token in ["JOIN","NATURAL JOIN",","]:
                 continue
             
@@ -66,18 +66,55 @@ class QueryHelper:
                  query_components_value[comp] = QueryHelper.rewrite_with_alias(
                      query_components_value[comp], alias_map
                  )
+
+    @staticmethod
+    def extract_table_and_column_from_condition(condition: str) -> tuple:
+        match = re.match(r'([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\s*[=<>!]+\s*.+', condition)
+        if match:
+            table_name = match.group(1)  # Extract table name
+            column_name = match.group(2)  # Extract column name
+            return table_name, column_name
+        return None, None
     
     @staticmethod
-    def parse_where_clause(where_clause: str, current_node: QueryTree) -> QueryTree:
+    def parse_where_clause(where_clause: str, current_node: QueryTree, database_name: str) -> QueryTree:
+        storage_engine = StorageEngine()
+        # print(storage_engine.retrieve_table_of_database(database_name))
         # Tokenize the WHERE clause into conditions
         parsed_result = re.split(r'\sAND\s', where_clause)
         print("parsed", parsed_result)
 
         for parse in parsed_result:
-            parse_node = QueryTree(type="WHERE", val=parse)
-            current_node.add_child(parse_node)
-            parse_node.add_parent(current_node)
-            current_node = parse_node
+            if "OR" in parse:
+                sub_conditions = re.split(r'\sOR\s', parse)
+                for sub_condition in sub_conditions:
+                    sub_condition = sub_condition.strip()
+                    table_name, column = QueryHelper.extract_table_and_column_from_condition(sub_condition)
+                    # print(table_name, column)
+                    try:
+                        if (storage_engine.is_hash_index_in_block(database_name, table_name, column) or 
+                            storage_engine.is_bplus_index_in_block(database_name, table_name, column)):
+                            method = "INDEX SCAN"
+                    except Exception as e:
+                        method = "FULL SCAN"
+                parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                current_node.add_child(parse_node)
+                parse_node.add_parent(current_node)
+                current_node = parse_node
+            else:
+                parse = parse.strip()
+                table_name, column = QueryHelper.extract_table_and_column_from_condition(parse)
+                # print(table_name, column)
+                try:
+                    if (storage_engine.is_hash_index_in_block(database_name, table_name, column) or 
+                        storage_engine.is_bplus_index_in_block(database_name, table_name, column)):
+                        method = "INDEX SCAN"
+                except Exception as e:
+                    method = "FULL SCAN"
+                parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                current_node.add_child(parse_node)
+                parse_node.add_parent(current_node)
+                current_node = parse_node
         return parse_node
 
     @staticmethod

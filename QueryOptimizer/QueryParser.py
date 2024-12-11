@@ -13,11 +13,11 @@ class QueryParser:
     # Valid Keywords
     keywords = [
         'SELECT', 'DELETE', 'FROM', 'WHERE', 'JOIN', 'NATURAL', 'ON', 'ORDER', 
-        'BY', 'LIMIT', 'UPDATE', 'SET', 'AS', 'DESC' , 'ASC'
+        'BY', 'LIMIT', 'UPDATE', 'SET', 'AS', 'DESC' , 'ASC', 'CREATE','INDEX','USING'
     ]
     
     # Main Components
-    components = ["SELECT", "UPDATE", "DELETE", "FROM", "SET", "WHERE", "ORDER BY", "LIMIT"]
+    components = ["SELECT", "UPDATE", "DELETE","CREATE","INDEX", "USING","FROM", "SET", "WHERE", "ORDER BY", "LIMIT"]
     
     def __init__(self, dfa_path: str):
         self.start_state = ""
@@ -139,7 +139,7 @@ class QueryParser:
                 rule_token = rule[0]
                 if((token == rule_token) or
                    (rule_token == "<ATTR>" and isAttribute(token)) or
-                   (rule_token == "<WORD>" and token.isalpha()) or 
+                   (rule_token == "<WORD>" and re.match(r'^[a-zA-Z_]+$', token)) or 
                    (rule_token == "<X>" and (isString(token) or isAttribute(token) or isNumber(token))) or
                    (rule_token == "<N>" and isNumber(token)) or 
                    (rule_token == "<CO>" and token in self.CO) or
@@ -197,6 +197,8 @@ class QueryParser:
         return values.strip()
 
     def extract_ORDERBY(self,values: str):
+        if "ASC" not in values and "DESC" not in values:
+            values += " ASC"
         return values.strip()
 
     def extract_LIMIT(self,values: str):
@@ -229,6 +231,10 @@ class QueryParser:
             extracted = self.extract_UPDATE(extracted)
         elif before == "SET":
             extracted = self.extract_SET(extracted)
+        elif before == "CREATE":
+            extracted = after
+        else:
+            extracted = extracted.strip()
         return extracted
     
     def get_components_values(self,query: str):
