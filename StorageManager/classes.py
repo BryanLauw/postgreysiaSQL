@@ -1,8 +1,8 @@
 import pickle
 import os
 import copy
-from Bplus import BPlusTree
-from Hash import HashTable
+from StorageManager.Bplus import BPlusTree
+from StorageManager.Hash import HashTable
 
 class Condition:
     valid_operations = ["=", "<>", ">", ">=", "<", "<=", "!"] # untuk sementara "!" berarti no operation
