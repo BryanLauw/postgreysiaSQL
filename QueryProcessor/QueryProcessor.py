@@ -53,8 +53,8 @@ class QueryProcessor:
                 # except Exception as e:
                 #     raise Exception(e)
                 result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
-                print("exec")
-                print(result)
+                # print("exec")
+                # print(result)
                 self.printResult(result)
                 print(f"Read {len(result)} row(s).")
                 # if self.parsedQuery.query_tree.val == "UPDATE":
@@ -79,40 +79,44 @@ class QueryProcessor:
                 select = self.removeTablename(select)
                 dataRetriev = DataRetrieval([tree.val], select, cond)
                 temp = self.transformData(tree.val,self.__getData(dataRetriev))
-                print(temp)
+                # print(temp)
                 return temp
             elif len(select) > 0:
                 select = self.removeTablename(select)
                 dataRetriev = DataRetrieval([tree.val], select, [])
                 temp = self.transformData(tree.val,self.__getData(dataRetriev))
-                print(temp)
+                # print(temp)
                 return temp
             elif len(where) > 0:
                 cond = self.__makeCondition(where)
                 dataRetriev = DataRetrieval([tree.val], [], cond)
                 temp = self.transformData(tree.val,self.__getData(dataRetriev))
-                print(temp)
+                # print(temp)
                 return temp
             else:
                 dataRetriev = DataRetrieval([tree.val], [], [])
                 temp = self.transformData(tree.val,self.__getData(dataRetriev))
-                print(temp)
+                # print(temp)
                 return temp
         else:
+            # print("masukjoin")
             if tree.type == "JOIN" or tree.type == "NATURAL JOIN":
+                temp = []
                 if tree.type == "JOIN":
                     temp = self.__joinOn(
                         self.evaluateSelectTree(tree.childs[0], [], []),
                         self.evaluateSelectTree(tree.childs[1], [], []),
                         tree.val
                     )
-                    return temp
+                    # return temp
                 elif tree.type == "NATURAL JOIN":
                     temp = self.__naturalJoin(
                         "temp1", "temp2",
                         self.evaluateSelectTree(tree.childs[0], [], []),
                         self.evaluateSelectTree(tree.childs[1], [], []))
-                    return temp
+                    # return temp
+                # print("evalselect")
+                # print(select)
                 if len(select) > 0 and len(where) > 0:
                     temp = self.__filterSelect(temp, select)
                     temp = self.__filterWhere(temp, where)
@@ -128,6 +132,7 @@ class QueryProcessor:
             else:
                 if tree.type == "SELECT":
                     select = tree.val
+                    # print(select)
                 elif tree.type == "WHERE":
                     where = tree.val
                 for child in tree.childs:
@@ -147,9 +152,12 @@ class QueryProcessor:
         return result
     
     def __filterSelect(self, data: List[dict], select: list[str]) -> List[dict]:
+        
         # filter select
-        column = [col.split(".")[1] for col in select]
-        return [{key: value for key, value in row.items() if key in column} for row in data]
+        # column = [col.split(".")[1] for col in select]
+        # print("filterselect")
+        # print(select)
+        return [{key: value for key, value in row.items() if key in select} for row in data]
     
     def __evalWhere(self, row:map, conds:list[Condition]):
         for cond in conds:
@@ -297,9 +305,9 @@ class QueryProcessor:
         pass
 
     def printResult(self, data:map):
-        print("printResult")
-        print(len(data))
-        print(data)
+        # print("printResult")
+        # print(len(data))
+        # print(data)
         if not data:
             print("No data to display.")
             return
