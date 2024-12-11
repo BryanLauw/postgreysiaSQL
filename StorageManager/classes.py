@@ -182,7 +182,7 @@ class StorageEngine:
         """
         if database_name in self.blocks:
             if table_name in self.blocks[database_name]:
-                self.buffer[transaction_id] = copy.copy(self.blocks)
+                self.buffer[transaction_id] = self.buffer.get(transaction_id, copy.deepcopy(self.blocks))
                 temp = self.buffer[transaction_id][database_name][table_name]["values"]
                 # (STC) harus ngisi record yang kosong juga (misal kosong di tengah2)
                 if (len(temp[len(temp)-1]) >= self.buffer[transaction_id][database_name][table_name]["max_record"]): # blocks paling akhirnya penuh
@@ -266,6 +266,12 @@ class StorageEngine:
         return Rows(hasil_akhir, len(hasil_akhir))
 
     def write_block(self, data_write: DataWrite, database_name: str, transaction_id: int) -> int | Exception:
+        """
+        Bakal ngewrite block yang masuk condition (operasinya AND) dan akan mereturn berapa row affected\n
+        untuk argumennya silahkan liat tipe bentukan DataWrite di atas\n
+        akan mencoba mengedit data hasil transaksi sebelumnya di transaction_id\n
+        jika tidak ada, akan mengedit data default dan hasilnya disimpan di buffer transaction_id
+        """
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")
         
@@ -286,12 +292,12 @@ class StorageEngine:
             # Tidak ada error, lanjutkan proses untuk tabel ini
             affected_rows = 0
             data_baru = []
-
-            for block in self.blocks[database_name][table]["values"]:
+            tempData = self.buffer.get(transaction_id, copy.deepcopy(self.blocks))
+            for block in tempData[database_name][table]["values"]:
                 block_baru = []
                 for record in block:
                     update_row = False
-                    recordBaru = copy.copy(record)
+                    recordBaru = copy.deepcopy(record)
                     if data_write.conditions:
                         # Cek apakah row memenuhi semua kondisi
                         update_row = all(kondisi.evaluate(recordBaru[kondisi.column]) for kondisi in data_write.conditions)
@@ -308,9 +314,9 @@ class StorageEngine:
                     block_baru.append(recordBaru)
                 data_baru.append(block_baru)
 
-            self.buffer[transaction_id] = copy.deepcopy(self.blocks)
-            self.buffer[transaction_id][database_name][table]["values"] = data_baru
-            
+            tempData[database_name][table]["values"] = data_baru
+            self.buffer[transaction_id] = tempData
+
             affected_rows_total += affected_rows  # Tambahkan jumlah baris yang diubah untuk tabel ini
         
         print(f"Data berhasil diupdate, total {affected_rows_total} baris diubah di semua tabel")
@@ -318,6 +324,12 @@ class StorageEngine:
 
 
     def delete_block(self, data_deletion:DataDeletion, database_name:str, transaction_id:int) -> int:
+        """
+        Bakal ngedelete data yang masuk condition (operasinya AND) dan akan mereturn berapa row affected\n
+        untuk argumennya silahkan liat tipe bentukan DataDeletion di atas\n
+        akan mencoba mengdelete data hasil transaksi sebelumnya di transaction_id\n
+        jika tidak ada, akan mengdelete data default dan hasilnya disimpan di buffer transaction_id
+        """
         # error handling
         if database_name not in self.blocks:
             return Exception(f"Tidak ada database dengan nama {database_name}")  
@@ -336,7 +348,8 @@ class StorageEngine:
         # seharusnya tidak ada error di sini
         data_baru = []
         affected_row = 0
-        for block in self.blocks[database_name][data_deletion.table]["values"]:
+        tempData = self.buffer.get(transaction_id, copy.deepcopy(self.blocks))
+        for block in tempData[database_name][data_deletion.table]["values"]:
             block_baru = []
             for record in block:
                 if data_deletion.conditions:
@@ -349,8 +362,9 @@ class StorageEngine:
                     block_baru.append(record)
             data_baru.append(block_baru)
         
-        self.buffer[transaction_id] = copy.deepcopy(self.blocks)
-        self.buffer[transaction_id][database_name][data_deletion.table]["values"] = data_baru 
+        # self.buffer[transaction_id] = copy.deepcopy(self.blocks)
+        tempData[database_name][data_deletion.table]["values"] = data_baru 
+        self.buffer[transaction_id] = tempData
         print(f"Data berhasil dihapus, {affected_row} baris dihapus")
         return affected_row
     
@@ -551,7 +565,9 @@ class StorageEngine:
         self.insert_hash_tree(database_name,table_name,column,key,block_index,offset,transaction_id)
 
     def debug(self):
+        """cuma fungsi debug, literally ngeprint variabel"""
         print(self.blocks)
 
     def debug_indexes(self):
+        """cuma fungsi debug, literally ngeprint variabel"""
         print(self.indexes)
