@@ -47,7 +47,6 @@ class QueryProcessor:
                 # self.rm.start_transaction(self.current_transactionId)
                 
             elif(query.upper() == "COMMIT" or query.upper() == "COMMIT TRANSACTION"):
-                if client_state.get("on_begin", False):  # Commit only if a transaction is active
                     self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
                     self.cc.end_transaction(self.current_transactionId)
                     self.sm.commit_buffer(self.current_transactionId)
@@ -55,9 +54,7 @@ class QueryProcessor:
                     self.current_transactionId = None
                     client_state["on_begin"] = False
                     client_state["transactionId"] = None
-                else:
-                    print("No active transaction to commit.")
-
+                    
             # elif(query.upper() == "PRINT"):
             #     self.printResult(tables, rows)
 
