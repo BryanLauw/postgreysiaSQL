@@ -47,14 +47,16 @@ class QueryProcessor:
                 # self.rm.start_transaction(self.current_transactionId)
                 
             elif(query.upper() == "COMMIT" or query.upper() == "COMMIT TRANSACTION"):
-                    self.rm.write_log_entry(self.current_transactionId, "COMMIT", None, None, None)
-                    self.cc.end_transaction(self.current_transactionId)
-                    self.sm.commit_buffer(self.current_transactionId)
+                    transaction_id = client_state["transactionId"]
+                    print("transaction id for commit: ", transaction_id)
+                    self.rm.write_log_entry(transaction_id, "COMMIT", None, None, None)
+                    self.cc.end_transaction(transaction_id)
+                    self.sm.commit_buffer(transaction_id)
                     self.sm.save()
                     self.current_transactionId = None
                     client_state["on_begin"] = False
                     client_state["transactionId"] = None
-                    
+
             # elif(query.upper() == "PRINT"):
             #     self.printResult(tables, rows)
 
@@ -102,7 +104,7 @@ class QueryProcessor:
                                 self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_lama, write.new_value[0])
                                 
                             except Exception as e:
-                                self.handle_rollback()
+                                self.handle_rollback(transaction_id)
                                 print(e) 
                         elif self.parsedQuery.query_tree.val == "SELECT":
                             # print(self.parsedQuery.query_tree)
@@ -118,6 +120,7 @@ class QueryProcessor:
                         retry = False
                     except Exception as e:
                         print(f"Error during query execution: {e}. Rolling back.")
+                        transaction_id = client_state["transactionId"]
                         self.handle_rollback(transaction_id)
 
                         # Restart transaction after rollback
@@ -368,14 +371,15 @@ class QueryProcessor:
         queries = query.split(';')
         return [q.strip() for q in queries if q.strip()]
     
-    def handle_rollback(self):
+    def handle_rollback(self, transaction_id):
         """
         Handle rollback when FailureRecovery calls rollback.
 
         Parameters:
             transaction_id (int): The ID of the transaction to rollback.
         """
-        undo_list = self.rm.write_log_entry(self.current_transactionId, "ABORT", None, None, None)
+        print("rollback transaction id: " ,transaction_id)
+        undo_list = self.rm.write_log_entry(transaction_id, "ABORT", None, None, None)
 
 
         # Retrieve undo instructions from FailureRecovery
@@ -399,7 +403,7 @@ class QueryProcessor:
                 new_value=[old_value]
             )
 
-            result = self.sm.write_block(data_write, db, self.current_transactionId)
+            result = self.sm.write_block(data_write, db, transaction_id)
             if isinstance(result, Exception):
                 print(f"Error during rollback: {result}")
             else:
@@ -631,6 +635,7 @@ class QueryProcessor:
         """
         Custom signal handler to handle SIGINT and SIGSEV.
         """
+        print("masuk signal")
         self.cc.end_transaction(self.current_transactionId)
         self.sm.commit_buffer(self.current_transactionId)
         self.sm.save()
