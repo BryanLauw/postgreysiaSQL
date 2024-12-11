@@ -4,6 +4,7 @@ from ConcurrencyControlManager.ConcurrencyControlManager import *
 from QueryOptimizer.OptimizationEngine import *
 from StorageManager.classes import *
 import re
+from typing import Tuple
 
 import FailureRecovery.main as FailureRecovery
     
@@ -53,6 +54,7 @@ class QueryProcessor:
                 #     raise Exception(e)
                 result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
                 self.printResult(result)
+                print(f"Read {len(result)} row(s).")
                 # if self.parsedQuery.query_tree.val == "UPDATE":
                 #     write = self.ParsedQueryToDataWrite(self.parsedQuery)
                 #     # b = self.sm.write_block(write, self.db_name, self.current_transactionId)
@@ -63,6 +65,10 @@ class QueryProcessor:
                 #     temp = self.__orderBy(temp, "id", True) # hardcode
                 #     result = self.printResult(temp)
                 #     return result
+                # elif self.parsedQuery.query_tree.val == "SET INDEX":
+                #   index = self.ParsedQueryToSetIndex(self.parsedQuery)
+                #   sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
+    
 
     def evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
         if not tree.childs:
@@ -261,6 +267,10 @@ class QueryProcessor:
         )
         return data_deletion
 
+    def ParsedQueryToSetIndex(parsed_query: ParsedQuery) -> Tuple[str, str, str]:
+        # TODO
+        pass
+
     def printResult(self, data:map):
         if not data:
             print("No data to display.")
@@ -425,7 +435,7 @@ class QueryProcessor:
                 if not response.allowed:
                     raise Exception(f"Transaction {self.current_transactionId} cannot read table {table}")
             data = self.sm.read_block(data_retrieval, self.db_name, self.current_transactionId)
-            return data
+            return data.data
         except Exception as e:
             self.handle_rollback(self.current_transactionId)
             return e
