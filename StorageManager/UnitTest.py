@@ -1,30 +1,52 @@
-from classes import *
+from StorageManager.classes import *
 
 storageEngine = StorageEngine()
-kondisinya = Condition("id", "=", 1)
 
+# storageEngine.debug()
 
-
-
-tempDataRetriev = DataRetrieval(["users", "products"], ["id", "username"], [kondisinya])
-a = storageEngine.read_block(tempDataRetriev, "database1")
+kondisinya = Condition("nama_user", "=", "Agus Maxwell")
+temp = DataRetrieval(["users"], ["id_user", "nama_user"], [kondisinya])
+print(storageEngine.read_block(temp, "database1", 1))
+tempDataRetriev = DataRetrieval(["users", "products"], ["id_user", "nama_user"], [kondisinya])
+a = storageEngine.read_block(tempDataRetriev, "database1", 3)
 print(a)
 
-tempDataWrite = DataWrite(
-    table="users",               # Hanya satu tabel
-    column=["username"],         # Kolom yang akan diupdate
-    conditions=[kondisinya],     # Kondisi update
-    new_value=["updated_user"]   # Nilai baru untuk kolom username
-)
 
-# Operasi Write Block
-b = storageEngine.write_block(tempDataWrite, "database1")
-print("Jumlah baris yang diupdate:", b)
-print("After Write", storageEngine.read_block(tempDataRetriev,'database1'))
-# Debugging untuk melihat isi storage
-storageEngine.debug()
-# tempDataDelete = DataDeletion("users", [kondisinya])
-# b = storageEngine.delete_block(tempDataDelete, "database1")
+print("\n\nskema edit: ")
+tempDataWrite = DataWrite(
+    table=["users"],               # Hanya satu tabel
+    column=["nama_user"],         # Kolom yang akan diupdate
+    conditions=[kondisinya],     # Kondisi update
+    new_value=["Agus Minwell"]   # Nilai baru untuk kolom username
+)
+kondisinya = Condition("nama_user", "=", "Agus Maxwell")
+temp = DataRetrieval(["users"], [], [kondisinya])
+print(storageEngine.read_block(temp, "database1", 0))
+# # Operasi Write Block
+storageEngine.write_block(tempDataWrite, "database1",1)
+
+print(storageEngine.read_block(temp, "database1", 0))
+print("disini masih tetap agus maxwell, karena belum dicommit")
+storageEngine.commit_buffer(1)
+print("disini udah dicommit : ", storageEngine.read_block(temp, "database1", 0), "(Agus Maxwell udah diganti jadi Agus Minwell)")
+
+# ada 1 
+
+print("\n\nskema dihapus: ")
+kondisinya = Condition("nama_user", "=", "Agus Minwell")
+temp = DataRetrieval(["users"], ["id_user", "nama_user"], [kondisinya])
+print(storageEngine.read_block(temp, "database1", 0))
+# # print("After Write", storageEngine.read_block(tempDataRetriev,'database1'))
+# # Debugging untuk melihat isi storage
+# storageEngine.debug()
+tempDataDelete = DataDeletion("users", [kondisinya])
+b = storageEngine.delete_block(tempDataDelete, "database1", 4)
+print("tetapi ketika dicari kembali, datanya masih ada")
+print(storageEngine.read_block(temp, "database1", 0))
+print("belum dicommit soalnya")
+print("nah kalo dicommit")
+storageEngine.commit_buffer(4)
+print(storageEngine.read_block(temp, "database1", 0))
 # print(b)
 # storageEngine.debug()
 

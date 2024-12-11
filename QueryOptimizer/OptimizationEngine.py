@@ -4,18 +4,18 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from StorageManager.classes import Statistic, StorageEngine
 
-from QueryParser import QueryParser
-from QueryTree import ParsedQuery, QueryTree
-from QueryHelper import *
+from .QueryParser import QueryParser
+from .QueryTree import ParsedQuery, QueryTree
+from .QueryHelper import *
 from typing import Callable, Union
-from QueryValidator import QueryValidator
-from QueryCost import QueryCost
+from .QueryValidator import QueryValidator
+from .QueryCost import QueryCost
 from queue import Queue
-from QueryOptimizer import QueryOptimizer
+from .QueryOptimizer import QueryOptimizer
 
 class OptimizationEngine:
     def __init__(self, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        self.QueryParser = QueryParser("dfa.txt")
+        self.QueryParser = QueryParser("QueryOptimizer/dfa.txt")
         self.QueryValidator = QueryValidator()
         self.QueryOptimizer = QueryOptimizer()
         self.get_stats = get_stats
@@ -56,7 +56,6 @@ class OptimizationEngine:
                 
         # Rewrite alias with direct table's name for simplicity
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
-        
         # Get attributes and validate their existence
         self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
 

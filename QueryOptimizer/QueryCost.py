@@ -2,7 +2,7 @@ from typing import Callable, Union
 from math import prod
 from time import sleep
 from StorageManager.classes import *
-from QueryTree import *
+from .QueryTree import *
 
 class QueryCost:
 

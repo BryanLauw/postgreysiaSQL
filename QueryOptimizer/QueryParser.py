@@ -1,4 +1,4 @@
-from QueryHelper import *
+from .QueryHelper import *
 
 class QueryParser:    
     # Math Operator (MO)

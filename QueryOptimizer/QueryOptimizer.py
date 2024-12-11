@@ -5,11 +5,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from StorageManager.classes import Statistic, StorageEngine
 
-from QueryParser import QueryParser
-from QueryTree import ParsedQuery, QueryTree
-from QueryHelper import *
+from .QueryParser import QueryParser
+from .QueryTree import ParsedQuery, QueryTree
+from .QueryHelper import *
 from typing import Callable, Union
-from QueryValidator import QueryValidator
+from .QueryValidator import QueryValidator
 
 class QueryOptimizer:
 

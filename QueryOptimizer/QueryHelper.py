@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from StorageManager.classes import Statistic, StorageEngine
-from QueryTree import ParsedQuery, QueryTree
+from .QueryTree import ParsedQuery, QueryTree
 import re
 from typing import List, Union, Dict, Callable
 

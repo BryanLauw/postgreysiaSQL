@@ -6,3 +6,6 @@ class Rows(Generic[T]):
     def __init__(self, data: List[T], rows_count: int):
         self.data = data
         self.rows_count = rows_count
+
+    def get_data(self):
+        return self.data
