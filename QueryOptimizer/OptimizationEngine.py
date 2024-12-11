@@ -52,10 +52,14 @@ class OptimizationEngine:
             self.QueryValidator.validate_aliases(query_components_value, alias_map, table_arr)
         
         # Validate wrong tables
-        self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
+        list_attributes = self.QueryValidator.validate_tables(table_arr,database_name,self.get_stats)
+        
+        if "SELECT" in query_components_value and query_components_value["SELECT"][0] == "*":
+            query_components_value["SELECT"] = list_attributes
                 
         # Rewrite alias with direct table's name for simplicity
         QueryHelper.rewrite_components_alias(query_components_value,alias_map)
+
         # Get attributes and validate their existence
         self.QueryValidator.extract_and_validate_attributes(query_components_value, database_name,self.get_stats, table_arr)
 
@@ -120,6 +124,12 @@ class OptimizationEngine:
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
+            
+        if "USING" in components:
+            where_tree = QueryTree(type="USING", val=components["USING"])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
 
         # if "DELETE" in components:
         #     where_tree = QueryTree(type="DELETE", val=components["DELETE"])
@@ -129,7 +139,7 @@ class OptimizationEngine:
         
         if "WHERE" in components:
             # use this if you want to separate the childs
-            where_tree = QueryHelper.parse_where_clause(components["WHERE"], top)
+            where_tree = QueryHelper.parse_where_clause(components["WHERE"], top, database_name)
             top = where_tree
 
         if "FROM" in components:
