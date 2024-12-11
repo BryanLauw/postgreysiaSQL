@@ -53,6 +53,8 @@ class QueryProcessor:
                 # except Exception as e:
                 #     raise Exception(e)
                 result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
+                print("exec")
+                print(result)
                 self.printResult(result)
                 print(f"Read {len(result)} row(s).")
                 # if self.parsedQuery.query_tree.val == "UPDATE":
@@ -100,17 +102,17 @@ class QueryProcessor:
             if tree.type == "JOIN" or tree.type == "NATURAL JOIN":
                 if tree.type == "JOIN":
                     temp = self.__joinOn(
-                        "users", "products",
                         self.evaluateSelectTree(tree.childs[0], [], []),
                         self.evaluateSelectTree(tree.childs[1], [], []),
                         tree.val
                     )
+                    return temp
                 elif tree.type == "NATURAL JOIN":
                     temp = self.__naturalJoin(
                         "temp1", "temp2",
                         self.evaluateSelectTree(tree.childs[0], [], []),
                         self.evaluateSelectTree(tree.childs[1], [], []))
-                    
+                    return temp
                 if len(select) > 0 and len(where) > 0:
                     temp = self.__filterSelect(temp, select)
                     temp = self.__filterWhere(temp, where)
@@ -295,6 +297,9 @@ class QueryProcessor:
         pass
 
     def printResult(self, data:map):
+        print("printResult")
+        print(len(data))
+        print(data)
         if not data:
             print("No data to display.")
             return
@@ -463,53 +468,36 @@ class QueryProcessor:
             self.handle_rollback(self.current_transactionId)
             return e
     
-    def __transCond(self, tablename1:str, tablename2: str, cond: str) -> list:
-        result = []
+    def __transCond(self, cond: str) -> list:
+        result = [] 
         eqs = cond.split("AND")  # Split on commas
         for eq in eqs:
             temp = eq.split("=") # [t1.a , t2.b]
-            print(temp)
-            lhs = temp[0].split(".") # [t1,a]
-            print(lhs)
-            if(lhs[0]==tablename1):
-                result.append([lhs[1].strip(),temp[1].split(".")[1].strip()])
-            else: 
-                result.append([temp[1].split(".")[1].strip(), lhs[1].strip()])
+            result.append([temp[0].strip(),temp[1].strip()])
         return result
-    
-    def __joinOn(self,tablename1: str, tablename2:str, table1: list[map], table2: list[map], cond: str):
+
+    def __joinOn(self, table1: list[map], table2: list[map], cond: str):
         result = []
-        condList = self.__transCond(tablename1,tablename2,cond)
-        
-        # print(tablename1)        
-        # print(tablename2)        
-        # print(table1)        
-        # print(table2)        
-        
+        condList = self.__transCond(cond)      
         for r1 in table1:
             for r2 in table2:
                 isValid = True
-                for cond in condList: 
-                    if r1[cond[0]] != r2[cond[1]]:
-                        isValid = False
-                        break
+                for cond in condList:
+                    # print(cond[0]) 
+                    # print(cond[1]) 
+                    if cond[0] in r1:
+                        if r1[cond[0]] != r2[cond[1]]:
+                            isValid = False
+                            break
+                    else:
+                        if r1[cond[1]] != r2[cond[0]]:
+                            isValid = False
+                            break
                 if(isValid):
-                    row = {}
-                    for col in r1:
-                        if (col in r2):
-                            row[tablename1+"."+col] = r1[col]
-                            row[tablename2+"."+col] = r2[col]
-                        else:
-                            row[col] = r1[col]
-                    for col in r2:
-                        if (col in r1):
-                            pass
-                        else:
-                            row[col] = r2[col]
-                    result.append(row)
-        print("WWKKWKWK")
-        print(result)
+                    result.append(r1 | r2) 
+        # print(result)
         return result
+    
     
     def __naturalJoin(self, tablename1: str, tablename2: str, table1: List[dict], table2: List[dict]) -> List[dict]:
         """
