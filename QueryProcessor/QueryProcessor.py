@@ -78,30 +78,32 @@ class QueryProcessor:
                 #   sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
     
 
-    def evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
+    def  evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
         if not tree.childs:
             if len(select) > 0 and len(where) > 0:
                 cond = self.__makeCondition(where)
-                tempSelect = []
-                for col in select:
-                    tempSelect.append(col.split(".")[1])
-                select = tempSelect
-                dataRetriev = DataRetrieval([tree.val], tempSelect, cond)
-                return self.__getData(dataRetriev)
+                select = self.removeTablename(select)
+                dataRetriev = DataRetrieval([tree.val], select, cond)
+                temp = self.transformData(tree.val,self.__getData(dataRetriev))
+                print(temp)
+                return temp
             elif len(select) > 0:
-                tempSelect = []
-                for col in select:
-                    tempSelect.append(col.split(".")[1])
-                select = tempSelect
-                dataRetriev = DataRetrieval([tree.val], tempSelect, [])
-                return self.__getData(dataRetriev)
+                select = self.removeTablename(select)
+                dataRetriev = DataRetrieval([tree.val], select, [])
+                temp = self.transformData(tree.val,self.__getData(dataRetriev))
+                print(temp)
+                return temp
             elif len(where) > 0:
                 cond = self.__makeCondition(where)
                 dataRetriev = DataRetrieval([tree.val], [], cond)
-                return self.__getData(dataRetriev)
+                temp = self.transformData(tree.val,self.__getData(dataRetriev))
+                print(temp)
+                return temp
             else:
                 dataRetriev = DataRetrieval([tree.val], [], [])
-                return self.__getData(dataRetriev)
+                temp = self.transformData(tree.val,self.__getData(dataRetriev))
+                print(temp)
+                return temp
         else:
             if tree.type == "JOIN" or tree.type == "NATURAL JOIN":
                 if tree.type == "JOIN":
@@ -136,7 +138,20 @@ class QueryProcessor:
                     where = tree.val
                 for child in tree.childs:
                     return self.evaluateSelectTree(child, select, where)
-                
+    
+    def removeTablename(self, data):
+        result = []
+        for col in data:
+            result.append(col.split(".")[1])
+        return result
+    def addTablename(self, tablename, row):
+        return {f"{tablename}.{key}": value for key, value in row.items()}
+    def transformData(self, tablename, data):
+        result = []
+        for row in data:
+            result.append(self.addTablename(tablename,row))
+        return result
+    
     def __filterSelect(self, data: List[dict], select: list[str]) -> List[dict]:
         # filter select
         column = [col.split(".")[1] for col in select]
@@ -450,7 +465,7 @@ class QueryProcessor:
                 if not response.allowed:
                     raise Exception(f"Transaction {self.current_transactionId} cannot read table {table}")
             data = self.sm.read_block(data_retrieval, self.db_name, self.current_transactionId)
-            return data.get_data()
+            return data.data
         except Exception as e:
             self.handle_rollback(self.current_transactionId)
             return e
