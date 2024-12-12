@@ -2,6 +2,9 @@ from StorageManager.classes import *
 
 storageEngine = StorageEngine()
 
+# GET TABLES AND COLUMNS OF DATABASE1
+print(storageEngine.get_tables_and_columns_info("database1"))
+
 kondisinya = Condition("nama_user", "=", "Agus Maxwell")
 temp = DataRetrieval(["users"], ["id_user", "nama_user"], [kondisinya])
 print(storageEngine.read_block(temp, "database1", 1))
@@ -51,7 +54,7 @@ print(storageEngine.read_block(temp, "database1", 0))
 # c = storageEngine.get_stats("database1","users")
 # Statistic.print_statistics(c)
 
-# NEW TABLE "USERS MEMBERSHIP"
+# --- NEW TABLE "USERS MEMBERSHIP" ---
 # column_type = {"id_user" : "INTEGER", "membership_level" : "VARCHAR(20)", "registered_date" : "TEXT"}
 # information = {"id_user" : ["UNIQUE", "FOREIGN KEY"]}
 
