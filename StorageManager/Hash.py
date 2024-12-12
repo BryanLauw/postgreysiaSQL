@@ -17,33 +17,34 @@ class HashTable:
     def insert(self, key, value):
         # insert a key-value pair into the hash table
         index = self.hash_function(key)
+        print("index", index)
+        print("value inserted:",value)
         # print(index)
-        for pair in self.table[index]:
+        for i, pair in enumerate(self.table[index]):
             if pair[0] == key:
-                if pair[1] == value: # allow duplicate not row-unique identifier search-key
-                    raise ValueError("Key-Value pair already exists in hash table.")
-        self.table[index].append([key, value])  # add new key-value pair
+                if pair[1].count(value) == 0:
+                    self.table[index][i][1].append(value)
+                    return
+                else :
+                    raise ValueError("Key-Value already exists in hash table.")
+        self.table[index].append([key, [value]])
 
     def search(self, key):
-        # search for a key in the hash table and return its value.
-        return_value = []
+        # search for a key in the hash table and return its value (list of value(s) which has (have) the searched key)
         index = self.hash_function(key)
         for pair in self.table[index]:
             if pair[0] == key:
-                return_value.append(pair[1])
+                return pair[1]
+        raise ValueError("Key not found in hash table.")  # key not found
 
-        if len(return_value) == 0:
-            raise ValueError("Key not found in hash table.")  # key not found
-        return return_value
 
     def delete(self, key, value):
         # delete a key-value pair from the hash table.
         bucket = self.hash_function(key)
         for i, pair in enumerate(self.table[bucket]):
             if pair[0] == key:
-                if pair[1] == value:
-                    self.table[bucket].pop(i)
-                    return True
+                if pair[1].count(value) > 0:
+                    self.table[bucket][i][1].remove(value)
         raise KeyError("Key not found in hash table.")  # key not found
     
     def print_table(self):
@@ -60,14 +61,15 @@ def test_hash_table_with_visualization():
     print("hasil hash 15 :", hash_table.hash_function(15))
 
     # Insert some key-value pairs
-    hash_table.insert("Math", (1,1))
-    hash_table.insert("Physics", (2,1))
-    hash_table.insert("Physics", (3,5))
-    hash_table.insert("Biology", (3,1))
-    hash_table.insert("Sicysph", (5,2)) 
+    hash_table.insert("Math",(1,1))
+    hash_table.insert("Physics",(2,1))
+    hash_table.insert("Physics",(3,5))
+    hash_table.insert("Biology",(3,1))
+    hash_table.insert("Sicysph",(5,2)) 
     print("\nHash table after insertion:")
     print("Hash table size :", hash_table.size)
     hash_table.print_table()
+    
 
     # Delete a key
     # hash_table.delete(5)
