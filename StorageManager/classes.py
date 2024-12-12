@@ -110,6 +110,22 @@ class StorageEngine:
             columns.append(column["name"])
         return columns
     
+    def get_tables_and_columns_info(self, database_name:str) -> dict:
+        """
+        Mengembalikan seluruh table dan kolom dalam database
+        Param : database_name (string)
+
+        Contoh : storageEngine.get_tables_and_columns_info("database1")
+        """
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        tables = {}
+        for table in self.blocks[database_name]:
+            tables[table] = []
+            for column in self.blocks[database_name][table]["columns"]:
+                tables[table].append(column["name"])
+        return tables
+    
     def get_table_metadata(self, database_name:str, table_name:str) -> dict:
         """
         Mengembalikan metadata sebuah table

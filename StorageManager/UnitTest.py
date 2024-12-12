@@ -2,6 +2,9 @@ from StorageManager.classes import *
 
 storageEngine = StorageEngine()
 
+# GET TABLES AND COLUMNS OF DATABASE1
+print(storageEngine.get_tables_and_columns_info("database1"))
+
 kondisinya = Condition("nama_user", "=", "Agus Maxwell")
 temp = DataRetrieval(["users"], ["id_user", "nama_user"], [kondisinya])
 print(storageEngine.read_block(temp, "database1", 1))
