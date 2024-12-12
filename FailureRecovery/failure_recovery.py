@@ -9,12 +9,12 @@ import signal
 import random
 
 # class from other files
-import QueryProcessor.QueryProcessor as QueryProcessor
-from .main_checkpoint import CheckpointManager
-from .main_recovery import Recovery
-from .main_log_entry import LogEntry
-from .main_recover_criteria import RecoverCriteria
-from .main_threading_manager import ThreadingManager
+# import QueryProcessor.QueryProcessor as QueryProcessor
+from failure_recovery_checkpoint import CheckpointManager
+from failure_recovery_recovery import Recovery
+from failure_recovery_log_entry import LogEntry
+from failure_recovery_recover_criteria import RecoverCriteria
+from failure_recovery_threading_manager import ThreadingManager
 
 
 class FailureRecovery:
@@ -51,7 +51,7 @@ class FailureRecovery:
         # init buffer
         self.buffer_log_entries: List[LogEntry] = []
         
-        # initialize threading and checkpoint managersZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+        # initialize threading and checkpoint 
         self.threading_manager = ThreadingManager(logger=self.logger)
         self.checkpoint_manager = CheckpointManager(fname, self.threading_manager, interval, buffer_size, self.logger)
 

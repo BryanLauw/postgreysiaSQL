@@ -1,4 +1,3 @@
-# threading_manager.py
 import threading
 import time
 import logging
