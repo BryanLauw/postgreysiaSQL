@@ -71,24 +71,56 @@ class StorageEngine:
         self.buffer_index = {}
 
     def get_database_names(self) -> list[str]:
+        """
+        Mengembalikan seluruh database yang ada
+        """
         databases = []
-        for database in self.blocks:
-            databases.append(database)
+        if self.blocks != {}:
+            for database in self.blocks:
+                databases.append(database)
         return databases
     
     def get_tables_of_database(self, database_name:str) -> list[str]:
+        """
+        Mengembalikan seluruh table dalam database
+        Param : database_name (string)
+
+        Contoh : storageEngine.get_tables_of_database("database1")
+        """
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
         tables = []
         for table in self.blocks[database_name] :
             tables.append(table)
         return tables
     
     def get_columns_of_table(self, database_name:str, table_name:str) -> list[str]:
+        """
+        Mengembalikan seluruh kolom dalam sebuah table
+        Param : database_name (string), table_name (string)
+
+        Contoh : storageEngine.get_columns_of_table("database1", "users")
+        """
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        if table_name not in self.blocks[database_name]:
+            raise ValueError(f"Table '{table_name}' does not exist.")
         columns = []
         for column in self.blocks[database_name][table_name]["columns"]:
             columns.append(column["name"])
         return columns
     
     def get_table_metadata(self, database_name:str, table_name:str) -> dict:
+        """
+        Mengembalikan metadata sebuah table
+        Param : database_name (string), table_name (string)
+
+        Contoh : storageEngine.get_table_metadata("database1", "users")
+        """
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        if table_name not in self.blocks[database_name]:
+            raise ValueError(f"Table '{table_name}' does not exist.")
         return self.blocks[database_name][table_name]['columns']
     
     def load(self) -> None:
@@ -116,6 +148,9 @@ class StorageEngine:
             print(f"error, {str(e)}")
 
     def load_indexes(self) -> None:
+        """
+        fungsi untuk hold semua data index hasil load dari storage (indexes.dat)
+        """
         try:
             if not os.path.isfile("indexes.dat"):
                 pickle.dump({}, open("indexes.dat", "wb"))
@@ -134,6 +169,9 @@ class StorageEngine:
             print(f"error, {str(e)}")
 
     def save_indexes(self):
+        """
+        dump file untuk simpan info index di variabel ke file binary (data.dat)
+        """
         try:
             pickle.dump(self.indexes, open("indexes.dat","wb"))
         except Exception as e:
@@ -194,6 +232,13 @@ class StorageEngine:
         return Exception(f"Tidak ada database dengan nama {database_name}")
 
     def initialize_index_structure(self, database_name:str, table_name:str, column:str) -> None:
+        """
+        Struktur index hasil load_indexes 
+        1. Jika kolom tidak memiliki index : self.indexes[database_name][table_name][column]
+        2. Jika kolom memiliki index B+ tree : self.indexes[database_name][table_name][column]["bplus"][tree]
+        3. Jika kolom memiliki index Hash : self.indexes[database_name][table_name][column]["hash"][hash table]
+        Sebuah kolom bisa tidak memiliki index, memiliki salah satu, ataupun keduanya.
+        """
         if database_name not in self.indexes:
             self.indexes[database_name] = {}
         if table_name not in self.indexes[database_name]:

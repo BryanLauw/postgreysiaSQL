@@ -51,7 +51,7 @@ print(storageEngine.read_block(temp, "database1", 0))
 # c = storageEngine.get_stats("database1","users")
 # Statistic.print_statistics(c)
 
-# NEW TABLE "USERS MEMBERSHIP"
+# --- NEW TABLE "USERS MEMBERSHIP" ---
 # column_type = {"id_user" : "INTEGER", "membership_level" : "VARCHAR(20)", "registered_date" : "TEXT"}
 # information = {"id_user" : ["UNIQUE", "FOREIGN KEY"]}
 
