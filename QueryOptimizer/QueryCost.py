@@ -1,6 +1,7 @@
 from typing import Callable, Union
 from math import prod
 from time import sleep
+import re
 from StorageManager.classes import *
 from .QueryTree import *
 
@@ -57,9 +58,12 @@ class QueryCost:
         elif query_tree.type == "JOIN":
             statistic1 = self.__get_size_cost(query_tree.childs[0])
             statistic2 = self.__get_size_cost(query_tree.childs[1])
-            attributes = [item.split('.')[1] for item in query_tree.val.split(" = ")]
-            attributes = [QueryCost.__format_name(attribute) for attribute in attributes]
-            attribute1, attribute2 = attributes
+
+            expressions = re.split(" AND | OR ", query_tree.val)
+            first_expression = expressions.pop(0)
+            first_attributes = [item.split('.')[1] for item in first_expression.split(" = ")]
+            first_attributes = [QueryCost.__format_name(attribute) for attribute in first_attributes]
+            attribute1, attribute2 = first_attributes
             
             if attribute1 not in statistic1.V_a_r or attribute2 not in statistic2.V_a_r:
                 attribute1, attribute2 = attribute2, attribute1
