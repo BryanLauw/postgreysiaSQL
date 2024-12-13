@@ -25,7 +25,6 @@ class QueryValidator:
         storage_engine = StorageEngine()
         # Regex to find comparisons (attribute and literal pairs)
         comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
-        print(where_clause)
         matches = re.findall(comparison_pattern, where_clause)
 
         # Initialize the result dictionary
@@ -35,12 +34,12 @@ class QueryValidator:
         for left_attr, operator, right_attr in matches:
             for attr in [left_attr, right_attr]:
                 # Skip literals
-                if attr.isdigit() or (attr.startswith(("'", '"')) and attr.endswith(("'", '"'))):
+                if bool(re.fullmatch(r"[+-]?(\d*\.\d+|\d+\.?\d*)", attr)) or (attr.startswith(("'", '"')) or attr.endswith(("'", '"'))):
                     continue
 
                 if "." in attr:
                     # Attribute is qualified with a table name
-                    table, column = attr.split(".")
+                    table, column = attr.split(".") 
                     if table not in table_arr:
                         raise ValueError(f"Table {table} is not in the query context.")
                 else:
@@ -71,7 +70,7 @@ class QueryValidator:
         return attribute_types
 
 
-    def validate_comparisons(self,where_clause: str, attribute_types: dict):
+    def validate_comparisons(self, where_clause: str, attribute_types: dict):
         # Regex to find comparisons
         comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
         matches = re.findall(comparison_pattern, where_clause)
@@ -116,7 +115,7 @@ class QueryValidator:
             return "float"
         except ValueError:
             pass
-        if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
+        if (value.startswith("'") or value.endswith("'")) or (value.startswith('"') or value.endswith('"')):
             return "varchar"
         raise ValueError(f"Unknown literal type for value: {value}")
 
@@ -144,7 +143,9 @@ class QueryValidator:
                     used_aliases.update(find_aliases(token))
 
         undefined_aliases = used_aliases - set(alias_map.keys()) - set(table_arr)
-        if undefined_aliases:
+        filtered_aliases = {alias for alias in undefined_aliases if not alias.isdigit()}
+
+        if filtered_aliases:
             raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
     
     def validate_tables(self,table_arr: list[str], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):

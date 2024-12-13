@@ -9,6 +9,10 @@ from typing import List, Union, Dict, Callable
 
 class QueryHelper:
     @staticmethod
+    def to_lower_except_quotes(s):
+        return re.sub(r'".*?"|[^"\s]+', lambda m: m.group(0) if m.group(0).startswith('"') else m.group(0).lower(), s)
+    
+    @staticmethod
     def normalize_string(query: str):
         return query.replace("\t", "").replace("\n", "").replace("\r", "")
     
@@ -56,6 +60,13 @@ class QueryHelper:
         if not table:
             table = [val]
         return table
+    
+    @staticmethod
+    def get_attributes_regex(val: str):
+        attributes = re.findall(r'\b\w+\.\w+\b', val)
+        if not attributes:
+            attributes = [val]
+        return attributes
     
     @staticmethod
     def get_other_expression(expression, target):
@@ -129,10 +140,7 @@ class QueryHelper:
     @staticmethod
     def parse_where_clause(where_clause: str, current_node: QueryTree, database_name: str) -> QueryTree:
         storage_engine = StorageEngine()
-        # print(storage_engine.retrieve_table_of_database(database_name))
-        # Tokenize the WHERE clause into conditions
         parsed_result = re.split(r'\sAND\s', where_clause)
-        print("parsed", parsed_result)
 
         for parse in parsed_result:
             if "OR" in parse:
@@ -147,7 +155,10 @@ class QueryHelper:
                             method = "INDEX SCAN"
                     except Exception as e:
                         method = "FULL SCAN"
-                parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                try:
+                    parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                except Exception as e:
+                    parse_node = QueryTree(type="WHERE", val=parse)
                 current_node.add_child(parse_node)
                 parse_node.add_parent(current_node)
                 current_node = parse_node
@@ -161,7 +172,10 @@ class QueryHelper:
                         method = "INDEX SCAN"
                 except Exception as e:
                     method = "FULL SCAN"
-                parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                try:
+                    parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                except Exception as e:
+                    parse_node = QueryTree(type="WHERE", val=parse)
                 current_node.add_child(parse_node)
                 parse_node.add_parent(current_node)
                 current_node = parse_node

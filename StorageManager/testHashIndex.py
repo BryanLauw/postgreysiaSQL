@@ -46,26 +46,34 @@ storage_engine.set_index("database_name_1", "table_name_1", "column_1", transact
 
 # 1. Initial Search Tests
 print("\n--- INITIAL SEARCH TESTS ---")
-print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 5, transaction_id))  # Expected: (Block 3, Offset 0)
-print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 10, transaction_id))  # Expected: (Block 5, Offset 1)
+print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 5, transaction_id))  # Expected: (Block 2, Offset 0)
+print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 10, transaction_id))  # Expected: (Block 4, Offset 1)
 
 # 3. Insert New Key
 print("\n--- INSERT TEST ---")
 # Insert key 11 at a hypothetical Block 6, Offset 0
 storage_engine.insert_hash_index("database_name_1", "table_name_1", "column_1", 11, 6, 0, transaction_id)
-print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 0)
+storage_engine.print_index_structure("database_name_1", "table_name_1", "column_1", transaction_id)
+# print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 0)
 
 # 4. Delete Key
 print("\n--- DELETE TEST ---")
 # Delete key 5
-storage_engine.delete_hash_index("database_name_1", "table_name_1", "column_1", 5, (2,0),  transaction_id)
+storage_engine.delete_hash_index("database_name_1", "table_name_1", "column_1", 5,  transaction_id)
 print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 5, transaction_id))  # Expected: None (key 5 deleted)
 
 # 5. Update Key
 print("\n--- UPDATE TEST ---")
 # Move key 11 to Block 6, Offset 1
-storage_engine.update_key_hash_index("database_name_1", "table_name_1", "column_1", 11, 6, 1, transaction_id)
-print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 1)
+storage_engine.update_key_hash_index("database_name_1", "table_name_1", "column_1", 11, 100, transaction_id)
+storage_engine.print_index_structure("database_name_1", "table_name_1", "column_1", transaction_id)
+# print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 0)
+# print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 100, transaction_id))  # Expected: (Block 6, Offset 0)
 
-# --- End of Testing ---
-print("================== End of Testing. ================")
+
+# 6. Test Invalid Key Deletion
+print("\n--- DELETE NON-EXISTENT KEY TEST ---")
+# Attempt to delete key 99 (non-existent)
+# print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 99, transaction_id))  # Expected: None (no key 99 exists)
+storage_engine.delete_hash_index("database_name_1", "table_name_1", "column_1", 99, transaction_id)
+

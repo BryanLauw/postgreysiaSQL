@@ -22,7 +22,7 @@ class OptimizationEngine:
 
     def parse_query(self, query: str,database_name: str) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
-            QueryHelper.normalize_string(query).lower()
+            QueryHelper.to_lower_except_quotes(QueryHelper.normalize_string(query))
         )
         
         normalized_query = self.QueryParser.transform_to_upper(normalized_query)
@@ -31,7 +31,6 @@ class OptimizationEngine:
         normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
 
         query_components_value = self.QueryParser.get_components_values(normalized_query)
-        print(query_components_value)
         
         if "FROM" in query_components_value:
             comp_with_attr = "FROM"
@@ -70,18 +69,20 @@ class OptimizationEngine:
 
         CO = ['<', '>', '=', '<=', '>=', '<>']
 
-        # if next(iter(query_components_value), None) == "SELECT":
-        attribute_types = self.QueryValidator.get_attribute_types(where_clause, database_name, table_arr)
-        if(len(from_clause) == 1):
-            table_name = from_clause[0]
-            pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
-            where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
-        if(next(iter(query_components_value), None) == "UPDATE"):
-            table_name = update_clause
-            pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
-            where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
-        # Validate comparisons
-        self.QueryValidator.validate_comparisons(where_clause, attribute_types)
+        if "WHERE" in query_components_value:
+            attribute_types = self.QueryValidator.get_attribute_types(where_clause, database_name, table_arr)
+            if(len(from_clause) == 1 and '.' not in where_clause):
+                table_name = from_clause[0].strip()
+                pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
+                where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
+                query_components_value["WHERE"] = where_clause
+            if(next(iter(query_components_value), None) == "UPDATE" and '.' not in where_clause):
+                table_name = update_clause.strip()
+                pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
+                where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
+                query_components_value["WHERE"] = where_clause
+            # Validate comparisons
+            self.QueryValidator.validate_comparisons(where_clause, attribute_types)
 
         # Build the initial query evaluation plan tree
         query_tree = self.__build_query_tree(query_components_value,database_name)
@@ -110,6 +111,14 @@ class OptimizationEngine:
             top.add_child(select_tree)
             select_tree.add_parent(top)
             top = select_tree
+
+        if "DELETE" in components:
+            root.val = "DELETE"
+            top = root
+            where_tree = QueryTree(type="DELETE", val=components["FROM"][0])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
             
         if "UPDATE" in components:
             root.val = "UPDATE"
@@ -120,6 +129,12 @@ class OptimizationEngine:
             
         if "SET" in components:
             where_tree = QueryTree(type="SET", val=components["SET"])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
+
+        if "INSERT" in components:
+            where_tree = QueryTree(type="INSERT")
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
@@ -155,20 +170,19 @@ class OptimizationEngine:
             top = where_tree
 
         if "FROM" in components:
-            join_tree = QueryHelper.build_join_tree(components["FROM"],database_name,self.get_stats)
-            top.add_child(join_tree)
-            join_tree.add_parent(top)
+            if "DELETE" not in components:
+                join_tree = QueryHelper.build_join_tree(components["FROM"],database_name,self.get_stats)
+                top.add_child(join_tree)
+                join_tree.add_parent(top)
 
         return root
 
     def optimize_query(self, query: ParsedQuery, database_name:str):
         list_nodes = {
             "JOIN": [],
-            "JOIN":[],
             "SELECT": [],
             "WHERE": [],
         }
-        print("QUERY AWAL : \n",query.query_tree)
         queue_nodes = Queue()
         queue_nodes.put(query.query_tree)
         while not queue_nodes.empty():
@@ -181,25 +195,24 @@ class OptimizationEngine:
             
             for child in current_node.childs:
                 queue_nodes.put(child)
-            
-        for node in list_nodes["WHERE"]:
-            self.QueryOptimizer.pushing_selection(node)
         
-        print("QUERY AFTER PUSHING SELECTION :\n", query.query_tree)
-        
-        # list_nodes["JOIN"].reverse()
-        # self.QueryOptimizer.reorder_join(list_nodes["JOIN"],database_name,self.get_stats)
+        if len(list_nodes["JOIN"]) > 0:
+            for node in list_nodes["WHERE"]:
+                self.QueryOptimizer.pushing_selection(node)
+                
+        list_nodes["JOIN"].reverse()
+        self.QueryOptimizer.reorder_join(list_nodes["JOIN"],database_name,self.get_stats)
+        self.QueryOptimizer.determine_join_type(list_nodes["JOIN"],database_name,self.get_stats)
 
         for node in list_nodes["JOIN"]:
             if node.type == "JOIN":
                 continue
             if len(node.val) == 0:
                 self.QueryOptimizer.combine_selection_and_cartesian_product(node)
-        
 
-        for node in list_nodes["SELECT"] :
-            self.QueryOptimizer.pushing_projection(node)
-        print("QUERY AFTER PUSHING PROJECTION :\n", query.query_tree)
+        if len(list_nodes["JOIN"]) > 0:
+            for node in list_nodes["SELECT"] :
+                self.QueryOptimizer.pushing_projection(node)
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
@@ -210,49 +223,31 @@ if __name__ == "__main__":
     storage = StorageEngine()
     optim = OptimizationEngine(storage.get_stats)
 
+    while True:
+        # try:
+            query = input("Query: ")
+            parsed_query = optim.parse_query(query,"database1")
+            print("BEFORE TREE:")
+            print(parsed_query)
+            if parsed_query.query_tree.val == "SELECT":
+                print(f"BEFORE COST = {optim.get_cost(parsed_query, 'database1')}")
+            
+            optim.optimize_query(parsed_query,"database1")
+            print("AFTER TREE:")
+            print(parsed_query)
+            if parsed_query.query_tree.val == "SELECT":
+                print(f"AFTER COST = {optim.get_cost(parsed_query, 'database1')}")
+        # except Exception as e:
+        #     print(f"Error: {e}")
+        
     # Test SELECT query with JOIN
     # select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
     # select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.order_id = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
-    select_query = 'SELECT u.id_user FROM users AS u JOIN products AS p ON p.product_id = o.order_id JOIN orders AS o ON u.id_user = o.order_id'
+    # select_query = 'SELECT u.id_user FROM users AS u JOIN products AS p ON p.product_id = 1 JOIN orders AS o ON u.id_user = o.order_id'
     # create_index_query = 'CREATE INDEX nama_idx ON users(id) USING hash'
-    print("SELECT QUERY\n",select_query,end="\n\n")
-    parsed_query = optim.parse_query(select_query,"database1")
+    # print("SELECT QUERY: ",select_query,end="\n\n")
+    # parsed_query = optim.parse_query(select_query,"database1")
     # parsed_query = optim.parse_query(create_index_query,"database1")
-    # print(parsed_query)
-    optim.optimize_query(parsed_query,"database1")
     # optim.optimize_query(parsed_query)
     # print("EVALUATION PLAN TREE: \n",parsed_query)
     
-    # print(f"COST = {optim.get_cost(parsed_query, 'database1')}")
-
-    # try:
-    #     invalid_query = "SELECT x.a FROM students AS s"
-    #     print(invalid_query)
-    #     parsed_query = optim.parse_query(invalid_query,"database1")
-    #     print(parsed_query)
-    # except ValueError as e:
-    #     print(e)
-
-    # where_clause = "students.a > 'aku' AND teacher.b = 'abc'"
-    # attribute_types = {
-    #     "students.a": "integer",
-    #     "teacher.b": "varchar",
-    # }
-
-    # try:
-    #     QueryHelper.validate_comparisons(where_clause, attribute_types)
-    #     print("All comparisons are valid!")
-    # except ValueError as e:
-    #     print(f"Validation error: {e}")
-
-    # Test UPDATE query
-    # update_query = "UPDATE products SET product_id = product_id + 1.1 - 5 WHERE product_id > 1000"
-    # print(update_query)
-    # parsed_update_query = optim.parse_query(update_query, "database1")
-    # print(parsed_update_query)
-
-    # #Test DELETE query
-    # delete_query = "DELETE FROM employees WHERE salary < 3000"
-    # print(delete_query)
-    # parsed_delete_query = new.parse_query(delete_query)
-    # print(parsed_delete_query)
