@@ -52,7 +52,7 @@ class FailureRecovery:
         self.buffer_log_entries: List[LogEntry] = []
         
         # initialize threading and checkpoint 
-        self.threading_manager = ThreadingManager(logger=self.logger)
+        # self.threading_manager = ThreadingManager(logger=self.logger)
         self.checkpoint_manager = CheckpointManager(fname, self.threading_manager, interval, buffer_size, self.logger)
 
         # init recovery

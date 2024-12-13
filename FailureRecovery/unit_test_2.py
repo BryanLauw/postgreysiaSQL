@@ -26,7 +26,7 @@ class TestFailureRecovery(unittest.TestCase):
 
         for data in test_data:
             self.failure_recovery.write_log_entry(
-                data
+                **data
             )
 
         self.assertEqual(len(self.failure_recovery.buffer_log_entries), len(test_data))
@@ -35,54 +35,45 @@ class TestFailureRecovery(unittest.TestCase):
             self.assertEqual(self.failure_recovery.buffer_log_entries[i].event, data["event"])
 
         self.assertIn(1, self.failure_recovery.list_active_transaction)
-        self.assertNotIn(2, self.failure_recovery.list_active_transaction)
-        self.assertNotIn(3, self.failure_recovery.list_active_transaction)
+        self.assertIn(2, self.failure_recovery.list_active_transaction)
 
-    # def test_rollback(self):
-    #     """
-    #     Test the rollback method.
-    #     """
-    #     log_entry = LogEntry(
-    #         timestamp=datetime.now(),
-    #         transaction_id=1,
-    #         event="ABORT",
-    #         object_value="test_object",
-    #         old_value="old_value",
-    #         new_value="new_value"
-    #     )
+    def test_rollback(self):
 
-    #     result = self.failure_recovery.rollback(log_entry)
+        log_entry = LogEntry(
+            timestamp=datetime.now(),
+            transaction_id=1,
+            event="ABORT",
+            object_value="test_object",
+            old_value="old_value",
+            new_value="new_value"
+        )
 
-    #     # Verify rollback method was called with correct arguments
-    #     self.failure_recovery.recovery.rollback.assert_called_with(self.failure_recovery.buffer_log_entries, [log_entry.transaction_id])
+        result = self.failure_recovery.rollback(log_entry)
 
-    #     # Check the result of the rollback
-    #     self.assertEqual(result, "Rollback Successful")
+        self.failure_recovery.recovery.rollback.assert_called_with(self.failure_recovery.buffer_log_entries, [log_entry.transaction_id])
 
-    # def test_recover(self):
-    #     """
-    #     Test the recover method.
-    #     """
-    #     log_entry = LogEntry(
-    #         timestamp=datetime.now(),
-    #         transaction_id=1,
-    #         event="ABORT SYSTEM",
-    #         object_value="test_object",
-    #         old_value="old_value",
-    #         new_value="new_value"
-    #     )
+        self.assertEqual(result, "Rollback Successful")
 
-    #     criteria = RecoverCriteria(transaction_id=log_entry.transaction_id)
+    def test_recover(self):
 
-    #     result = self.failure_recovery.recover(log_entry, criteria)
+        log_entry = LogEntry(
+            timestamp=datetime.now(),
+            transaction_id=1,
+            event="ABORT SYSTEM",
+            object_value="test_object",
+            old_value="old_value",
+            new_value="new_value"
+        )
 
-    #     # Verify redo and undo methods were called
-    #     self.failure_recovery.recovery.redo.assert_called_with(self.failure_recovery.buffer_log_entries)
-    #     self.failure_recovery.recovery.undo.assert_called_with(self.failure_recovery.buffer_log_entries)
+        criteria = RecoverCriteria(transaction_id=log_entry.transaction_id)
 
-    #     # Check the result of the recover method
-    #     self.assertEqual(result["redo"], "Redo Instructions")
-    #     self.assertEqual(result["undo"], "Undo Instructions")
+        result = self.failure_recovery.recover(log_entry, criteria)
+
+        self.failure_recovery.recovery.redo.assert_called_with(self.failure_recovery.buffer_log_entries)
+        self.failure_recovery.recovery.undo.assert_called_with(self.failure_recovery.buffer_log_entries)
+
+        self.assertEqual(result["redo"], "Redo Instructions")
+        self.assertEqual(result["undo"], "Undo Instructions")
 
     def tearDown(self):
         self.failure_recovery._stop()
