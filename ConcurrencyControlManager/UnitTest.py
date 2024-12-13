@@ -2,8 +2,7 @@ from ConcurrencyControlManager import ConcurrencyControlManager, Action
 from typing import Any
 
 class Row:
-    data: list[Any]
-    rows_count: int
+    pass
 
 class ConcurrencyTester:
     def __init__(self):

@@ -3,14 +3,15 @@ from time import sleep
 from ConcurrencyControlManager import (
     Action,
     ConcurrencyControlManager,
-    Response,
-    Row,
+    Response
 )
 from threading import Lock, Thread
 
 log_mutex = Lock()
 cm = ConcurrencyControlManager()
 
+class Row:
+    pass
 
 type AtomicAction = tuple[Action, Row, int]
 type Transaction = list[AtomicAction]
