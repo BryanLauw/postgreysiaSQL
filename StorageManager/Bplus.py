@@ -35,6 +35,21 @@ class BPlusTree:
 
             self.root = new_root
 
+    def get_bplus_tree_level(self) -> int:
+        """
+        Mengembalikan tinggi (level) dari B+ tree.
+        """
+        height = 0
+        current_node = self.root
+
+        while current_node:
+            height += 1
+            if current_node.is_leaf:
+                break
+            current_node = current_node.children[0]  # Traverse down the first child
+
+        return height
+
 
     def _insert_recursive(self, node, key, value):
         if node.is_leaf:
@@ -182,22 +197,6 @@ class BPlusTree:
             print(f"[{current_leaf.keys}] → ", end="")
             current_leaf = current_leaf.next
         print("None")
-
-    def get_bplus_tree_level(self) -> int:
-        """
-        Mengembalikan tinggi (level) dari B+ tree.
-        """
-        height = 0
-        current_node = self.root
-
-        while current_node:
-            height += 1
-            if current_node.is_leaf:
-                break
-            current_node = current_node.children[0]  # Traverse down the first child
-
-        return height
-
         
     # DELETION
     # def delete(self, value):
@@ -348,7 +347,7 @@ class BPlusTree:
 
         # If the root becomes empty and is not a leaf, promote its only child
         if not self.root.keys and not self.root.is_leaf:
-            self.root = self.root.children[0]
+            self.root = self.root.children[1]
 
     def _delete_recursive(self, node, key):
         if node.is_leaf:
@@ -369,7 +368,6 @@ class BPlusTree:
             child = node.children[index]
 
             if key in node.keys:
-                # SHOULD I USE THIS CONDITIONAL? 
                 # if len(child.keys) > child.min_key :
                     # Key is in the internal node
                 self._delete_recursive(child, key)
@@ -385,16 +383,22 @@ class BPlusTree:
         # Handle underflow after deletion
         self._handle_underflow(node)
 
+    # def _handle_underflow(self, node):
+    #     if node.is_leaf:
+    #         # Underflow condition for leaf nodes
+    #         if len(node.keys) < node.min_key:
+    #             self._rebalance_leaf(node)
+    #     else:
+    #         # Underflow condition for internal nodes
+    #         if len(node.keys) < node.min_children - 1:
+    #             self._rebalance_internal(node)
     def _handle_underflow(self, node):
-        if node.is_leaf:
-            # Underflow condition for leaf nodes
-            if len(node.keys) < node.min_key:
-                self._rebalance_leaf(node)
-        else:
-            # Underflow condition for internal nodes
-            if len(node.keys) < node.min_children - 1:
-                self._rebalance_internal(node)
+        if node.is_leaf and len(node.keys) < node.min_key:
+            self._rebalance_leaf(node)
+        elif not node.is_leaf and len(node.keys) < node.min_children - 1:
+            self._rebalance_internal(node)
 
+    # mekanisme borrow leaf dari sibling
     def _rebalance_leaf(self, node):
         parent = node.parent
         if not parent:
@@ -579,8 +583,8 @@ def main():
     tree.delete(55)
     tree.print_tree()
     print()
-    tree.delete(58)
-    tree.print_tree()
+    # tree.delete(58)
+    # tree.print_tree()
 
 if __name__ == "__main__":
     main()

@@ -641,11 +641,11 @@ class StorageEngine:
         if self.is_hash_index_exist(database_name, table_name, column):
             self.insert_hash_index(database_name, table_name, column, key, block_index, offset, transaction_id)
     
-    def update_key_to_index(self, database_name:str, table_name:str, column:str, key, block_index, offset, transaction_id:int) -> None:
-        if self.is_bplus_index_exist(database_name, table_name, column):
-            self.update_bplus_index(database_name, table_name, column, key, block_index, offset, transaction_id)
-        if self.is_hash_index_exist(database_name, table_name, column):
-            self.update_key_hash_index(database_name, table_name, column, key, block_index, offset, transaction_id)
+    # def update_key_to_index(self, database_name:str, table_name:str, column:str, key, block_index, offset, transaction_id:int) -> None:
+    #     if self.is_bplus_index_exist(database_name, table_name, column):
+    #         self.update_bplus_index(database_name, table_name, column, key, block_index, offset, transaction_id)
+    #     if self.is_hash_index_exist(database_name, table_name, column):
+    #         self.update_key_hash_index(database_name, table_name, column, old_key, block_index, offset, transaction_id)
 
     def delete_key_value_from_index(self, database_name:str, table_name:str, column:str, key, transaction_id:int) -> None:
         if self.is_bplus_index_exist(database_name, table_name, column):
