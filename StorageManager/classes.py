@@ -291,6 +291,24 @@ class StorageEngine:
             if table_name in self.blocks[database_name]:
                 self.buffer[transaction_id] = self.buffer.get(transaction_id, copy.deepcopy(self.blocks))
                 temp = self.buffer[transaction_id][database_name][table_name]["values"]
+                
+                # ngehandle masukin data yang primary keynya udah ada
+                column_pk = []
+                for column in self.buffer[transaction_id][database_name][table_name]["columns"]:
+                    if "PRIMARY KEY" in column.get("constraints", []):
+                        column_pk.append(column["name"])
+                # di sini dicari di seluruh record kalo ada yang sama
+                sama = 0
+                for block in temp:
+                    for record in block:
+                        for column in column_pk:
+                            if record[column] == data_insert[column]:
+                                sama+=1
+                        # misal PK nya 2 terus yang sama juga ada 2
+                        if len(column_pk) != 0 and sama == len(column_pk):
+                            return Exception(f"Sudah ada data yang memiliki primary key yang serupa!")
+                        sama = 0
+            
                 dimasukin = False
                 for block in temp:
                     if len(block) < self.buffer[transaction_id][database_name][table_name]["max_record"]:
