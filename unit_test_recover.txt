@@ -1,9 +1,0 @@
-2024-12-13T17:21:04,1,START,,,
-2024-12-13T17:21:04,2,START,,,
-2024-12-13T17:21:04,3,START,,,
-2024-12-13T17:21:04,1,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
-2024-12-13T17:21:04,1,COMMIT,,,
-2024-12-13T17:21:04,,CHECKPOINT,{2, 3}
-2024-12-13T17:21:04,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
-2024-12-13T17:21:04,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,
-2024-12-13T17:21:04,,CHECKPOINT,{2, 3}

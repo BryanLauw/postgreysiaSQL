@@ -180,7 +180,7 @@ class Recovery:
             log_entry.object_value,
             log_entry.old_value
         )
-        print(temp.timestamp, temp.transaction_id, temp.event, temp.object_value)
+        print(temp.timestamp, temp.transaction_id, temp.event, temp.object_value, temp.old_value)
         self.add_entry_to_buffer(temp)
 
         # self.logger.info(f"SEND to ??? REVERSED Query {log_entry}")
