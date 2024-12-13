@@ -21,6 +21,12 @@ class QueryCost:
     @staticmethod
     def __format_name(string: str) -> str:
         return string.strip().lower()
+    
+    @staticmethod
+    def __is_right_side_constant(condition: str) -> bool:
+        right_side = condition.split(" = ")[1]
+        numeric_pattern = r"^\d+(\.\d+)?$"
+        return bool(re.match(numeric_pattern, right_side))
 
 
     # Size Cost
@@ -59,15 +65,19 @@ class QueryCost:
             statistic2 = self.__get_size_cost(query_tree.childs[1])
 
             expressions = re.split(" AND | OR ", query_tree.val)
-            first_expression = expressions.pop(0)
-            first_attributes = [item.split('.')[1] for item in first_expression.split(" = ")]
-            first_attributes = [QueryCost.__format_name(attribute) for attribute in first_attributes]
-            attribute1, attribute2 = first_attributes
-            
-            if attribute1 not in statistic1.V_a_r or attribute2 not in statistic2.V_a_r:
-                attribute1, attribute2 = attribute2, attribute1
-            
-            result = self.__join_on(statistic1, statistic2, attribute1, attribute2)
+            expression = expressions.pop(0)
+
+            if QueryCost.__is_right_side_constant(expression):
+                result = self.__join_on_constant(statistic1, statistic2, expression)
+            else:
+                attributes = [item.split('.')[1] for item in expression.split(" = ")]
+                attributes = [QueryCost.__format_name(attribute) for attribute in attributes]
+                attribute1, attribute2 = attributes
+                
+                if attribute1 not in statistic1.V_a_r or attribute2 not in statistic2.V_a_r:
+                    attribute1, attribute2 = attribute2, attribute1
+                
+                result = self.__join_on(statistic1, statistic2, attribute1, attribute2)
 
         elif query_tree.type == "NATURAL JOIN":
             statistic1 = self.__get_size_cost(query_tree.childs[0])
@@ -212,6 +222,24 @@ class QueryCost:
         
         result: Statistic = Statistic(n_r=n_r_result, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
         return result
+    
+    def __join_on_constant(self, statistic1: Statistic, statistic2: Statistic, condition: str) -> Statistic:
+        result_cross: Statistic = self.__cross_join(statistic1, statistic2)
+        
+        if "OR" in condition:
+            result_where = result_cross
+        elif "=" in condition:
+            attribute = condition.split(" = ")[0].split(".")[1]
+            attribute = QueryCost.__format_name(attribute)
+            result_where = self.__where_equals(result_cross, attribute)
+        elif "<>" in condition:
+            attribute = condition.split(" <> ")[0].split(".")[1]
+            attribute = QueryCost.__format_name(attribute)
+            result_where = self.__where_not_equals(result_cross, attribute)
+        else:
+            result_where = self.__where_comparison(result_cross)
+
+        return result_where
     
     def __natural_join(self, statistic1: Statistic, statistic2: Statistic, attributes: list[str]) -> Statistic:
         if (statistic1.n_r == 0) or (0 in statistic1.V_a_r.values()) or (statistic2.n_r == 0) or (0 in statistic2.V_a_r.values()):

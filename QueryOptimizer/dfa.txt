@@ -1,5 +1,5 @@
 start_state q0
-final_states q4 q6 q13 q19 q22 q23 q25 q32 q48
+final_states q4 q6 q13 q19 q22 q23 q25 q32 q37 q48
 q0 SELECT q1 DELETE q26 UPDATE q33 CREATE q39
 q1 <ATTR> q2 * q2
 q2 , q1 FROM q3

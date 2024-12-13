@@ -25,7 +25,6 @@ class QueryValidator:
         storage_engine = StorageEngine()
         # Regex to find comparisons (attribute and literal pairs)
         comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
-        print(where_clause)
         matches = re.findall(comparison_pattern, where_clause)
 
         # Initialize the result dictionary
@@ -71,7 +70,7 @@ class QueryValidator:
         return attribute_types
 
 
-    def validate_comparisons(self,where_clause: str, attribute_types: dict):
+    def validate_comparisons(self, where_clause: str, attribute_types: dict):
         # Regex to find comparisons
         comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
         matches = re.findall(comparison_pattern, where_clause)
