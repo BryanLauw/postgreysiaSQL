@@ -47,7 +47,7 @@ class DataDeletion:
         self.conditions = conditions
 
 class Statistic:
-    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int], col_data_type:dict[str, str], col_index:dict[str,(int, int)], col_bplus_tree_level:dict[str, int]) -> None:
+    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int], col_data_type:dict[str, str] = None, col_index:dict[str,(int, int)] = None, col_bplus_tree_level:dict[str, int] = None) -> None:
         """
         Deskripsi statistik :
         1. n_r : int ==> jumlah tuple dalam tabel
