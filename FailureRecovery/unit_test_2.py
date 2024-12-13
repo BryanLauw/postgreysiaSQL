@@ -10,7 +10,7 @@ class TestFailureRecovery(unittest.TestCase):
     def setUp(self):
         self.failure_recovery = FailureRecovery("test_db_1.log", buffer_size=10, interval=5)
 
-        self.failure_recovery.checkpoint_manager.perform_checkpoint = MagicMock()
+        # self.failure_recovery.checkpoint_manager.perform_checkpoint = MagicMock()
         self.failure_recovery.recovery.rollback = MagicMock(return_value="Rollback Successful")
         self.failure_recovery.recovery.redo = MagicMock(return_value="Redo Instructions")
         self.failure_recovery.recovery.undo = MagicMock(return_value="Undo Instructions")

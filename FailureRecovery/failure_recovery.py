@@ -53,7 +53,8 @@ class FailureRecovery:
         
         # initialize threading and checkpoint 
         # self.threading_manager = ThreadingManager(logger=self.logger)
-        self.checkpoint_manager = CheckpointManager(fname, self.threading_manager, interval, buffer_size, self.logger)
+        self.checkpoint_manager = CheckpointManager(fname, buffer_size, self.logger)
+        # self.checkpoint_manager = CheckpointManager(fname, interval, buffer_size, self.logger)
 
         # init recovery
         self.recovery = Recovery(fname, self.logger, self.add_entry_to_buffer)
@@ -102,7 +103,7 @@ class FailureRecovery:
             new_value (Optional[str]): The new value of the object (if applicable).
         """
         # Wait if checkpoint is in progress
-        self.threading_manager.wait_for_pause()
+        # self.threading_manager.wait_for_pause()
 
         log_entry = LogEntry(
             timestamp=datetime.now(),
@@ -171,7 +172,6 @@ class FailureRecovery:
         """
         Stop the background checkpoint thread.
         """
-        self.checkpoint_manager.stop()
 
         # perform final checkpoint
         self.checkpoint_manager.perform_checkpoint()
@@ -187,10 +187,10 @@ class FailureRecovery:
         signal.signal(signum, signal.SIG_DFL)
         signal.raise_signal(signum)
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    # Initiate main section of the program
-    log_file = "log_edbert.log" # log file name
-    recovery = FailureRecovery(log_file, 10, 5)
+#     # Initiate main section of the program
+#     log_file = "log_edbert.log" # log file name
+#     recovery = FailureRecovery(log_file, 10, 5)
 
     

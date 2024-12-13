@@ -10,10 +10,6 @@ class ThreadingManager:
         Params:
             logger (logging.Logger, optional): Logger for tracking threading events
         """
-        # Threading controls
-        self.checkpoint_lock = threading.Lock()
-        self.global_pause_event = threading.Event()
-        self.global_pause_event.set()  # Initially, threads are not paused
 
         # Operation tracking
         self.active_operations = 0

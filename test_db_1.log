@@ -1,0 +1,26 @@
+2024-12-13T11:53:45,1,START,,,
+2024-12-13T11:53:45,2,START,,,
+2024-12-13T11:53:45,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T11:53:45,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T11:53:45,,CHECKPOINT,{1, 2}
+2024-12-13T11:53:45,,CHECKPOINT,{1, 2}
+2024-12-13T11:54:14,,CHECKPOINT,set()
+2024-12-13T11:54:14,,CHECKPOINT,set()
+2024-12-13T11:54:14,1,START,,,
+2024-12-13T11:54:14,2,START,,,
+2024-12-13T11:54:14,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T11:54:14,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T11:54:14,,CHECKPOINT,{1, 2}
+2024-12-13T11:54:14,,CHECKPOINT,{1, 2}
+2024-12-13T11:54:14,,CHECKPOINT,set()
+2024-12-13T11:54:14,,CHECKPOINT,set()
+2024-12-13T11:55:51,,CHECKPOINT,set()
+2024-12-13T11:55:51,,CHECKPOINT,set()
+2024-12-13T11:55:51,1,START,,,
+2024-12-13T11:55:51,2,START,,,
+2024-12-13T11:55:51,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T11:55:51,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T11:55:51,,CHECKPOINT,{1, 2}
+2024-12-13T11:55:51,,CHECKPOINT,{1, 2}
+2024-12-13T11:55:51,,CHECKPOINT,set()
+2024-12-13T11:55:51,,CHECKPOINT,set()
