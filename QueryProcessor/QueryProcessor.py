@@ -63,8 +63,8 @@ class QueryProcessor:
             while retry:
                 try:
                     self.parsedQuery = self.qo.parse_query(query,self.db_name) 
-                    print("tree")
-                    print(self.parsedQuery.query_tree)
+                    # print("tree")
+                    # print(self.parsedQuery.query_tree)
                     if self.parsedQuery.query_tree.val == "UPDATE":
                         try:
                             if not self.client_states.get("on_begin", False):
