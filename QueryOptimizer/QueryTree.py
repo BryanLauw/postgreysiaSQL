@@ -35,6 +35,7 @@ class QueryTree:
     
     def deep_copy(self):
         copied_node = QueryTree(self.type, self.val, self.method)
+        copied_node.parent = QueryTree(self.parent.type,self.parent.val,self.parent.method,[copied_node])
         
         copied_node.childs = [child.deep_copy() for child in self.childs]
         
