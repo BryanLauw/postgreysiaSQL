@@ -1,8 +1,8 @@
 import pickle
 import os
 import copy
-from StorageManager.Bplus import BPlusTree
-from StorageManager.Hash import HashTable
+from .Bplus import BPlusTree
+from .Hash import HashTable
 from QueryProcessor.Rows import Rows
 
 class Condition:
@@ -72,7 +72,7 @@ class Statistic:
         self.l_r = l_r
         self.f_r = f_r
         self.V_a_r = V_a_r
-        self.col_data_type = col_data_type
+        self.col_data_type = col_data_type 
         self.col_index = col_index
         self.col_bplus_tree_level = col_bplus_tree_level
 
@@ -399,7 +399,7 @@ class StorageEngine:
         else: 
             hasil_akhir = hasil_operasi
         # return akhir
-        return Rows(hasil_akhir, len(hasil_akhir))
+        return Rows(hasil_akhir, len(hasil_akhir), str(data_retrieval.table))
 
     def write_block(self, data_write: DataWrite, database_name: str, transaction_id: int) -> int | Exception:
         """
