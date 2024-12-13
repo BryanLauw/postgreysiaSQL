@@ -4,11 +4,11 @@ from StorageManager.classes import StorageEngine, DataRetrieval, DataWrite, Data
 
 class TestStorageEngine(unittest.TestCase):
     def setUp(self):
-        # Ensure no leftover files
-        if os.path.exists("data.dat"):
-            os.remove("data.dat")
-        if os.path.exists("indexes.dat"):
-            os.remove("indexes.dat")
+        # # Ensure no leftover files
+        # if os.path.exists("data.dat"):
+        #     os.remove("data.dat")
+        # if os.path.exists("indexes.dat"):
+        #     os.remove("indexes.dat")
 
         self.storage = StorageEngine()
         
