@@ -47,7 +47,7 @@ class DataDeletion:
         self.conditions = conditions
 
 class Statistic:
-    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int], col_data_type:dict[str, str], col_index:dict[str,(int, int)], col_bplus_tree_level:dict[str, int]) -> None:
+    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int], col_data_type:dict[str, str] = None, col_index:dict[str,(int, int)] = None, col_bplus_tree_level:dict[str, int]= None) -> None:
         """
         Mengembalikan statistik dari sebuah tabel
         Param : database_name (string), table_name (string)
@@ -77,7 +77,7 @@ class Statistic:
         self.l_r = l_r
         self.f_r = f_r
         self.V_a_r = V_a_r
-        self.col_data_type = col_data_type
+        self.col_data_type = col_data_type 
         self.col_index = col_index
         self.col_bplus_tree_level = col_bplus_tree_level
 
