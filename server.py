@@ -16,8 +16,10 @@ def handle_client(client_socket, client_id, query_processor):
                 if query.lower() == "exit":
                     client_socket.send(b"Goodbye!\n")
                     break
-
-                response = query_processor.execute_query(query, client_id)
+                
+                list_of_queries = query_processor.parse_query(query)
+                for query in list_of_queries:
+                    response = query_processor.execute_query(query, client_id)
                 client_socket.send(f"{response}\n".encode("utf-8"))
             except Exception as e:
                 error_message = f"Error server: {e}"
