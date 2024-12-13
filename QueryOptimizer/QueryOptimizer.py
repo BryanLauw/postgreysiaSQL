@@ -294,21 +294,15 @@ class QueryOptimizer:
 
     
     def __split_join(self, node_join : QueryTree, result:dict) :
-        tabel = self.get_table_column(node_join.val)
-        tabel1 = tabel[0]
-        tabel2 = tabel[1]
-        # tabel1, tabel2 = node_join.val.split('=')
-        key = tabel1.split('.')[0] 
-        if key not in result:
-            result[key] = []
-        if tabel1.strip() not in result[key]  : 
-            result[key].append(tabel1)
-        key = tabel2.split('.')[0] 
-        if key not in result:
-            result[key] = []
-        if tabel2.strip() not in result[key] : 
-            result[key].append(tabel2)
-        return result
+        column = self.get_table_column(node_join.val)
+        # print("KOLOM JOIN : ",column)
+        for item in column:
+            # print(item)
+            key = item.split('.')[0] 
+            if key not in result:
+                result[key] = []
+            if item.strip() not in result[key]  : 
+                result[key].append(item)
     
     def __split_where(self, node_where : QueryTree, result:dict) :
         if "OR" in  node_where.val:
@@ -332,29 +326,28 @@ class QueryOptimizer:
             if value.strip() not in result[key]: 
                 result[key].append(value)
     
-    def __do_pushing_projection(self, node_select:QueryTree, result:dict = []) : 
+    def __do_pushing_projection(self, node_select:QueryTree, result:dict = [], index = 0) : 
         # print("REKURSIF: ",node_select.val,node_select.type)
         # print("RESULT: ",result)
         if node_select.type == "TABLE" :
-            parent = node_select.parent
-            for i in range(len(parent.childs)) :
-                node_baru = QueryTree("SELECT", result[node_select.val.strip()])
-                node_baru.parent = node_select.parent
-                node_select.parent.childs[i] = node_baru
-                node_baru.add_child(node_select)
+            # parent = node_select.parent
+            # print("PARENT : \n", parent)
+            node_baru = QueryTree("SELECT", result[node_select.val.strip()])
+            node_baru.parent = node_select.parent
+            node_select.parent.childs[index] = node_baru
+            node_baru.add_child(node_select)
             
         elif node_select.type == "WHERE" : 
             self.__split_where(node_select, result)
             self.__do_pushing_projection(node_select.childs[0], result)
         elif node_select.type == "JOIN" : 
             self.__split_join(node_select, result)
-            self.__do_pushing_projection(node_select.childs[0], result)
-            self.__do_pushing_projection(node_select.childs[1], result)
+            self.__do_pushing_projection(node_select.childs[0], result, 0)
+            self.__do_pushing_projection(node_select.childs[1], result, 1)
         elif node_select.type == "NATURAL JOIN" :
             self.__split_natural_join(node_select, result)
-            # self.__split_projection(node_select, result)
-            self.__do_pushing_projection(node_select.childs[0], result)
-            self.__do_pushing_projection(node_select.childs[1], result)
+            self.__do_pushing_projection(node_select.childs[0], result, 0)
+            self.__do_pushing_projection(node_select.childs[1], result, 1)
         else : 
             self.__do_pushing_projection(node_select.childs[0], result)
 
