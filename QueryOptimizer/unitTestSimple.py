@@ -1,15 +1,8 @@
 import unittest
 
-from StorageManager.classes import Statistic, StorageEngine
+from StorageManager.classes import StorageEngine
 
-from .QueryParser import QueryParser
-from .QueryTree import ParsedQuery, QueryTree
-from .QueryHelper import *
-from typing import Callable, Union
-from .QueryValidator import QueryValidator
 from .QueryCost import QueryCost
-from queue import Queue
-from .QueryOptimizer import QueryOptimizer
 from .OptimizationEngine import OptimizationEngine
 
 class TestTree(unittest.TestCase):
