@@ -1,4 +1,6 @@
 import socket
+import signal
+import sys
 
 def recv_all(client):
     buffer = ""
@@ -11,9 +13,17 @@ def recv_all(client):
             break
     return buffer.strip()  
 
+def signal_handler(signal, frame, client):
+    print("\nCtrl+C detected. Exiting gracefully...")
+    client.send("interrupt\n".encode("utf-8"))  
+    client.close()
+    sys.exit(0)
+
 def start_client(host="127.0.0.1", port=65432):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((host, port))
+
+    signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, client))
 
     try:
         print(recv_all(client))
@@ -26,16 +36,15 @@ def start_client(host="127.0.0.1", port=65432):
                 print("Goodbye!")
                 break
 
-            # Check for ;
-            if (query[-1] != ';'):
-                print("Invalid semicolon.")
+            if not query.endswith(";"):
+                print("Invalid query syntax. Queries must end with a semicolon.")
                 continue
 
             if not query:
                 print("Empty query, please re-enter.")
                 continue
 
-            client.send(f"{query}\n".encode("utf-8"))  
+            client.send(f"{query}\n".encode("utf-8"))
 
             response = recv_all(client)
             print(response)
