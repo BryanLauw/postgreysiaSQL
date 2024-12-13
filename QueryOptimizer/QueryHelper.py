@@ -19,29 +19,35 @@ class QueryHelper:
         return new_query
     
     @staticmethod
-    def extract_table_and_aliases(table_tokens: list[str]) -> {dict,list[str]}:
+    def extract_table_and_aliases(table_tokens: list[str]) -> {dict, list[str]}:
         alias_map = {}
         attribute_arr = []
+        
+        defined_aliases = set()
+        
         for token in table_tokens:
-            if token in ["JOIN","NATURAL JOIN",","]:
+            if token in ["JOIN", "NATURAL JOIN", ","]:
                 continue
             
             splitted = token.split()
             attribute_arr.append(splitted[0])
+            defined_aliases.add(splitted[0])  
             
             try:
                 idx_AS = splitted.index("AS")
-                alias_map[splitted[idx_AS+1]] = splitted[idx_AS-1]
+                alias_map[splitted[idx_AS + 1]] = splitted[idx_AS - 1]
+                defined_aliases.add(splitted[idx_AS + 1])
             except ValueError:
                 pass
             
             if "ON" in token:
                 splitted = token.split(" ON ")
-                table_aliases_ON = re.findall(r"^[^.]+", splitted[1])
-                for table in table_aliases_ON:
-                    if table not in attribute_arr and table not in alias_map:
-                        raise 
+                table_aliases_ON = re.findall(r"(\b\w+\b)\.", splitted[1])
                 
+                for table in table_aliases_ON:
+                    if table not in defined_aliases:
+                        raise ValueError(f"Alias or table '{table}' is used before being defined.")
+        
         return alias_map, attribute_arr
     
     @staticmethod

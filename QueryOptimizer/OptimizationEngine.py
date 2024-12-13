@@ -15,7 +15,7 @@ from .QueryOptimizer import QueryOptimizer
 
 class OptimizationEngine:
     def __init__(self, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        self.QueryParser = QueryParser("dfa.txt")
+        self.QueryParser = QueryParser("QueryOptimizer/dfa.txt")
         self.QueryValidator = QueryValidator()
         self.QueryOptimizer = QueryOptimizer()
         self.get_stats = get_stats
@@ -212,7 +212,8 @@ if __name__ == "__main__":
 
     # Test SELECT query with JOIN
     # select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
-    select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.order_id = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
+    # select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.order_id = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
+    select_query = 'SELECT u.id_user FROM users AS u JOIN products AS p ON p.product_id = o.order_id JOIN orders AS o ON u.id_user = o.order_id'
     # create_index_query = 'CREATE INDEX nama_idx ON users(id) USING hash'
     print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
