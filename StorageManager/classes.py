@@ -49,12 +49,7 @@ class DataDeletion:
 class Statistic:
     def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int], col_data_type:dict[str, str], col_index:dict[str,(int, int)], col_bplus_tree_level:dict[str, int]) -> None:
         """
-        Mengembalikan statistik dari sebuah tabel
-        Param : database_name (string), table_name (string)
-
-        Contoh : storageEngine.get_stats("database1", "users")
-
-        Statistik yang dihasilkan :
+        Deskripsi statistik :
         1. n_r : int ==> jumlah tuple dalam tabel
         2. b_r : int ==> jumlah blok yang berisi tuple dalam tabel
         3. l_r : int ==> ukuran satu tuple dalam tabel
@@ -165,6 +160,23 @@ class StorageEngine:
         if table_name not in self.blocks[database_name]:
             raise ValueError(f"Table '{table_name}' does not exist.")
         return self.blocks[database_name][table_name]['columns']
+    
+    def get_table_datatype(self, database_name: str, table_name: str) -> list[dict]:
+        """
+        Mengembalikan metadata sebuah tabel dengan hanya name dan type.
+        Param : database_name (string), table_name (string)
+
+        Contoh : storageEngine.get_table_metadata("database1", "users")
+        """
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        if table_name not in self.blocks[database_name]:
+            raise ValueError(f"Table '{table_name}' does not exist.")
+
+        # Filter only 'name' and 'type'
+        columns = self.blocks[database_name][table_name]['columns']
+        return [{'name': column['name'], 'type': column['type']} for column in columns]
+
     
     def load(self) -> None:
         """
@@ -484,7 +496,7 @@ class StorageEngine:
         Statistik yang dihasilkan :
         1. n_r : int ==> jumlah tuple dalam tabel
         2. b_r : int ==> jumlah blok yang berisi tuple dalam tabel
-        3. l_r : int ==> ukuran satu tuple dalam tabel
+        3. l_r : int ==> ukuran tuple dalam tabel
         4. f_r : int ==> blocking factor (jumlah tuple dalam satu blok)
         5. V_a_r : dict[str, int] ==> jumlah nilai unik dari setiap atribut dalam tabel
                             contoh keluaran : {"id_user" : 100, "nama_user" : 50}
@@ -506,35 +518,52 @@ class StorageEngine:
             raise ValueError(f"Tidak ada table dengan nama {table_name}")
         
         table = self.blocks[database_name][table_name]
-        rows = table["values"]
+        blocks = table["values"]
         columns = table["columns"]
 
         # 1. nr
-        nr = sum(len(block) for block in rows)
+        nr = sum(len(record) for record in blocks)
 
-        # 2. lr
-        type_size = {
-        "INTEGER": 4,  # byte integer
-        "TEXT": 50,  #misal max string lenth 50 char
-        "FLOAT" : 4
-        }
+        # 2. br
+        br = len(blocks)
 
-        lr = sum(type_size.get(col["type"], 0) for col in columns)
+        # 3. lr
+        lr = sum(len(str(row)) for row in blocks) // nr if nr > 0 else 0       
 
-        # 3. fr
-        fr = block_size // lr if lr > 0 else 0
-
-        # 4. number of blocks
-        br = (nr + fr -1) // fr if fr > 0 else 0
+        # 4. fr
+        fr = nr // br if br > 0 else 0
 
         # 5. V(A,r)
         V_a_r = {}
 
         for col in columns:
             attribute = col["name"]
-            V_a_r[attribute] = len(set(row[attribute] for row in rows if attribute in row))
+            V_a_r[attribute] = len(set(row[attribute] for row in blocks if attribute in row))
+        
+        # 6. col_data_type
+        col_data_type = self.get_table_datatype(database_name, table_name)
 
-        return Statistic(n_r=nr, b_r=br, l_r=lr, f_r=fr, V_a_r=V_a_r)
+        # 7. col_index
+        col_index = {}
+        for col in columns:
+            attribute = col["name"]
+            has_bplus = 1 if self.is_bplus_index_in_block(database_name, table_name, attribute) else 0
+            has_hash = 1 if self.is_hash_index_in_block(database_name, table_name, attribute) else 0
+            col_index[attribute] = (has_bplus, has_hash)
+
+        # 8. col_bplus_tree_level
+        col_bplus_tree_level = {}
+        for col in columns:
+            attribute = col["name"]
+            if self.is_bplus_index_in_block(database_name, table_name, attribute):
+                # If B+ index exists, get its level
+                bplus_tree = self.indexes[database_name][table_name][attribute]["bplus"]
+                col_bplus_tree_level[attribute] = bplus_tree.get_bplus_tree_level()
+            else:
+                # If no B+ index, assign 0
+                col_bplus_tree_level[attribute] = 0
+
+        return Statistic(n_r=nr, b_r=br, l_r=lr, f_r=fr, V_a_r=V_a_r, col_data_type=col_data_type, col_index=col_index, col_bplus_tree_level=col_bplus_tree_level)
     
     """
     ==============  INDEX FOR USE   ========================================================================================
