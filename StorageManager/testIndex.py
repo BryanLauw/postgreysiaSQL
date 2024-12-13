@@ -2,18 +2,6 @@ from StorageManager.classes import StorageEngine
 
 storage_engine = StorageEngine()
 
-# GET TABLE STATISTICS
-statistic = storage_engine.get_stats("database1", "users_membership")
-print("================== Statistic for table 'users_membership' ==================")
-print("nr", statistic.n_r)
-print("br", statistic.b_r)
-print("lr", statistic.l_r)
-print("fr", statistic.f_r)
-print("V[a,r]", statistic.V_a_r)
-print("index info",statistic.col_index)
-print("column data type info",statistic.col_data_type)
-print("column bplus level info",statistic.col_bplus_tree_level)
-
 # SEE ALL TABLES AND COLUMNS INSIDE THE PARTICULAR DATABASE
 print("\nAll tables and columns info in database1")
 print(storage_engine.get_tables_and_columns_info("database1"))
