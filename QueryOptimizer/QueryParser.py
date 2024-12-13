@@ -45,7 +45,6 @@ class QueryParser:
     def transform_to_upper(self,text):
         words = text.split()
         transformed = [word.upper() if word.upper() in self.keywords+["AND","OR"] else word for word in words]
-        print(words)
         return " ".join(transformed)
     
     def tokenize_query(self,query: str):
@@ -141,7 +140,7 @@ class QueryParser:
                    (rule_token == "<ATTR>" and isAttribute(token)) or
                    (rule_token == "<WORD>" and re.match(r'^[a-zA-Z_]+$', token)) or 
                    (rule_token == "<X>" and (isString(token) or isAttribute(token) or isNumber(token))) or
-                   (rule_token == "<N>" and isNumber(token)) or 
+                   (rule_token == "<INT>" and token.isdigit()) or 
                    (rule_token == "<CO>" and token in self.CO) or
                    (rule_token == "<MO>" and token in self.MO) or
                    (rule_token == "<TABLE_ATTR>" and isTableAttr(token))
@@ -149,7 +148,6 @@ class QueryParser:
                     next_state = rule[1]
                     break
             if not next_state:
-                print("ERROR: ",cur_state)
                 start = index-2 if index-2>=0 else 0
                 end = index+2 if index+2<len(tokens) else len(tokens)-1
                 raise ValueError(f"Syntax error at: {tokens[start:end+1]}")

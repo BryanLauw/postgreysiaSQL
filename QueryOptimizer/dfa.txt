@@ -1,5 +1,5 @@
 start_state q0
-final_states q4 q6 q13 q19 q22 q23 q25 q32 q48
+final_states q4 q6 q13 q19 q22 q23 q25 q32 q37 q48
 q0 SELECT q1 DELETE q26 UPDATE q33 CREATE q39
 q1 <ATTR> q2 * q2
 q2 , q1 FROM q3
@@ -22,9 +22,9 @@ q18 <X> q19
 q19 ORDER q20 <MO> q18 AND q16 OR q16 LIMIT q24
 q20 BY q21
 q21 <ATTR> q22
-q22 ASC q23 DESC q23
+q22 ASC q23 DESC q23 LIMIT q24
 q23 LIMIT q24
-q24 <N> q25
+q24 <INT> q25
 q26 FROM q27
 q27 <WORD> q28
 q28 WHERE q29

@@ -3,6 +3,7 @@ from StorageManager.classes import StorageEngine
 storage_engine = StorageEngine()
 
 # SEE ALL TABLES AND COLUMNS INSIDE THE PARTICULAR DATABASE
+print("\nAll tables and columns info in database1")
 print(storage_engine.get_tables_and_columns_info("database1"))
 print()
 
