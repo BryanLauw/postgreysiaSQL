@@ -51,6 +51,11 @@ class QueryProcessor:
                 self.client_states["on_begin"] = False
                 self.client_states["transactionId"] = None
 
+        elif(query.upper() == "ROLLBACK" or query.upper() == "ROLLBACK TRANSACTION"):
+            transaction_id = self.client_states["transactionId"]
+            self.handle_rollback(transaction_id)
+            self.client_states["on_begin"] = False
+            self.client_states["transactionId"] = None
         # elif(query.upper() == "PRINT"):
         #     self.printResult(tables, rows)
 
@@ -81,14 +86,14 @@ class QueryProcessor:
                                 print("Validation failed. Handling rollback.")
                                 self.handle_rollback(transaction_id)
                                 print("Retrying query after rollback.")
-                                continue  
+                                continue
                             
                             # write data
-                            self.sm.write_block(write, self.db_name, transaction_id)
                             data_written = data_lama.get_data()[0].get(write.column[0])
                             object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}'}}"
-                            print(object_value)
-                            self.rm.write_log_entry(transaction_id, "DATA", object_value, data_written, write.new_value[0])
+                            self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_written, write.new_value)
+                            self.sm.write_block(write, self.db_name, self.current_transactionId)
+                            self.sm.commit_buffer(self.current_transactionId)
                             
                         except Exception as e:
                             self.handle_rollback(transaction_id)
@@ -430,10 +435,12 @@ class QueryProcessor:
         """
         print("rollback transaction id: " ,transaction_id)
         undo_list = self.rm.write_log_entry(transaction_id, "ABORT", None, None, None)
+        print (undo_list)
 
 
         # Retrieve undo instructions from FailureRecovery
-        for instruction in undo_list:
+        for instruction in undo_list['undo']:
+            print(instruction)
             object_value = instruction["object_value"]
             old_value = instruction["old_value"]
             db, table, column, key_column, key_value = self.__parse_object_value(object_value)
