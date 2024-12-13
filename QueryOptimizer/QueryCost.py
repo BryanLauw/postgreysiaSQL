@@ -22,7 +22,6 @@ class QueryCost:
     def __format_name(string: str) -> str:
         return string.strip().lower()
 
-
     # Size Cost
     # Calculate the size cost of the query tree
 

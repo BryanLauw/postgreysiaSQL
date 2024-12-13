@@ -161,7 +161,6 @@ class QueryOptimizer:
             isTopJoin = node.parent.val not in ["JOIN","NATURAL JOIN"]
             
             # Normal
-            print(node.parent)
             cost_normal = query_cost.calculate_size_cost(node.parent if not isTopJoin else node)
             smalles_cost = 9999
             
@@ -253,7 +252,6 @@ class QueryOptimizer:
         return None
     
     def pushing_selection(self, node: QueryTree,) -> bool:
-        print("PUSHING SELECTION: ",node.val,node.type)
         if(self.__already_pushed_selection(node)):
             return False
         
@@ -281,20 +279,16 @@ class QueryOptimizer:
 
     def __split_natural_join(self, node_natural : QueryTree, result:dict) : 
         table_left = self.__find_tables_from_children(node_natural.childs[0])
-        # print(table_left)
         table_right = self.__find_tables_from_children(node_natural.childs[1])
-        # print(table_right)
 
         for item in node_natural.val:
             value_left = table_left[0] + "." + item
-            # print(value_left)
             if table_left[0] not in result:
                 result[table_left[0]]= []
             if value_left.strip() not in result[table_left[0]] : 
                 result[table_left[0]].append(value_left)
             
             value_right = table_right[0] + "." + item
-            # print(value_right)
             if table_right[0] not in result:
                 result[table_right[0]] = []
             if value_right.strip() not in result[table_right[0]]  : 
@@ -303,9 +297,7 @@ class QueryOptimizer:
     
     def __split_join(self, node_join : QueryTree, result:dict) :
         column = self.get_table_column(node_join.val)
-        # print("KOLOM JOIN : ",column)
         for item in column:
-            # print(item)
             key = item.split('.')[0] 
             if key not in result:
                 result[key] = []
@@ -335,11 +327,7 @@ class QueryOptimizer:
                 result[key].append(value)
     
     def __do_pushing_projection(self, node_select:QueryTree, result:dict = [], index = 0) : 
-        # print("REKURSIF: ",node_select.val,node_select.type)
-        # print("RESULT: ",result)
         if node_select.type == "TABLE" :
-            # parent = node_select.parent
-            # print("PARENT : \n", parent)
             node_baru = QueryTree("SELECT", result[node_select.val.strip()])
             node_baru.parent = node_select.parent
             node_select.parent.childs[index] = node_baru
@@ -360,8 +348,6 @@ class QueryOptimizer:
             self.__do_pushing_projection(node_select.childs[0], result)
 
     def pushing_projection(self, node: QueryTree) :
-        print("PUSHING PROJECTION: ",node.val,node.type)
-
         if node.type == "SELECT" : 
             # node_select:QueryTree = node
             result:dict = {}

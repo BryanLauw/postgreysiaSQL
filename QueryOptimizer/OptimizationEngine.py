@@ -15,7 +15,7 @@ from .QueryOptimizer import QueryOptimizer
 
 class OptimizationEngine:
     def __init__(self, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        self.QueryParser = QueryParser("QueryOptimizer/dfa.txt")
+        self.QueryParser = QueryParser("dfa.txt")
         self.QueryValidator = QueryValidator()
         self.QueryOptimizer = QueryOptimizer()
         self.get_stats = get_stats
@@ -31,7 +31,6 @@ class OptimizationEngine:
         normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
 
         query_components_value = self.QueryParser.get_components_values(normalized_query)
-        print(query_components_value)
         
         if "FROM" in query_components_value:
             comp_with_attr = "FROM"
@@ -168,7 +167,6 @@ class OptimizationEngine:
             "SELECT": [],
             "WHERE": [],
         }
-        print("QUERY AWAL : \n",query.query_tree)
         queue_nodes = Queue()
         queue_nodes.put(query.query_tree)
         while not queue_nodes.empty():
@@ -184,9 +182,7 @@ class OptimizationEngine:
             
         for node in list_nodes["WHERE"]:
             self.QueryOptimizer.pushing_selection(node)
-        
-        print("QUERY AFTER PUSHING SELECTION :\n", query.query_tree)
-        
+                
         # list_nodes["JOIN"].reverse()
         # self.QueryOptimizer.reorder_join(list_nodes["JOIN"],database_name,self.get_stats)
 
@@ -199,7 +195,6 @@ class OptimizationEngine:
 
         for node in list_nodes["SELECT"] :
             self.QueryOptimizer.pushing_projection(node)
-        print("QUERY AFTER PUSHING PROJECTION :\n", query.query_tree)
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
@@ -210,49 +205,28 @@ if __name__ == "__main__":
     storage = StorageEngine()
     optim = OptimizationEngine(storage.get_stats)
 
+    while True:
+        try:
+            query = input("Query: ")
+            parsed_query = optim.parse_query(query,"database1")
+            print("BEFORE TREE:")
+            print(parsed_query)
+            print(f"BEFORE COST = {optim.get_cost(parsed_query, 'database1')}")
+            
+            optim.optimize_query(parsed_query,"database1")
+            print("AFTER TREE:")
+            print(parsed_query)
+            print(f"AFTER COST = {optim.get_cost(parsed_query, 'database1')}")
+        except Exception as e:
+            print(f"Error: {e}")
     # Test SELECT query with JOIN
     # select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
     # select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.order_id = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
-    select_query = 'SELECT u.id_user FROM users AS u JOIN products AS p ON p.product_id = o.order_id JOIN orders AS o ON u.id_user = o.order_id'
+    # select_query = 'SELECT u.id_user FROM users AS u JOIN products AS p ON p.product_id = 1 JOIN orders AS o ON u.id_user = o.order_id'
     # create_index_query = 'CREATE INDEX nama_idx ON users(id) USING hash'
-    print("SELECT QUERY\n",select_query,end="\n\n")
-    parsed_query = optim.parse_query(select_query,"database1")
+    # print("SELECT QUERY: ",select_query,end="\n\n")
+    # parsed_query = optim.parse_query(select_query,"database1")
     # parsed_query = optim.parse_query(create_index_query,"database1")
-    # print(parsed_query)
-    optim.optimize_query(parsed_query,"database1")
     # optim.optimize_query(parsed_query)
     # print("EVALUATION PLAN TREE: \n",parsed_query)
     
-    # print(f"COST = {optim.get_cost(parsed_query, 'database1')}")
-
-    # try:
-    #     invalid_query = "SELECT x.a FROM students AS s"
-    #     print(invalid_query)
-    #     parsed_query = optim.parse_query(invalid_query,"database1")
-    #     print(parsed_query)
-    # except ValueError as e:
-    #     print(e)
-
-    # where_clause = "students.a > 'aku' AND teacher.b = 'abc'"
-    # attribute_types = {
-    #     "students.a": "integer",
-    #     "teacher.b": "varchar",
-    # }
-
-    # try:
-    #     QueryHelper.validate_comparisons(where_clause, attribute_types)
-    #     print("All comparisons are valid!")
-    # except ValueError as e:
-    #     print(f"Validation error: {e}")
-
-    # Test UPDATE query
-    # update_query = "UPDATE products SET product_id = product_id + 1.1 - 5 WHERE product_id > 1000"
-    # print(update_query)
-    # parsed_update_query = optim.parse_query(update_query, "database1")
-    # print(parsed_update_query)
-
-    # #Test DELETE query
-    # delete_query = "DELETE FROM employees WHERE salary < 3000"
-    # print(delete_query)
-    # parsed_delete_query = new.parse_query(delete_query)
-    # print(parsed_delete_query)
