@@ -6,7 +6,7 @@ class ConcurrencyTester:
         
     def run_action(self, transaction_id: int, object: Row, action: Action):
         res = self.cm.validate_object(object, transaction_id, action)
-        if res == False:
+        if res.allowed == False:
             raise Exception(f"Transaction {transaction_id} not allowed to {action} data")
 
 
