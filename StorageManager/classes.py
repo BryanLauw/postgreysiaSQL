@@ -47,12 +47,39 @@ class DataDeletion:
         self.conditions = conditions
 
 class Statistic:
-    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int]) -> None:
+    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int], col_data_type:dict[str, str], col_index:dict[str,(int, int)], col_bplus_tree_level:dict[str, int]) -> None:
+        """
+        Mengembalikan statistik dari sebuah tabel
+        Param : database_name (string), table_name (string)
+
+        Contoh : storageEngine.get_stats("database1", "users")
+
+        Statistik yang dihasilkan :
+        1. n_r : int ==> jumlah tuple dalam tabel
+        2. b_r : int ==> jumlah blok yang berisi tuple dalam tabel
+        3. l_r : int ==> ukuran satu tuple dalam tabel
+        4. f_r : int ==> blocking factor (jumlah tuple dalam satu blok)
+        5. V_a_r : dict[str, int] ==> jumlah nilai unik dari setiap atribut dalam tabel
+                            contoh keluaran : {"id_user" : 100, "nama_user" : 50}
+        6. col_data_type: dict[str, str]  ==> tipe data dari setiap kolom dalam tabel
+                            contoh keluaran : {"id_user" : "INTEGER", "nama_user" : "TEXT"}
+        7. col_index : dict[str, (int, int)] ==> index yang ada pada setiap kolom dalam tabel
+                            format keluaran : 
+                            - nama kolom (str)
+                            - ada index bplus atau tidak (0 = tidak ada, 1 = ada)
+                            - ada index hash atau tidak (0 = tidak ada, 1 = ada)
+                            contoh keluaran : {"id_user" : (1,1), "nama_user" : (0,1)}
+        8. col_bplus_tree_level : dict[str, int] ==> level dari B+ tree yang ada pada setiap kolom dalam tabel
+                            contoh keluaran : {"id_user" : 2, "nama_user" : 3}
+        """
         self.n_r = n_r
         self.b_r = b_r
         self.l_r = l_r
         self.f_r = f_r
         self.V_a_r = V_a_r
+        self.col_data_type = col_data_type
+        self.col_index = col_index
+        self.col_bplus_tree_level = col_bplus_tree_level
 
     @staticmethod
     def print_statistics(self):
