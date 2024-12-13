@@ -252,11 +252,15 @@ class StorageEngine:
             if table_name in self.blocks[database_name]:
                 self.buffer[transaction_id] = self.buffer.get(transaction_id, copy.deepcopy(self.blocks))
                 temp = self.buffer[transaction_id][database_name][table_name]["values"]
-                # (STC) harus ngisi record yang kosong juga (misal kosong di tengah2)
-                if (len(temp[len(temp)-1]) >= self.buffer[transaction_id][database_name][table_name]["max_record"]): # blocks paling akhirnya penuh
-                    self.buffer[transaction_id][database_name][table_name]["values"].append([data_insert])
-                else:
-                    self.buffer[transaction_id][database_name][table_name]["values"][len(temp)-1].append(data_insert)
+                dimasukin = False
+                for block in temp:
+                    if len(block) < self.buffer[transaction_id][database_name][table_name]["max_record"]:
+                        block.append(data_insert)
+                        dimasukin = True
+                        break
+                if not dimasukin:
+                    temp.append([data_insert]) 
+                self.buffer[transaction_id][database_name][table_name]["values"] = temp
                 return True
             return Exception(f"Tidak ada table dengan nama {table_name} di database {database_name}")
         return Exception(f"Tidak ada database dengan nama {database_name}")
