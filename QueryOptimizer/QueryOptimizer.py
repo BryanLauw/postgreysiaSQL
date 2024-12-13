@@ -300,6 +300,7 @@ class QueryOptimizer:
             node_baru.parent = node_select.parent
             node_select.parent.childs[index] = node_baru
             node_baru.add_child(node_select)
+            node_select.parent = node_baru
             
         elif node_select.type == "WHERE" : 
             self.__split_where(node_select, result)
