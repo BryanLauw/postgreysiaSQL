@@ -45,6 +45,7 @@ class QueryProcessor:
                 self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
                 client_state["transactionId"] = self.current_transactionId
                 client_state["on_begin"] = True
+                return "Transaction Start"
             else:
                 print("Transaction already started.")
             
@@ -58,6 +59,7 @@ class QueryProcessor:
                 self.current_transactionId = None
                 client_state["on_begin"] = False
                 client_state["transactionId"] = None
+                return "Commit Transaction"
         
         elif(query.upper() == "ROLLBACK" or query.upper() == "ROLLBACK TRANSACTION"):
                     transaction_id = self.client_states["transactionId"]
@@ -100,8 +102,9 @@ class QueryProcessor:
                             data_written = data_lama.get_data()[0].get(write.column[0])
                             object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column + "+" + write.conditions[0].operation}','primary_key_value':'{write.conditions[0].operand}'}}"
                             self.rm.write_log_entry(transaction_id, "DATA", object_value, data_written, write.new_value)
-                            self.sm.write_block(write, self.db_name, transaction_id)
-                            self.sm.commit_buffer(transaction_id)                            
+                            result = self.sm.write_block(write, self.db_name, transaction_id)
+                            self.sm.commit_buffer(transaction_id)             
+                            return f"Data berhasil diupdate, total {result} baris diubah di semua tabel"             
                         except Exception as e:
                             self.handle_rollback(transaction_id)
                             print(e) 
