@@ -31,7 +31,6 @@ class QueryCost:
         if query_tree.type == "TABLE":
             result = self.__get_stats(self.__database, QueryCost.__format_name(query_tree.val))
             # result.n_r *= 1000
-            # print(result.V_a_r)
             # result.V_a_r = {key: value * 10 for key, value in result.V_a_r.items()}
         
         elif query_tree.type == "SELECT": 
@@ -94,6 +93,9 @@ class QueryCost:
         return result
     
     def __select(self, statistic: Statistic, attributes: list[str]) -> Statistic:
+        if statistic.n_r == 0 or statistic.V_a_r == 0:
+            return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
+        
         n_r_result = 1
         for attribute in attributes:
             n_r_result *= statistic.V_a_r[attribute]
@@ -107,6 +109,9 @@ class QueryCost:
         return result
 
     def __where_equals(self, statistic: Statistic, attribute: str) -> Statistic:
+        if statistic.n_r == 0 or statistic.V_a_r == 0:
+            return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
+        
         n_r_result = statistic.n_r // statistic.V_a_r[attribute]
 
         V_a_r_result = {}
@@ -117,6 +122,9 @@ class QueryCost:
         return result
 
     def __where_not_equals(self, statistic: Statistic, attribute: str) -> Statistic:
+        if statistic.n_r == 0 or statistic.V_a_r == 0:
+            return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
+        
         n_r_result = statistic.n_r - self.where_equals(statistic, attribute).n_r
         
         V_a_r_result = {}
@@ -127,6 +135,9 @@ class QueryCost:
         return result
 
     def __where_comparison(self, statistic: Statistic) -> Statistic:
+        if statistic.n_r == 0 or statistic.V_a_r == 0:
+            return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
+        
         n_r_result = statistic.n_r // 2
         
         V_a_r_result = {}
@@ -137,6 +148,9 @@ class QueryCost:
         return result
     
     def __cross_join(self, statistic1: Statistic, statistic2: Statistic) -> Statistic:
+        if statistic1.n_r == 0 or statistic1.V_a_r == 0 or statistic2.n_r == 0 or statistic2.V_a_r == 0:
+            return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
+        
         n_r_result = statistic1.n_r * statistic2.n_r
         
         V_a_r_result = {}
@@ -149,6 +163,9 @@ class QueryCost:
         return result
 
     def __join_on(self, statistic1: Statistic, statistic2: Statistic, attribute1: str, attribute2: str) -> Statistic:
+        if statistic1.n_r == 0 or statistic1.V_a_r == 0 or statistic2.n_r == 0 or statistic2.V_a_r == 0:
+            return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
+        
         n_r_result_1 = statistic1.n_r * statistic2.n_r // statistic2.V_a_r[attribute2]
         n_r_result_2 = statistic1.n_r * statistic2.n_r // statistic1.V_a_r[attribute1]
         n_r_result = min(n_r_result_1, n_r_result_2)
@@ -163,9 +180,12 @@ class QueryCost:
         return result
     
     def __natural_join(self, statistic1: Statistic, statistic2: Statistic, attributes: list[str]) -> Statistic:
-        V_a_r_2_all = prod([statistic2.V_a_r[attribute] for attribute in attributes])
+        if statistic1.n_r == 0 or statistic1.V_a_r == 0 or statistic2.n_r == 0 or statistic2.V_a_r == 0:
+            return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
+        
+        V_a_r_2_all = max([statistic2.V_a_r[attribute] for attribute in attributes])
         n_r_result_1 = statistic1.n_r * statistic2.n_r // V_a_r_2_all
-        V_a_r_1_all = prod([statistic1.V_a_r[attribute] for attribute in attributes])
+        V_a_r_1_all = max([statistic1.V_a_r[attribute] for attribute in attributes])
         n_r_result_2 = statistic1.n_r * statistic2.n_r // V_a_r_1_all
         n_r_result = min(n_r_result_1, n_r_result_2)
         
