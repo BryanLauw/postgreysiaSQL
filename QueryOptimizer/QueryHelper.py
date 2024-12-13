@@ -9,6 +9,10 @@ from typing import List, Union, Dict, Callable
 
 class QueryHelper:
     @staticmethod
+    def to_lower_except_quotes(s):
+        return re.sub(r'".*?"|[^"\s]+', lambda m: m.group(0) if m.group(0).startswith('"') else m.group(0).lower(), s)
+    
+    @staticmethod
     def normalize_string(query: str):
         return query.replace("\t", "").replace("\n", "").replace("\r", "")
     
