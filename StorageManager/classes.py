@@ -824,13 +824,25 @@ class StorageEngine:
         self.validate_column_buffer(database_name,table_name,column,transaction_id)
         index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         result_indices = index.search(key)
-        return result_indices
-    
+        if result_indices :
+            real_value = self.get_value_for_position(database_name, table_name, result_indices[0], result_indices[1], transaction_id)
+            return real_value
+        else :
+            return None
+        # return result_indices
+
     def search_bplus_index_range(self, database_name:str,table_name:str, column:str,  transaction_id:int,start,end) -> list:
         self.validate_column_buffer(database_name,table_name,column,transaction_id)
         index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         result_indices = index.search_range(start, end)
-        return result_indices
+        if result_indices :
+            real_values = []
+            for result in result_indices:
+                real_value = self.get_value_for_position(database_name, table_name, result[0], result[1], transaction_id)
+                real_values.append(real_value)
+            return real_values
+        else :
+            return None
     
     def create_hash_index(self, table: dict, column: str):
         hash_index = HashTable(size=10)
@@ -851,7 +863,14 @@ class StorageEngine:
     def search_hash_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int):  
         index = self.hash_locator(database_name, table_name, column, transaction_id)
         result_indices = index.search(key)
-        return result_indices
+        if result_indices:
+            real_values = []
+            for result in result_indices:
+                real_value = self.get_value_for_position(database_name, table_name, result[0], result[1], transaction_id)
+                real_values.append(real_value)
+            return real_values
+        else :
+            return None
 
     def delete_hash_index(self, database_name:str, table_name:str, column:str, key, transaction_id : int):
         index = self.hash_locator(database_name, table_name, column, transaction_id)
@@ -862,6 +881,10 @@ class StorageEngine:
         removed_value = self.delete_hash_index(database_name,table_name,column, old_key,transaction_id)
         for value in removed_value :
             self.insert_hash_index(database_name, table_name, column, new_key, value[0], value[1], transaction_id)
+    
+    def get_value_for_position(self, database_name:str, table_name:str, block_index, offset, transaction_id:int):
+        data = self.buffer[transaction_id][database_name][table_name]["values"]
+        return data[block_index][offset]
 
     def debug(self):
         """cuma fungsi debug, literally ngeprint variabel"""
