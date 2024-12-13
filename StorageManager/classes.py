@@ -552,11 +552,15 @@ class StorageEngine:
         fr = nr // br if br > 0 else 0
 
         # 5. V(A,r)
-        V_a_r = {}
-
-        for col in columns:
-            attribute = col["name"]
-            V_a_r[attribute] = len(set(row[attribute] for row in blocks if attribute in row))
+        V_a_r = {col["name"]: set() for col in columns}  # Use a set to track unique values
+        for block in blocks:
+            for row in block:
+                for col in columns:
+                    column_name = col["name"]
+                    if column_name in row:
+                        V_a_r[column_name].add(row[column_name])
+        # Convert sets to counts of unique values
+        V_a_r = {column_name: len(unique_values) for column_name, unique_values in V_a_r.items()}
         
         # 6. col_data_type
         col_data_type = self.get_table_datatype(database_name, table_name)
