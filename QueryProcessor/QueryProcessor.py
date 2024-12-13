@@ -135,6 +135,7 @@ class QueryProcessor:
             condition = []
             if len(where) > 0:
                 condition = self.__makeCondition(where)
+            self.removeTablenameCond(condition)
             select = self.removeTablename(select)
             dataRetriev = DataRetrieval([tree.val], select, condition)
             try:
@@ -185,14 +186,18 @@ class QueryProcessor:
                 for child in tree.childs:
                     return self.evaluateSelectTree(child, select, where, transaction_id)
     
-    def removeTablename(self, data):
+    def removeTablenameCond(self, conds:list[Condition]):
+        for cond in conds:
+            temp = cond.column.split(".")
+            cond.column = temp[1]
+    def removeTablename(self, data: list[map]) -> list[map]:
         result = []
         for col in data:
             result.append(col.split(".")[1])
         return result
-    def addTablename(self, tablename, row):
+    def addTablename(self, tablename: str, row: map) -> map:
         return {f"{tablename}.{key}": value for key, value in row.items()}
-    def transformData(self, tablename, data):
+    def transformData(self, tablename: str, data: list[map]) -> list[map]:
         result = []
         for row in data:
             result.append(self.addTablename(tablename,row))
@@ -203,18 +208,34 @@ class QueryProcessor:
     
     def __evalWhere(self, row:map, conds:list[Condition]):
         for cond in conds:
-            if(cond.operation == "<>" and row[cond.column] != row[cond.operand]):
-                return True
-            elif(cond.operation == ">=" and row[cond.column] >= row[cond.operand]):
-                return True
-            elif(cond.operation == "<=" and row[cond.column] <= row[cond.operand]):
-                return True
-            elif(cond.operation == "=" and row[cond.column] == row[cond.operand]):
-                return True
-            elif(cond.operation == ">" and row[cond.column] > row[cond.operand]):
-                return True
-            elif(cond.operation == "<" and row[cond.column] < row[cond.operand]):
-                return True
+            # print(cond.column)
+            # print(cond.operation)
+            if(cond.operand.is_integer()):
+                if(cond.operation == "<>" and row[cond.column] != cond.operand):
+                    return True
+                elif(cond.operation == ">=" and row[cond.column] >= cond.operand):
+                    return True
+                elif(cond.operation == "<=" and row[cond.column] <= cond.operand):
+                    return True
+                elif(cond.operation == "=" and row[cond.column] == cond.operand):
+                    return True
+                elif(cond.operation == ">" and row[cond.column] > cond.operand):
+                    return True
+                elif(cond.operation == "<" and row[cond.column] < cond.operand):
+                    return True
+            else:
+                if(cond.operation == "<>" and row[cond.column] != row[cond.operand]):
+                    return True
+                elif(cond.operation == ">=" and row[cond.column] >= row[cond.operand]):
+                    return True
+                elif(cond.operation == "<=" and row[cond.column] <= row[cond.operand]):
+                    return True
+                elif(cond.operation == "=" and row[cond.column] == row[cond.operand]):
+                    return True
+                elif(cond.operation == ">" and row[cond.column] > row[cond.operand]):
+                    return True
+                elif(cond.operation == "<" and row[cond.column] < row[cond.operand]):
+                    return True
         return False
     
     def __filterWhere(self,data: list[map], where: str) -> list[map]:
@@ -229,42 +250,64 @@ class QueryProcessor:
         eqs = where.split("OR")
         cond = [] 
         for eq in eqs:
+            number_pattern = r"^-?\d+(\.\d+)?$"
             if("<>" in eq):
                 temp = eq.split("<>")
-                cond.append(Condition(temp[0].strip(),"<>",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),"<>",temp[1]))
             elif(">=" in eq):
                 temp = eq.split(">=")
-                cond.append(Condition(temp[0].strip(),">=",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),">=",temp[1]))
             elif("<=" in eq):
                 temp = eq.split("<=")
-                cond.append(Condition(temp[0].strip(),"<=",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),"<=",temp[1]))
             elif("=" in eq):
                 temp = eq.split("=")
-                cond.append(Condition(temp[0].strip(),"=",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),"=",temp[1]))
             elif(">" in eq):
                 temp = eq.split(">")
-                cond.append(Condition(temp[0].strip(),">",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),">",temp[1]))
             elif("<" in eq):
                 temp = eq.split("<")
-                cond.append(Condition(temp[0].strip(),"<",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),"<",temp[1]))
         return cond
 
-    def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
-        if parsed_query.type == "SELECT":
-            tables = {}
-            cols = {}
-            for s in parsed_query.val:
-                # print(s.split('/.'))
-                tables[s.split(".")[0]] = 1
-                cols[s.split(".")[1]] = 1    
-            t = list(tables.keys())
-            c = list(cols.keys())
-            print(t)
-            print(c)
-            return DataRetrieval(tables=t, columns=c, conditions=[] )
-        else:
-            for child in parsed_query.childs:
-                return self.ParsedQueryToDataRetrieval(child)
+
+
+    # UNUSED
+    # def ParsedQueryToDataRetrieval(self,parsed_query: QueryTree) -> DataRetrieval:
+    #     if parsed_query.type == "SELECT":
+    #         tables = {}
+    #         cols = {}
+    #         for s in parsed_query.val:
+    #             # print(s.split('/.'))
+    #             tables[s.split(".")[0]] = 1
+    #             cols[s.split(".")[1]] = 1    
+    #         t = list(tables.keys())
+    #         c = list(cols.keys())
+    #         print(t)
+    #         print(c)
+    #         return DataRetrieval(tables=t, columns=c, conditions=[] )
+    #     else:
+    #         for child in parsed_query.childs:
+    #             return self.ParsedQueryToDataRetrieval(child)
         # return DataRetrieval(table=table, columns=columns, conditions=conditions)
 
     def ParsedQueryToDataWrite(self) -> DataWrite:
@@ -306,6 +349,7 @@ class QueryProcessor:
             self.handle_rollback()
             return e
 
+    # UNUSED
     def ParsedQueryToDataDeletion(self) -> DataDeletion:
         data_deletion = DataDeletion(
             table=self.parsedQuery.query_tree.val,
@@ -320,6 +364,7 @@ class QueryProcessor:
         )
         return data_deletion
 
+
     def ParsedQueryToSetIndex(self) -> Tuple[str, str, str, str]:
         # Retreive index_name, table, and column
         main_query = self.parsedQuery.query_tree.childs[0].childs[0].val
@@ -332,7 +377,7 @@ class QueryProcessor:
         index_type = self.parsedQuery.query_tree.childs[0].childs[0].childs[0].val
         return table, column, index_type, nama_index
 
-    def printResult(self, data:map):
+    def printResult(self, data:list[map]):
         if not data:
             print("No data to display.")
             return
@@ -434,41 +479,42 @@ class QueryProcessor:
         key_value = obj.get('key_value')
         return db, table, column, key_column, key_value
 
-    def getLeaf(self,tree:QueryTree):
-        # Base case: if the node has no children, it is a leaf
-        if not tree.childs:
-            return [tree]
+    # UNUSED
+    # def getLeaf(self,tree:QueryTree):
+    #     # Base case: if the node has no children, it is a leaf
+    #     if not tree.childs:
+    #         return [tree]
         
-        # Recursive case: collect leaves from all children
-        leaves = []
-        for child in tree.childs:
-            leaves.extend(self.getLeaf(child))
-        return leaves
+    #     # Recursive case: collect leaves from all children
+    #     leaves = []
+    #     for child in tree.childs:
+    #         leaves.extend(self.getLeaf(child))
+    #     return leaves
 
-    def __removeAttribute(self, l: List) -> List[str]:
-        # removing attribute from <table>.<attribute> for all element in list
+    # def __removeAttribute(self, l: List) -> List[str]:
+    #     # removing attribute from <table>.<attribute> for all element in list
         
-        # Example:
-        # __removeAttribute(['students.a', 'teacher.b']) = ['students', 'teacher']
+    #     # Example:
+    #     # __removeAttribute(['students.a', 'teacher.b']) = ['students', 'teacher']
 
-        return [element.split('.')[0] for element in l]
+    #     return [element.split('.')[0] for element in l]
 
-    def __getTables(self,tree: QueryTree):
-        # get all tables needed from Query (not ParsedQuery)
+    # def __getTables(self,tree: QueryTree):
+    #     # get all tables needed from Query (not ParsedQuery)
     
-        # Example:
-        # select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5"
-        # __getTables(select_query) = ['students', 'teacher']
+    #     # Example:
+    #     # select_query = "SELECT s.a, t.b FROM students AS s JOIN teacher AS t ON s.id = t.id WHERE s.a > 1 AND t.b = 2 OR t.b < 5"
+    #     # __getTables(select_query) = ['students', 'teacher']
 
-        if tree.type.upper() == "SELECT": # This conditional is using "SELECT" because QueryTree does not have FROM type.
-            return self.__removeAttribute(tree.val)
-        elif len(tree.childs) == 0:
-            return ""
-        else:
-            for child in tree.childs:
-                return self.__getTables(child)
+    #     if tree.type.upper() == "SELECT": # This conditional is using "SELECT" because QueryTree does not have FROM type.
+    #         return self.__removeAttribute(tree.val)
+    #     elif len(tree.childs) == 0:
+    #         return ""
+    #     else:
+    #         for child in tree.childs:
+    #             return self.__getTables(child)
     
-    def __getData(self, data_retrieval: DataRetrieval, transaction_id: int) -> dict|Exception:
+    def __getData(self, data_retrieval: DataRetrieval, transaction_id: int) -> list[dict]|Exception:
         # fetches the required rows of data from the storage manager
         # and returns it as a dictionary
 
@@ -495,7 +541,7 @@ class QueryProcessor:
             result.append([temp[0].strip(),temp[1].strip()])
         return result
 
-    def __joinOn(self, table1: list[map], table2: list[map], cond: str):
+    def __joinOn(self, table1: list[map], table2: list[map], cond: str) -> list[map]:
         result = []
         condList = self.__transCond(cond)      
         for r1 in table1:
@@ -552,65 +598,66 @@ class QueryProcessor:
                     result.append(combined_row)
 
         return result   
+    # UNUSED
+    # def __get_filters_for_table(tree: QueryTree, table_name: str) -> List[tuple]:
+    #     # contoh query SELECT students.name, students.age FROM students WHERE students.age > 20 AND students.grade = 'A';
+    #     # contoh query tree
+    #     # (root: QUERY)
+    #     # (select: SELECT)
+    #     #         (columns: students.name, students.age)
+    #     # (from: FROM)
+    #     #         (table: students)
+    #     # (where: WHERE)
+    #     #         (conditions: students.age > 20 AND students.grade = 'A';)
 
-    def __get_filters_for_table(tree: QueryTree, table_name: str) -> List[tuple]:
-        # contoh query SELECT students.name, students.age FROM students WHERE students.age > 20 AND students.grade = 'A';
-        # contoh query tree
-        # (root: QUERY)
-        # (select: SELECT)
-        #         (columns: students.name, students.age)
-        # (from: FROM)
-        #         (table: students)
-        # (where: WHERE)
-        #         (conditions: students.age > 20 AND students.grade = 'A';)
+    #     # result [('students.age', '>', '20'), ('students.grade', '=', "'A';")]
+    #     filters = []
 
-        # result [('students.age', '>', '20'), ('students.grade', '=', "'A';")]
-        filters = []
-
-        def traverse(node: QueryTree):
-            if node.type in {"where", "on"}:
-                for child in node.childs:
-                    if child.type == "conditions":
-                        filter_tokens = child.val.split()
-                        i = 0
-                        while i < len(filter_tokens):
-                            if i + 2 < len(filter_tokens) and filter_tokens[i + 1] in {"=", "<>", ">", ">=", "<", "<="}:
-                                column = filter_tokens[i]
-                                operation = filter_tokens[i + 1]
-                                operand = filter_tokens[i + 2]
+    #     def traverse(node: QueryTree):
+    #         if node.type in {"where", "on"}:
+    #             for child in node.childs:
+    #                 if child.type == "conditions":
+    #                     filter_tokens = child.val.split()
+    #                     i = 0
+    #                     while i < len(filter_tokens):
+    #                         if i + 2 < len(filter_tokens) and filter_tokens[i + 1] in {"=", "<>", ">", ">=", "<", "<="}:
+    #                             column = filter_tokens[i]
+    #                             operation = filter_tokens[i + 1]
+    #                             operand = filter_tokens[i + 2]
 
                         
-                                table_in_condition = column.split(".")[0]
-                                if table_in_condition == table_name:
-                                    filters.append((column, operation, operand))
+    #                             table_in_condition = column.split(".")[0]
+    #                             if table_in_condition == table_name:
+    #                                 filters.append((column, operation, operand))
 
                                 
-                                i += 3
-                            else:
+    #                             i += 3
+    #                         else:
                         
-                                i += 1
+    #                             i += 1
 
         
-            for child in node.childs:
-                traverse(child)
+    #         for child in node.childs:
+    #             traverse(child)
 
-        traverse(tree)
-        return filters
+    #     traverse(tree)
+    #     return filters
     
     # def delete_block(self, data_deletion:DataDeletion, database_name:str, transaction_id:int) -> int:
-    def __deleteData(self, data_deletion: DataDeletion, database: str) -> int:
+    # def __deleteData(self, data_deletion: DataDeletion, database: str) -> int:
         # delete the required rows of data from the storage manager
         # and returns the number of rows deleted
         # data_deletion = DataDeletion(table="students", conditions=[Condition("a", ">", 1)])
         # database = "self.db_name"
         # deleteData(data_deletion, database, transaction_id) = 4
 
-        try:
-            rows_deleted = self.sm.delete_block(data_deletion, database, self.current_transactionId)
-            return rows_deleted
-        except Exception as e:
-            return e
-        
+    #     try:
+    #         rows_deleted = self.sm.delete_block(data_deletion, database, self.current_transactionId)
+    #         return rows_deleted
+    #     except Exception as e:
+    #         return e
+
+
     def __orderBy(self, data: List[dict], order_by: str, is_asc: bool) -> List[dict]:
         # order the data based on the given attribute
         # data = [

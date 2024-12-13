@@ -77,7 +77,7 @@ class Statistic:
         self.l_r = l_r
         self.f_r = f_r
         self.V_a_r = V_a_r
-        self.col_data_type = col_data_type
+        self.col_data_type = col_data_type 
         self.col_index = col_index
         self.col_bplus_tree_level = col_bplus_tree_level
 
