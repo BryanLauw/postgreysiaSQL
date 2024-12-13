@@ -79,6 +79,7 @@ class OptimizationEngine:
             table_name = update_clause.strip()
             pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
             where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
+            query_components_value["WHERE"] = where_clause
         # Validate comparisons
         self.QueryValidator.validate_comparisons(where_clause, attribute_types)
 
@@ -119,6 +120,18 @@ class OptimizationEngine:
             
         if "SET" in components:
             where_tree = QueryTree(type="SET", val=components["SET"])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
+        
+        if "DELETE" in components:
+            where_tree = QueryTree(type="DELETE")
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
+
+        if "INSERT" in components:
+            where_tree = QueryTree(type="INSERT")
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree

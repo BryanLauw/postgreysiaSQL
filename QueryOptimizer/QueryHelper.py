@@ -132,7 +132,6 @@ class QueryHelper:
         # print(storage_engine.retrieve_table_of_database(database_name))
         # Tokenize the WHERE clause into conditions
         parsed_result = re.split(r'\sAND\s', where_clause)
-        print("parsed", parsed_result)
 
         for parse in parsed_result:
             if "OR" in parse:
