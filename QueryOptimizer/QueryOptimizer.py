@@ -91,40 +91,7 @@ class QueryOptimizer:
         # Change parent of node2 to node1
         node2.parent = node1
     
-    # def __list_child_join(self,node_join: List[QueryTree]):
-    #     childs = {}
-    #     for node in node_join:
-    #         for child in node.childs:
-    #             if child.type not in ["JOIN", "NATURAL JOIN"]:
-    #                 table = QueryHelper.get_tables_regex(child.val)[0]
-    #                 childs[table] = child
-    #     return childs
-        
-    # def reorder_join(self, node_join: List[QueryTree], database_name: str,get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-    #     parent_root_join = node_join[-1].parent
-    #     childs = self.__list_child_join(node_join)
-        
-    #     table_iterators = {QueryHelper.get_tables_regex(node_join[0].childs[0].val)[0], QueryHelper.get_tables_regex(node_join[0].childs[1].val)[0]}
-    #     joins_with_table = {0:list(table_iterators)}
-    #     for i in range(1,len(node_join)):
-    #         table_iterators.add(QueryHelper.get_tables_regex(node_join[i].childs[1].val)[0])
-    #         if node_join[i].type == "JOIN":
-    #             tables = QueryHelper.get_tables_regex(node_join[i].val)
-    #             joins_with_table[i] = tables
-    #         else: #NATURAL JOIN
-    #             attributes = node_join[i].val
-    #             for table in table_iterators:
-    #                 if all(attr in get_stats(database_name,table) for attr in attributes):
-    #                     joins_with_table[i] = [table,QueryHelper.get_tables_regex(node_join[i].childs[1].val)[0]]
-    #                     break
-        
-    #     print(joins_with_table)
-                
-        # for node in node_join:
-    
-    
-    def reorder_join(self, node_join: List[QueryTree], database_name: str,get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        def perform_associative(child_node_join: QueryTree, isJoin: bool = False):
+    def perform_associative(self,child_node_join: QueryTree, isJoin: bool = False):
             # Index 0 atau 1
             parent_node_join = child_node_join.parent
             if parent_node_join.childs[0].compare(child_node_join):
@@ -144,11 +111,12 @@ class QueryOptimizer:
             child_node_join.childs[not idx] = parent_node_join
             child_node_join.parent.childs[idx] = child_node_join
         
-        def perform_commutative(node_join: QueryTree):
-            temp = node_join.childs[0]
-            node_join.childs[0] = node_join.childs[1]
-            node_join.childs[1] = temp
-        
+    def perform_commutative(self,node_join: QueryTree):
+        temp = node_join.childs[0]
+        node_join.childs[0] = node_join.childs[1]
+        node_join.childs[1] = temp
+    
+    def reorder_join(self, node_join: List[QueryTree], database_name: str,get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
         def deep_copy_join_nodes(child_node_join: QueryTree, parent_node_join: QueryTree):
             copy_parent = parent_node_join.deep_copy()
             copy_node = copy_parent.childs[0] if child_node_join.compare(copy_parent.childs[0]) else copy_parent.childs[1]
@@ -162,12 +130,12 @@ class QueryOptimizer:
             
             # Normal
             cost_normal = query_cost.calculate_size_cost(node.parent if not isTopJoin else node)
-            smalles_cost = 9999
+            smalles_cost = cost_normal
             
             # Komutatif
             parent_komut, node_komut = deep_copy_join_nodes(node, node.parent)
             # Swap child (komutatif)
-            perform_commutative(node_komut)           
+            self.perform_commutative(node_komut)           
             
             cost_komutatif = query_cost.calculate_size_cost(node_komut.parent if not isTopJoin else node_komut)
             if cost_komutatif < smalles_cost:
@@ -180,7 +148,7 @@ class QueryOptimizer:
                 node_assoc = parent_assoc.childs[0] if node.compare(parent_assoc.childs[0]) else parent_assoc.childs[1]
                 if node.type == "NATURAL JOIN":
                     # Normal
-                    perform_associative(node_assoc)
+                    self.perform_associative(node_assoc)
                     cost_assoc = query_cost.calculate_size_cost(parent_assoc)
                     if cost_assoc < smalles_cost:
                         smalles_cost = cost_assoc
@@ -188,7 +156,7 @@ class QueryOptimizer:
                         needCommutative = False
                     
                     # Comut
-                    perform_associative(node_komut,false)
+                    self.perform_associative(node_komut,false)
                     cost_comut_assoc = query_cost.calculate_size_cost(parent_komut)
                     if cost_comut_assoc < smalles_cost:
                         smalles_cost = cost_comut_assoc
@@ -207,7 +175,7 @@ class QueryOptimizer:
                         tables_in_join = QueryHelper.get_tables_regex(result)
                         
                         if all(table in tables for table in tables_in_join):
-                            perform_associative(node_assoc,True)
+                            self.perform_associative(node_assoc,True)
                             
                             cost_assoc = query_cost.calculate_size_cost(parent_assoc)
                             if cost_assoc < smalles_cost:
@@ -215,7 +183,7 @@ class QueryOptimizer:
                                 needAssoc = True
                                 needCommutative = False
                                 
-                            perform_associative(node_komut,True)
+                            self.perform_associative(node_komut,True)
                             
                             cost_comut_assoc = query_cost.calculate_size_cost(parent_assoc)
                             if cost_comut_assoc < smalles_cost:
@@ -223,12 +191,12 @@ class QueryOptimizer:
                                 needAssoc = True
                                 needCommutative = True
             if needCommutative:
-                perform_commutative(node)
+                self.perform_commutative(node)
             if needAssoc:
-                perform_associative(node)
+                self.perform_associative(node)
                 
                 last_comut = node.deep_copy()
-                perform_commutative(last_comut)
+                self.perform_commutative(last_comut)
                 cost_komutatif = query_cost.calculate_size_cost(last_comut)
                 if(cost_komutatif < smalles_cost):
                     perform_commutative(node)
@@ -398,3 +366,50 @@ class QueryOptimizer:
         
         tables_where = [item.split(".")[0] for item in node.val.split(" = ")]
         return all(table_where in tables for table_where in tables_where)
+
+    def determine_join_type(self,node_join: List[QueryTree], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
+        for node in node_join:
+            if node.type == "JOIN":
+                attributes = QueryHelper.get_attributes_regex(node.val)
+                for attribute in attributes:
+                    splitted = attribute.split('.')
+                    table_stats = get_stats(database_name,splitted[0])
+                    if table_stats.col_index[splitted[1]][0] == 1:
+                        node.method = "BPLUS JOIN"
+                        if splitted[0] in QueryHelper.get_tables_defined(node.childs[0]):
+                            self.perform_commutative(node)
+                        break
+                    elif table_stats.col_index[splitted[1]][1] == 1:
+                        node.method = "HASH JOIN"
+                        break
+            else:
+                attributes = node.val
+                defined_outer = QueryHelper.get_tables_defined(node.childs[0])
+                defined_inner = QueryHelper.get_tables_defined(node.childs[1])
+                found = False
+                for attribute in attributes:
+                    for inner_table in defined_inner:
+                        stats = get_stats(database_name,inner_table)
+                        print(stats.col_index)
+                        if attribute in stats.col_index:
+                            if stats.col_index[0] == 1:
+                                found = True
+                                node.method = "BPLUS JOIN"
+                                break
+                            if stats.col_index[1] == 1:
+                                found = True
+                                node.method = "HASH JOIN"
+                                break
+                    if found:
+                        break
+                    
+                    for outer_table in defined_outer:
+                        stats = get_stats(database_name,outer_table)
+                        if attribute in stats.col_index:
+                            if stats.col_index[0] == 1:
+                                node.method = "BPLUS JOIN"
+                                self.perform_commutative(node)
+                                break
+                            if stats.col_index[1] == 1:
+                                node.method = "HASH JOIN"
+                                break

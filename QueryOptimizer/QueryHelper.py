@@ -58,6 +58,13 @@ class QueryHelper:
         return table
     
     @staticmethod
+    def get_attributes_regex(val: str):
+        attributes = re.findall(r'\b\w+\.\w+\b', val)
+        if not attributes:
+            attributes = [val]
+        return attributes
+    
+    @staticmethod
     def get_other_expression(expression, target):
         # print(expression," : " ,target)
         tokens = expression.split()
@@ -129,8 +136,6 @@ class QueryHelper:
     @staticmethod
     def parse_where_clause(where_clause: str, current_node: QueryTree, database_name: str) -> QueryTree:
         storage_engine = StorageEngine()
-        # print(storage_engine.retrieve_table_of_database(database_name))
-        # Tokenize the WHERE clause into conditions
         parsed_result = re.split(r'\sAND\s', where_clause)
 
         for parse in parsed_result:
