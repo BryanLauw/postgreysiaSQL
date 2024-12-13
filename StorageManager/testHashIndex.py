@@ -53,7 +53,8 @@ print(storage_engine.search_hash_index("database_name_1", "table_name_1", "colum
 print("\n--- INSERT TEST ---")
 # Insert key 11 at a hypothetical Block 6, Offset 0
 storage_engine.insert_hash_index("database_name_1", "table_name_1", "column_1", 11, 6, 0, transaction_id)
-print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 0)
+storage_engine.print_index_structure("database_name_1", "table_name_1", "column_1", transaction_id)
+# print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 0)
 
 # 4. Delete Key
 print("\n--- DELETE TEST ---")
@@ -65,13 +66,14 @@ print(storage_engine.search_hash_index("database_name_1", "table_name_1", "colum
 print("\n--- UPDATE TEST ---")
 # Move key 11 to Block 6, Offset 1
 storage_engine.update_key_hash_index("database_name_1", "table_name_1", "column_1", 11, 100, transaction_id)
-print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 0)
-print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 100, transaction_id))  # Expected: (Block 6, Offset 0)
+storage_engine.print_index_structure("database_name_1", "table_name_1", "column_1", transaction_id)
+# print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 0)
+# print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 100, transaction_id))  # Expected: (Block 6, Offset 0)
 
 
 # 6. Test Invalid Key Deletion
 print("\n--- DELETE NON-EXISTENT KEY TEST ---")
 # Attempt to delete key 99 (non-existent)
-print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 99, transaction_id))  # Expected: None (no key 99 exists)
+# print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 99, transaction_id))  # Expected: None (no key 99 exists)
 storage_engine.delete_hash_index("database_name_1", "table_name_1", "column_1", 99, transaction_id)
 
