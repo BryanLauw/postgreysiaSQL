@@ -187,10 +187,3 @@ class FailureRecovery:
         signal.signal(signum, signal.SIG_DFL)
         signal.raise_signal(signum)
 
-# if __name__ == "__main__":
-
-#     # Initiate main section of the program
-#     log_file = "log_edbert.log" # log file name
-#     recovery = FailureRecovery(log_file, 10, 5)
-
-    
