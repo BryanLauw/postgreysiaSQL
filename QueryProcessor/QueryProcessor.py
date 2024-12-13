@@ -25,113 +25,108 @@ class QueryProcessor:
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGSEGV, self.signal_handler)
 
-    def execute_query(self, query : str, client_state: dict):   
-        # Check for ;
-        if (not ";" in query):
-            raise Exception("Invalid semicolon.")
-
+    def execute_query(self, query : str, client_state: dict):
         queries = self.parse_query(query)
-        for query in queries:
-            print("Executing query: " + query)
-            transaction_id = client_state.get("transactionId")
+        print("Executing query: " + query)
+        transaction_id = client_state.get("transactionId")
 
-            if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
-                if not client_state.get("on_begin", False):  # Begin only if not already in a transaction
-                    self.current_transactionId = self.cc.begin_transaction()
-                    self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
-                    client_state["transactionId"] = self.current_transactionId
-                    client_state["on_begin"] = True
-                else:
-                    print("Transaction already started.")
-                # self.rm.start_transaction(self.current_transactionId)
-                
-            elif(query.upper() == "COMMIT" or query.upper() == "COMMIT TRANSACTION"):
-                    transaction_id = client_state["transactionId"]
-                    print("transaction id for commit: ", transaction_id)
-                    self.rm.write_log_entry(transaction_id, "COMMIT", None, None, None)
-                    self.cc.end_transaction(transaction_id)
-                    self.sm.commit_buffer(transaction_id)
-                    self.sm.save()
-                    self.current_transactionId = None
-                    client_state["on_begin"] = False
-                    client_state["transactionId"] = None
-
-            # elif(query.upper() == "PRINT"):
-            #     self.printResult(tables, rows)
-
+        if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
+            if not client_state.get("on_begin", False):  # Begin only if not already in a transaction
+                self.current_transactionId = self.cc.begin_transaction()
+                self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
+                client_state["transactionId"] = self.current_transactionId
+                client_state["on_begin"] = True
             else:
-                retry = True
-                while retry:
-                    try:
-                        self.parsedQuery = self.qo.parse_query(query,self.db_name) #hardcode
+                print("Transaction already started.")
+            # self.rm.start_transaction(self.current_transactionId)
+            
+        elif(query.upper() == "COMMIT" or query.upper() == "COMMIT TRANSACTION"):
+                transaction_id = client_state["transactionId"]
+                print("transaction id for commit: ", transaction_id)
+                self.rm.write_log_entry(transaction_id, "COMMIT", None, None, None)
+                self.cc.end_transaction(transaction_id)
+                self.sm.commit_buffer(transaction_id)
+                self.sm.save()
+                self.current_transactionId = None
+                client_state["on_begin"] = False
+                client_state["transactionId"] = None
 
-                        if self.parsedQuery.query_tree.val == "UPDATE":
-                            try:
-                                if not client_state.get("on_begin", False):  
-                                    print("masuk")
-                                    self.current_transactionId = self.cc.begin_transaction()
-                                    client_state["transactionId"] = self.current_transactionId
-                                write = self.ParsedQueryToDataWrite()
-                                print("transaction id :", transaction_id)
+        # elif(query.upper() == "PRINT"):
+        #     self.printResult(tables, rows)
 
-                                # baca data lama
-                                data_lama = self.sm.read_block(DataRetrieval(write.table, write.column, write.conditions), self.db_name, self.current_transactionId)
-                                # cek concurrency control
-                                transaction_id = client_state["transactionId"]
-                                print("trans id real: ", transaction_id)
-                                response = self.cc.validate_object(data_lama, transaction_id, "write")
-                                print("response dr cc: ",response.allowed)
-                                if not response.allowed:
-                                    print("Validation failed. Handling rollback.")
-                                    self.handle_rollback(transaction_id)
-                                    print("Retrying query after rollback.")
-                                    continue  
-                                
-                                # write data
-                                self.sm.write_block(write, self.db_name, self.current_transactionId)
-                                data_written = data_lama.get_data()[0].get(write.column[0])
-                                object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}'}}"
-                                print(object_value)
-                                self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_written, write.new_value[0])
-                                
-                            except Exception as e:
+        else:
+            retry = True
+            while retry:
+                try:
+                    self.parsedQuery = self.qo.parse_query(query,self.db_name) #hardcode
+
+                    if self.parsedQuery.query_tree.val == "UPDATE":
+                        try:
+                            if not client_state.get("on_begin", False):  
+                                print("masuk")
+                                self.current_transactionId = self.cc.begin_transaction()
+                                client_state["transactionId"] = self.current_transactionId
+                            write = self.ParsedQueryToDataWrite()
+                            print("transaction id :", transaction_id)
+
+                            # baca data lama
+                            data_lama = self.sm.read_block(DataRetrieval(write.table, write.column, write.conditions), self.db_name, self.current_transactionId)
+                            # cek concurrency control
+                            transaction_id = client_state["transactionId"]
+                            print("trans id real: ", transaction_id)
+                            response = self.cc.validate_object(data_lama, transaction_id, "write")
+                            print("response dr cc: ",response.allowed)
+                            if not response.allowed:
+                                print("Validation failed. Handling rollback.")
                                 self.handle_rollback(transaction_id)
-                                print(e) 
-                        elif self.parsedQuery.query_tree.val == "SELECT":
-                            try:
-                                if not client_state.get("on_begin", False):
-                                    self.current_transactionId = self.cc.begin_transaction()
-                                    client_state["transactionId"] = self.current_transactionId
-
-                                transaction_id = client_state["transactionId"]
-                                result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"", transaction_id)
-                                ret_val = self.printResult(result)
-                                print(f"Read {len(result)} row(s).")
-                                return ret_val                            
+                                print("Retrying query after rollback.")
+                                continue  
                             
-                            except Exception as e:
-                                self.handle_rollback(transaction_id)
-                                print(e)
+                            # write data
+                            self.sm.write_block(write, self.db_name, self.current_transactionId)
+                            data_written = data_lama.get_data()[0].get(write.column[0])
+                            object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}'}}"
+                            print(object_value)
+                            self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_written, write.new_value[0])
+                            
+                        except Exception as e:
+                            self.handle_rollback(transaction_id)
+                            print(e) 
+                    elif self.parsedQuery.query_tree.val == "SELECT":
+                        try:
+                            if not client_state.get("on_begin", False):
+                                self.current_transactionId = self.cc.begin_transaction()
+                                client_state["transactionId"] = self.current_transactionId
 
-                        elif self.parsedQuery.query_tree.val == "CREATE" and self.parsedQuery.query_tree.childs[0].val == "INDEX":
-                            try:
-                                index = self.ParsedQueryToSetIndex()
-                                # TODO: nama index ada di index[3], belum tau mau dipake di mana
-                                self.sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
-                            except Exception as e:
-                                print(e)
+                            transaction_id = client_state["transactionId"]
+                            result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"", transaction_id)
+                            ret_val = self.printResult(result)
+                            print(f"Read {len(result)} row(s).")
+                            return ret_val                            
                         
-                        retry = False
-                    except Exception as e:
-                        print(f"Error during query execution: {e}. Rolling back.")
-                        transaction_id = client_state["transactionId"]
-                        self.handle_rollback(transaction_id)
+                        except Exception as e:
+                            self.handle_rollback(transaction_id)
+                            print(e)
 
-                        # Restart transaction after rollback
-                        if not client_state.get("on_begin", False):
-                            transaction_id = self.cc.begin_transaction()
-                            self.rm.write_log_entry(transaction_id, "START", None, None, None)
-                            client_state["on_begin"] = True
+                    elif self.parsedQuery.query_tree.val == "CREATE" and self.parsedQuery.query_tree.childs[0].val == "INDEX":
+                        try:
+                            index = self.ParsedQueryToSetIndex()
+                            # TODO: nama index ada di index[3], belum tau mau dipake di mana
+                            self.sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
+                        except Exception as e:
+                            print(e)
+                    
+                    retry = False
+                except Exception as e:
+                    print(f"Error during query execution: {e}. Rolling back.")
+                    transaction_id = client_state["transactionId"]
+                    self.handle_rollback(transaction_id)
+
+                    # Restart transaction after rollback
+                    if not client_state.get("on_begin", False):
+                        transaction_id = self.cc.begin_transaction()
+                        self.rm.write_log_entry(transaction_id, "START", None, None, None)
+                        client_state["on_begin"] = True
     
 
     def  evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str, transaction_id: int) -> list[dict]:
