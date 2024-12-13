@@ -235,7 +235,7 @@ class StorageEngine:
                     elif "VARCHAR" in column["type"] or "CHAR" in column["type"]: # VARCHAR atau CHAR
                         byte_per_record += int(column["type"][8:(len(column["type"])-1)])
                     else:
-                        return Exception(f"Ada tipe bentukan yang tidak cocok, {column["type"]}")
+                        return Exception("Ada tipe bentukan yang tidak cocok,", column["type"])
                 self.blocks[database_name][table_name]["max_record"] = 4096//byte_per_record
                 return True
             return Exception(f"Sudah ada table dengan nama {table_name} di database {database_name}")
