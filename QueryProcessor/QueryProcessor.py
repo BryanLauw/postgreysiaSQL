@@ -134,6 +134,7 @@ class QueryProcessor:
             condition = []
             if len(where) > 0:
                 condition = self.__makeCondition(where)
+            self.removeTablenameCond(condition)
             select = self.removeTablename(select)
             dataRetriev = DataRetrieval([tree.val], select, condition)
             try:
@@ -184,6 +185,10 @@ class QueryProcessor:
                 for child in tree.childs:
                     return self.evaluateSelectTree(child, select, where, transaction_id)
     
+    def removeTablenameCond(self, conds:list[Condition]):
+        for cond in conds:
+            temp = cond.column.split(".")
+            cond.column = temp[1]
     def removeTablename(self, data: list[map]) -> list[map]:
         result = []
         for col in data:
@@ -200,20 +205,36 @@ class QueryProcessor:
     def __filterSelect(self, data: List[dict], select: list[str]) -> List[dict]:
         return [{key: value for key, value in row.items() if key in select} for row in data]
     
-    def __evalWhere(self, row:map, conds:list[Condition]) -> bool:
+    def __evalWhere(self, row:map, conds:list[Condition]):
         for cond in conds:
-            if(cond.operation == "<>" and row[cond.column] != row[cond.operand]):
-                return True
-            elif(cond.operation == ">=" and row[cond.column] >= row[cond.operand]):
-                return True
-            elif(cond.operation == "<=" and row[cond.column] <= row[cond.operand]):
-                return True
-            elif(cond.operation == "=" and row[cond.column] == row[cond.operand]):
-                return True
-            elif(cond.operation == ">" and row[cond.column] > row[cond.operand]):
-                return True
-            elif(cond.operation == "<" and row[cond.column] < row[cond.operand]):
-                return True
+            # print(cond.column)
+            # print(cond.operation)
+            if(cond.operand.is_integer()):
+                if(cond.operation == "<>" and row[cond.column] != cond.operand):
+                    return True
+                elif(cond.operation == ">=" and row[cond.column] >= cond.operand):
+                    return True
+                elif(cond.operation == "<=" and row[cond.column] <= cond.operand):
+                    return True
+                elif(cond.operation == "=" and row[cond.column] == cond.operand):
+                    return True
+                elif(cond.operation == ">" and row[cond.column] > cond.operand):
+                    return True
+                elif(cond.operation == "<" and row[cond.column] < cond.operand):
+                    return True
+            else:
+                if(cond.operation == "<>" and row[cond.column] != row[cond.operand]):
+                    return True
+                elif(cond.operation == ">=" and row[cond.column] >= row[cond.operand]):
+                    return True
+                elif(cond.operation == "<=" and row[cond.column] <= row[cond.operand]):
+                    return True
+                elif(cond.operation == "=" and row[cond.column] == row[cond.operand]):
+                    return True
+                elif(cond.operation == ">" and row[cond.column] > row[cond.operand]):
+                    return True
+                elif(cond.operation == "<" and row[cond.column] < row[cond.operand]):
+                    return True
         return False
     
     def __filterWhere(self,data: list[map], where: str) -> list[map]:
@@ -228,25 +249,45 @@ class QueryProcessor:
         eqs = where.split("OR")
         cond = [] 
         for eq in eqs:
+            number_pattern = r"^-?\d+(\.\d+)?$"
             if("<>" in eq):
                 temp = eq.split("<>")
-                cond.append(Condition(temp[0].strip(),"<>",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),"<>",temp[1]))
             elif(">=" in eq):
                 temp = eq.split(">=")
-                cond.append(Condition(temp[0].strip(),">=",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),">=",temp[1]))
             elif("<=" in eq):
                 temp = eq.split("<=")
-                cond.append(Condition(temp[0].strip(),"<=",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),"<=",temp[1]))
             elif("=" in eq):
                 temp = eq.split("=")
-                cond.append(Condition(temp[0].strip(),"=",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),"=",temp[1]))
             elif(">" in eq):
                 temp = eq.split(">")
-                cond.append(Condition(temp[0].strip(),">",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),">",temp[1]))
             elif("<" in eq):
                 temp = eq.split("<")
-                cond.append(Condition(temp[0].strip(),"<",temp[1].strip()))
+                temp[1] = temp[1].strip()
+                if(re.match(number_pattern,temp[1])):
+                    temp[1] = int(temp[1])
+                cond.append(Condition(temp[0].strip(),"<",temp[1]))
         return cond
+
 
 
     # UNUSED
@@ -602,7 +643,7 @@ class QueryProcessor:
     #     return filters
     
     # def delete_block(self, data_deletion:DataDeletion, database_name:str, transaction_id:int) -> int:
-    def __deleteData(self, data_deletion: DataDeletion, database: str) -> int:
+    # def __deleteData(self, data_deletion: DataDeletion, database: str) -> int:
         # delete the required rows of data from the storage manager
         # and returns the number of rows deleted
         # data_deletion = DataDeletion(table="students", conditions=[Condition("a", ">", 1)])
