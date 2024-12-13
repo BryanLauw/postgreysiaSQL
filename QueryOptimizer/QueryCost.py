@@ -150,7 +150,7 @@ class QueryCost:
             result: Statistic = Statistic(n_r=0, V_a_r=V_a_r_result, b_r=None, l_r=None, f_r=None)
             return result
         
-        n_r_result = statistic.n_r - self.where_equals(statistic, attribute).n_r
+        n_r_result = statistic.n_r - self.__where_equals(statistic, attribute).n_r
         
         V_a_r_result = {}
         for attribute in statistic.V_a_r:
