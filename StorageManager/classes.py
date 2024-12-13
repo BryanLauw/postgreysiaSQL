@@ -47,12 +47,34 @@ class DataDeletion:
         self.conditions = conditions
 
 class Statistic:
-    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int]) -> None:
+    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int], col_data_type:dict[str, str], col_index:dict[str,(int, int)], col_bplus_tree_level:dict[str, int]) -> None:
+        """
+        Deskripsi statistik :
+        1. n_r : int ==> jumlah tuple dalam tabel
+        2. b_r : int ==> jumlah blok yang berisi tuple dalam tabel
+        3. l_r : int ==> ukuran satu tuple dalam tabel
+        4. f_r : int ==> blocking factor (jumlah tuple dalam satu blok)
+        5. V_a_r : dict[str, int] ==> jumlah nilai unik dari setiap atribut dalam tabel
+                            contoh keluaran : {"id_user" : 100, "nama_user" : 50}
+        6. col_data_type: dict[str, str]  ==> tipe data dari setiap kolom dalam tabel
+                            contoh keluaran : {"id_user" : "INTEGER", "nama_user" : "TEXT"}
+        7. col_index : dict[str, (int, int)] ==> index yang ada pada setiap kolom dalam tabel
+                            format keluaran : 
+                            - nama kolom (str)
+                            - ada index bplus atau tidak (0 = tidak ada, 1 = ada)
+                            - ada index hash atau tidak (0 = tidak ada, 1 = ada)
+                            contoh keluaran : {"id_user" : (1,1), "nama_user" : (0,1)}
+        8. col_bplus_tree_level : dict[str, int] ==> level dari B+ tree yang ada pada setiap kolom dalam tabel
+                            contoh keluaran : {"id_user" : 2, "nama_user" : 3}
+        """
         self.n_r = n_r
         self.b_r = b_r
         self.l_r = l_r
         self.f_r = f_r
         self.V_a_r = V_a_r
+        self.col_data_type = col_data_type
+        self.col_index = col_index
+        self.col_bplus_tree_level = col_bplus_tree_level
 
     @staticmethod
     def print_statistics(self):
@@ -138,6 +160,23 @@ class StorageEngine:
         if table_name not in self.blocks[database_name]:
             raise ValueError(f"Table '{table_name}' does not exist.")
         return self.blocks[database_name][table_name]['columns']
+    
+    def get_table_datatype(self, database_name: str, table_name: str) -> list[dict]:
+        """
+        Mengembalikan metadata sebuah tabel dengan hanya name dan type.
+        Param : database_name (string), table_name (string)
+
+        Contoh : storageEngine.get_table_metadata("database1", "users")
+        """
+        if database_name not in self.blocks:
+            raise ValueError(f"Database '{database_name}' does not exist.")
+        if table_name not in self.blocks[database_name]:
+            raise ValueError(f"Table '{table_name}' does not exist.")
+
+        # Filter only 'name' and 'type'
+        columns = self.blocks[database_name][table_name]['columns']
+        return [{'name': column['name'], 'type': column['type']} for column in columns]
+
     
     def load(self) -> None:
         """
@@ -252,6 +291,24 @@ class StorageEngine:
             if table_name in self.blocks[database_name]:
                 self.buffer[transaction_id] = self.buffer.get(transaction_id, copy.deepcopy(self.blocks))
                 temp = self.buffer[transaction_id][database_name][table_name]["values"]
+                
+                # ngehandle masukin data yang primary keynya udah ada
+                column_pk = []
+                for column in self.buffer[transaction_id][database_name][table_name]["columns"]:
+                    if "PRIMARY KEY" in column.get("constraints", []):
+                        column_pk.append(column["name"])
+                # di sini dicari di seluruh record kalo ada yang sama
+                sama = 0
+                for block in temp:
+                    for record in block:
+                        for column in column_pk:
+                            if record[column] == data_insert[column]:
+                                sama+=1
+                        # misal PK nya 2 terus yang sama juga ada 2
+                        if len(column_pk) != 0 and sama == len(column_pk):
+                            return Exception(f"Sudah ada data yang memiliki primary key yang serupa!")
+                        sama = 0
+            
                 dimasukin = False
                 for block in temp:
                     if len(block) < self.buffer[transaction_id][database_name][table_name]["max_record"]:
@@ -457,7 +514,7 @@ class StorageEngine:
         Statistik yang dihasilkan :
         1. n_r : int ==> jumlah tuple dalam tabel
         2. b_r : int ==> jumlah blok yang berisi tuple dalam tabel
-        3. l_r : int ==> ukuran satu tuple dalam tabel
+        3. l_r : int ==> ukuran tuple dalam tabel
         4. f_r : int ==> blocking factor (jumlah tuple dalam satu blok)
         5. V_a_r : dict[str, int] ==> jumlah nilai unik dari setiap atribut dalam tabel
                             contoh keluaran : {"id_user" : 100, "nama_user" : 50}
@@ -479,35 +536,52 @@ class StorageEngine:
             raise ValueError(f"Tidak ada table dengan nama {table_name}")
         
         table = self.blocks[database_name][table_name]
-        rows = table["values"]
+        blocks = table["values"]
         columns = table["columns"]
 
         # 1. nr
-        nr = sum(len(block) for block in rows)
+        nr = sum(len(record) for record in blocks)
 
-        # 2. lr
-        type_size = {
-        "INTEGER": 4,  # byte integer
-        "TEXT": 50,  #misal max string lenth 50 char
-        "FLOAT" : 4
-        }
+        # 2. br
+        br = len(blocks)
 
-        lr = sum(type_size.get(col["type"], 0) for col in columns)
+        # 3. lr
+        lr = sum(len(str(row)) for row in blocks) // nr if nr > 0 else 0       
 
-        # 3. fr
-        fr = block_size // lr if lr > 0 else 0
-
-        # 4. number of blocks
-        br = (nr + fr -1) // fr if fr > 0 else 0
+        # 4. fr
+        fr = nr // br if br > 0 else 0
 
         # 5. V(A,r)
         V_a_r = {}
 
         for col in columns:
             attribute = col["name"]
-            V_a_r[attribute] = len(set(row[attribute] for row in rows if attribute in row))
+            V_a_r[attribute] = len(set(row[attribute] for row in blocks if attribute in row))
+        
+        # 6. col_data_type
+        col_data_type = self.get_table_datatype(database_name, table_name)
 
-        return Statistic(n_r=nr, b_r=br, l_r=lr, f_r=fr, V_a_r=V_a_r)
+        # 7. col_index
+        col_index = {}
+        for col in columns:
+            attribute = col["name"]
+            has_bplus = 1 if self.is_bplus_index_in_block(database_name, table_name, attribute) else 0
+            has_hash = 1 if self.is_hash_index_in_block(database_name, table_name, attribute) else 0
+            col_index[attribute] = (has_bplus, has_hash)
+
+        # 8. col_bplus_tree_level
+        col_bplus_tree_level = {}
+        for col in columns:
+            attribute = col["name"]
+            if self.is_bplus_index_in_block(database_name, table_name, attribute):
+                # If B+ index exists, get its level
+                bplus_tree = self.indexes[database_name][table_name][attribute]["bplus"]
+                col_bplus_tree_level[attribute] = bplus_tree.get_bplus_tree_level()
+            else:
+                # If no B+ index, assign 0
+                col_bplus_tree_level[attribute] = 0
+
+        return Statistic(n_r=nr, b_r=br, l_r=lr, f_r=fr, V_a_r=V_a_r, col_data_type=col_data_type, col_index=col_index, col_bplus_tree_level=col_bplus_tree_level)
     
     """
     ==============  INDEX FOR USE   ========================================================================================
@@ -623,7 +697,12 @@ class StorageEngine:
             return False
     
     def is_hash_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
-        return self.indexes[database_name][table_name][column]["hash"] is not None
+        if database_name in self.indexes and \
+            table_name in self.indexes[database_name] and \
+            column in self.indexes[database_name][table_name]:
+            return self.indexes[database_name][table_name][column].get("bplus") is not None
+        # Return False if any part of the path is missing
+        return False
     
     def is_bplus_index_in_buffer(self, database_name: str, table_name: str, column: str, transaction_id:int) -> bool:
         try:
@@ -638,7 +717,13 @@ class StorageEngine:
             return False
     
     def is_bplus_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
-        return self.indexes[database_name][table_name][column]["bplus"] is not None
+        # Check if database, table, and column exist in the indexes structure
+        if database_name in self.indexes and \
+        table_name in self.indexes[database_name] and \
+        column in self.indexes[database_name][table_name]:
+            return self.indexes[database_name][table_name][column].get("bplus") is not None
+        # Return False if any part of the path is missing
+        return False
 
     def create_bplus_index(self, table : dict, column: str):
         bplus_tree = BPlusTree(order=4)
