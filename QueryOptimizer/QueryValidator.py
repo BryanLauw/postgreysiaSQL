@@ -23,6 +23,7 @@ class QueryValidator:
 
     def get_attribute_types(self, where_clause: str, database_name: str, table_arr: list[str]) -> dict:
         storage_engine = StorageEngine()
+        where_clause = where_clause.replace(" ", "")
         # Regex to find comparisons (attribute and literal pairs)
         comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
         matches = re.findall(comparison_pattern, where_clause)
@@ -71,6 +72,7 @@ class QueryValidator:
 
 
     def validate_comparisons(self, where_clause: str, attribute_types: dict):
+        where_clause = where_clause.replace(" ", "")
         # Regex to find comparisons
         comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
         matches = re.findall(comparison_pattern, where_clause)

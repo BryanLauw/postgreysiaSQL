@@ -151,7 +151,10 @@ class QueryHelper:
                             method = "INDEX SCAN"
                     except Exception as e:
                         method = "FULL SCAN"
-                parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                try:
+                    parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                except Exception as e:
+                    parse_node = QueryTree(type="WHERE", val=parse)
                 current_node.add_child(parse_node)
                 parse_node.add_parent(current_node)
                 current_node = parse_node
@@ -165,7 +168,10 @@ class QueryHelper:
                         method = "INDEX SCAN"
                 except Exception as e:
                     method = "FULL SCAN"
-                parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                try:
+                    parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                except Exception as e:
+                    parse_node = QueryTree(type="WHERE", val=parse)
                 current_node.add_child(parse_node)
                 parse_node.add_parent(current_node)
                 current_node = parse_node
