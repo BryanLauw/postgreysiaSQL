@@ -140,7 +140,7 @@ class QueryParser:
                    (rule_token == "<ATTR>" and isAttribute(token)) or
                    (rule_token == "<WORD>" and re.match(r'^[a-zA-Z_]+$', token)) or 
                    (rule_token == "<X>" and (isString(token) or isAttribute(token) or isNumber(token))) or
-                   (rule_token == "<N>" and isNumber(token)) or 
+                   (rule_token == "<INT>" and token.isdigit()) or 
                    (rule_token == "<CO>" and token in self.CO) or
                    (rule_token == "<MO>" and token in self.MO) or
                    (rule_token == "<TABLE_ATTR>" and isTableAttr(token))
