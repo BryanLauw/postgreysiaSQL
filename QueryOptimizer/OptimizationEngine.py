@@ -66,6 +66,7 @@ class OptimizationEngine:
         where_clause = query_components_value.get("WHERE", "")
         update_clause = query_components_value.get("UPDATE", "")
         from_clause = query_components_value.get("FROM", "")
+        print(query_components_value)
 
         CO = ['<', '>', '=', '<=', '>=', '<>']
 
@@ -75,6 +76,7 @@ class OptimizationEngine:
             table_name = from_clause[0].strip()
             pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
             where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
+            query_components_value["WHERE"] = where_clause
         if(next(iter(query_components_value), None) == "UPDATE" and '.' not in where_clause):
             table_name = update_clause.strip()
             pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
@@ -88,9 +90,17 @@ class OptimizationEngine:
         return ParsedQuery(query_tree,normalized_query)
 
     def __build_query_tree(self, components: dict, database_name: str) -> QueryTree:
-        query_type = next(iter(components))
-        root = QueryTree(type="ROOT")
-        top = root
+        if "DELETE" in components:
+            root = QueryTree(type="ROOT", val="DELETE")
+            top = root
+            where_tree = QueryTree(type="DELETE", val=components["FROM"][0])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
+        else:
+            query_type = next(iter(components))
+            root = QueryTree(type="ROOT")
+            top = root
 
         if "LIMIT" in components:
             limit_tree = QueryTree(type="LIMIT", val=components["LIMIT"])
@@ -120,12 +130,6 @@ class OptimizationEngine:
             
         if "SET" in components:
             where_tree = QueryTree(type="SET", val=components["SET"])
-            top.add_child(where_tree)
-            where_tree.add_parent(top)
-            top = where_tree
-        
-        if "DELETE" in components:
-            where_tree = QueryTree(type="DELETE")
             top.add_child(where_tree)
             where_tree.add_parent(top)
             top = where_tree
@@ -167,9 +171,10 @@ class OptimizationEngine:
             top = where_tree
 
         if "FROM" in components:
-            join_tree = QueryHelper.build_join_tree(components["FROM"],database_name,self.get_stats)
-            top.add_child(join_tree)
-            join_tree.add_parent(top)
+            if "DELETE" not in components:
+                join_tree = QueryHelper.build_join_tree(components["FROM"],database_name,self.get_stats)
+                top.add_child(join_tree)
+                join_tree.add_parent(top)
 
         return root
 
@@ -218,19 +223,19 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     while True:
-        try:
-            query = input("Query: ")
-            parsed_query = optim.parse_query(query,"database1")
-            print("BEFORE TREE:")
-            print(parsed_query)
-            print(f"BEFORE COST = {optim.get_cost(parsed_query, 'database1')}")
-            
-            optim.optimize_query(parsed_query,"database1")
-            print("AFTER TREE:")
-            print(parsed_query)
-            print(f"AFTER COST = {optim.get_cost(parsed_query, 'database1')}")
-        except Exception as e:
-            print(f"Error: {e}")
+        # try:
+        query = input("Query: ")
+        parsed_query = optim.parse_query(query,"database1")
+        print("BEFORE TREE:")
+        print(parsed_query)
+        print(f"BEFORE COST = {optim.get_cost(parsed_query, 'database1')}")
+        
+        optim.optimize_query(parsed_query,"database1")
+        print("AFTER TREE:")
+        print(parsed_query)
+        print(f"AFTER COST = {optim.get_cost(parsed_query, 'database1')}")
+        # except Exception as e:
+        #     print(f"Error: {e}")
     # Test SELECT query with JOIN
     # select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
     # select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.order_id = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
