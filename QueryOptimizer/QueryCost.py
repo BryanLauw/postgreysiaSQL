@@ -93,7 +93,7 @@ class QueryCost:
         return result
     
     def __select(self, statistic: Statistic, attributes: list[str]) -> Statistic:
-        if statistic.n_r == 0 or statistic.V_a_r == 0:
+        if (statistic.n_r == 0) or (0 in statistic.V_a_r.values()):
             return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
         
         n_r_result = 1
@@ -109,7 +109,7 @@ class QueryCost:
         return result
 
     def __where_equals(self, statistic: Statistic, attribute: str) -> Statistic:
-        if statistic.n_r == 0 or statistic.V_a_r == 0:
+        if (statistic.n_r == 0) or (0 in statistic.V_a_r.values()):
             return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
         
         n_r_result = statistic.n_r // statistic.V_a_r[attribute]
@@ -122,7 +122,7 @@ class QueryCost:
         return result
 
     def __where_not_equals(self, statistic: Statistic, attribute: str) -> Statistic:
-        if statistic.n_r == 0 or statistic.V_a_r == 0:
+        if (statistic.n_r == 0) or (0 in statistic.V_a_r.values()):
             return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
         
         n_r_result = statistic.n_r - self.where_equals(statistic, attribute).n_r
@@ -135,7 +135,7 @@ class QueryCost:
         return result
 
     def __where_comparison(self, statistic: Statistic) -> Statistic:
-        if statistic.n_r == 0 or statistic.V_a_r == 0:
+        if (statistic.n_r == 0) or (0 in statistic.V_a_r.values()):
             return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
         
         n_r_result = statistic.n_r // 2
@@ -148,7 +148,7 @@ class QueryCost:
         return result
     
     def __cross_join(self, statistic1: Statistic, statistic2: Statistic) -> Statistic:
-        if statistic1.n_r == 0 or statistic1.V_a_r == 0 or statistic2.n_r == 0 or statistic2.V_a_r == 0:
+        if (statistic1.n_r == 0) or (0 in statistic1.V_a_r.values()) or (statistic2.n_r == 0) or (0 in statistic2.V_a_r.values()):
             return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
         
         n_r_result = statistic1.n_r * statistic2.n_r
@@ -163,7 +163,7 @@ class QueryCost:
         return result
 
     def __join_on(self, statistic1: Statistic, statistic2: Statistic, attribute1: str, attribute2: str) -> Statistic:
-        if statistic1.n_r == 0 or statistic1.V_a_r == 0 or statistic2.n_r == 0 or statistic2.V_a_r == 0:
+        if (statistic1.n_r == 0) or (0 in statistic1.V_a_r.values()) or (statistic2.n_r == 0) or (0 in statistic2.V_a_r.values()):
             return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
         
         n_r_result_1 = statistic1.n_r * statistic2.n_r // statistic2.V_a_r[attribute2]
@@ -180,7 +180,7 @@ class QueryCost:
         return result
     
     def __natural_join(self, statistic1: Statistic, statistic2: Statistic, attributes: list[str]) -> Statistic:
-        if statistic1.n_r == 0 or statistic1.V_a_r == 0 or statistic2.n_r == 0 or statistic2.V_a_r == 0:
+        if (statistic1.n_r == 0) or (0 in statistic1.V_a_r.values()) or (statistic2.n_r == 0) or (0 in statistic2.V_a_r.values()):
             return Statistic(n_r=0, V_a_r=0, b_r=None, l_r=None, f_r=None)
         
         V_a_r_2_all = max([statistic2.V_a_r[attribute] for attribute in attributes])
