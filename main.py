@@ -1,3 +1,12 @@
+import os,sys
+cwd = os.getcwd()
+sys.path.append(cwd + '/FailureRecovery/')
+sys.path.append(cwd + '/ConcurrencyControlManager/')
+sys.path.append(cwd + '/QueryOptimizer/')
+sys.path.append(cwd + '/QueryProcessor/')
+sys.path.append(cwd + '/StorageManager/')
+
+
 from QueryProcessor.QueryProcessor import QueryProcessor
 
 queryProcessor = QueryProcessor()
@@ -9,4 +18,8 @@ while True:
     query = input("> ")
     if query == "exit":
         break
+    # try:
+    #     queryProcessor.execute_query(query)
+    # except Exception as e:
+    #     print(f"Error: {e}")
     queryProcessor.execute_query(query)

@@ -1,93 +1,48 @@
-from classes import StorageEngine
+from StorageManager.classes import StorageEngine
 
-def create_database(storage):
-    print("Creating database 'test_db'...")
-    storage.create_database("test_db")
+storage_engine = StorageEngine()
 
-def create_table(storage):
-    column_type = {"id": "INTEGER", "name": "TEXT", "age": "INTEGER"}
-    print("Creating table 'users' with columns: id, name, age...")
-    storage.create_table("test_db", "users", column_type)
+# GET TABLE STATISTICS
+statistic = storage_engine.get_stats("database1", "users_membership")
+print("================== Statistic for table 'users_membership' ==================")
+print("nr", statistic.n_r)
+print("br", statistic.b_r)
+print("lr", statistic.l_r)
+print("fr", statistic.f_r)
+print("V[a,r]", statistic.V_a_r)
+print("index info",statistic.col_index)
+print("column data type info",statistic.col_data_type)
+print("column bplus level info",statistic.col_bplus_tree_level)
 
-def insert_data(storage):
-    print("Inserting sample data into 'users' table...")
-    storage.insert_data("test_db", "users", {"id": 1, "name": "John Doe", "age": 30})
-    storage.insert_data("test_db", "users", {"id": 2, "name": "Jane Doe", "age": 25})
-    storage.insert_data("test_db", "users", {"id": 3, "name": "Alice", "age": 25})
-    storage.insert_data("test_db", "users", {"id": 4, "name": "Bob", "age": 22})
-    storage.insert_data("test_db", "users", {"id": 5, "name": "Charlie", "age": 35})
+# SEE ALL TABLES AND COLUMNS INSIDE THE PARTICULAR DATABASE
+print(storage_engine.get_tables_and_columns_info("database1"))
+print()
 
-def create_index(storage):
-    print("Creating index on 'id' column...")
-    storage.set_index("test_db", "users", "id")
-    print("Creating index on 'age' column...")
-    storage.set_index("test_db", "users", "age")
+# SEE WHAT'S INSIDE THE "indexes.dat" FILE
+print("================== Index loaded from storage ==================")
+storage_engine.debug_indexes()
+print()
 
-def search_with_primary_index(storage):
-    print("Testing search with primary index on 'id'...")
-    result = storage.search_with_index("test_db", "users", "id", 3)
-    print("Search result (primary index on 'id' for key 3):", result)
+# GET READABLE INDEX STRUCTURE
+print("================== Index structure for table 'users' ==================")
+print("Column 'id_user'")
+storage_engine.print_index_structure("database1", "users", "id_user", 1)
+print()
+print("================== Index structure for table 'products' ==================")
+print("Column 'product_id'")
+storage_engine.print_index_structure("database1", "products", "product_id", 1)
+print()
+print("================== Index structure for table 'orders' ==================")
+print("Column 'order_id'")
+storage_engine.print_index_structure("database1", "orders", "order_id", 1)
+print()
+print("================== Index structure for table 'users_membership' ==================")
+print("Column 'id_user'")
+storage_engine.print_index_structure("database1", "users_membership", "id_user", 1)
+print()
 
-def search_with_secondary_index(storage):
-    print("Testing search with secondary index on 'age'...")
-    result = storage.search_with_index("test_db", "users", "age", 25)
-    print("Search result (secondary index on 'age' for key 25):", result)
-
-def search_range_with_primary_index(storage):
-    print("Testing search range with primary index on 'id' between 2 and 4...")
-    result = storage.search_range_with_index("test_db", "users", "id", 2, 4)
-    print("Search result (primary index on 'id' between 2 and 4):", result)
-
-def search_range_with_secondary_index(storage):
-    print("Testing search range with secondary index on 'age' between 25 and 30...")
-    result = storage.search_range_with_index("test_db", "users", "age", 25, 30)
-    print("Search result (secondary index on 'age' between 25 and 30):", result)
-
-def search_on_non_indexed_column(storage):
-    print("Testing search on a column without an index...")
-    try:
-        result = storage.search_with_index("test_db", "users", "name", "John Doe")
-        print("Search result (on non-indexed 'name' column):", result)
-    except ValueError as e:
-        print("Error:", e)
-
-def invalid_range_search(storage):
-    print("Testing invalid range search (no matching values)...")
-    result = storage.search_range_with_index("test_db", "users", "age", 40, 50)
-    print("Search result (range on 'age' between 40 and 50):", result)
-
-def test_storage_engine():
-    storage = StorageEngine()
-
-    create_database(storage)
-    print()
-    print()
-    create_table(storage)
-    print()
-    print()
-    insert_data(storage)
-    print()
-    print()
-    create_index(storage)
-    print()
-    print()
-    search_with_primary_index(storage)
-    print()
-    print()
-    search_with_secondary_index(storage)
-    print()
-    print()
-    search_range_with_primary_index(storage)
-    print()
-    print()
-    search_range_with_secondary_index(storage)
-    print()
-    print()
-    search_on_non_indexed_column(storage)
-    print()
-    print()
-    invalid_range_search(storage)
-    print()
-    print()
-
-test_storage_engine()
+# INSERT NEW KEY-VALUE PAIR INTO THE INDEX
+print("================== Inserting new key-value pair into index ==================")
+storage_engine.insert_key_value_to_index("database1", "users", "id_user", 100, 50, 20, 1)
+storage_engine.commit_buffer(1)
+storage_engine.print_index_structure("database1", "users", "id_user", 1)
