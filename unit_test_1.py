@@ -1,21 +1,19 @@
 from datetime import datetime
 import re
 import unittest
-from unittest.mock import MagicMock
 from FailureRecovery.failure_recovery import FailureRecovery
 from FailureRecovery.failure_recovery_log_entry import LogEntry
 
 class TestFailureRecovery(unittest.TestCase):
 
     def setUp(self):
-        f = open('test_db_1.txt', 'w')
+
+        self.filename = "test_db_1.txt"
+
+        f = open(self.filename, 'w')
         f.close()
 
-        self.failure_recovery = FailureRecovery("test_db_1.txt", buffer_size=5)
-
-        self.failure_recovery.recovery.rollback = MagicMock(return_value="Rollback Successful")
-        self.failure_recovery.recovery.redo = MagicMock(return_value="Redo Instructions")
-        self.failure_recovery.recovery.undo = MagicMock(return_value="Undo Instructions")
+        self.failure_recovery = FailureRecovery(self.filename, buffer_size=5)
 
     def test_write_log_entry(self):
     
@@ -49,12 +47,6 @@ class TestFailureRecovery(unittest.TestCase):
     
     def test_rollback(self):
 
-        filename = "./../unit_test_rollback.txt"
-        f = open(filename, 'w')
-        f.close()
-
-        failure_recovery = FailureRecovery(fname=filename, buffer_size=5)
-
         test_data = [
             {"transaction_id": 1, "event": "START"},
             {"transaction_id": 2, "event": "START"},
@@ -82,13 +74,13 @@ class TestFailureRecovery(unittest.TestCase):
         ]
 
         for data in test_data:
-            failure_recovery.write_log_entry(**data)
+            self.failure_recovery.write_log_entry(**data)
 
         log_entry_rollback = LogEntry(datetime.now(), 3, "ABORT") 
 
-        rollback_res = failure_recovery.rollback(log_entry=log_entry_rollback)
+        rollback_res = self.failure_recovery.rollback(log_entry=log_entry_rollback)
 
-        with open(filename, "r") as log_file:
+        with open(self.filename, "r") as log_file:
             log_content = [line.strip() for line in log_file.readlines()]
 
         regex_match = all(
@@ -100,11 +92,6 @@ class TestFailureRecovery(unittest.TestCase):
         self.assertEqual(regex_match, True)
 
     def recover(self):
-        filename = "./../unit_test_recover.txt"
-        f = open(filename, 'w')
-        f.close()
-
-        failure_recovery = FailureRecovery(fname=filename, buffer_size=5)
 
         test_data = [
             {"transaction_id": 1, "event": "START"},
@@ -137,11 +124,11 @@ class TestFailureRecovery(unittest.TestCase):
         ]
 
         for data in test_data:
-            failure_recovery.write_log_entry(**data)
+            self.failure_recovery.write_log_entry(**data)
 
-        recover_res = failure_recovery.recover()
+        recover_res = self.failure_recovery.recover()
 
-        with open(filename, "r") as log_file:
+        with open(self.filename, "r") as log_file:
             log_content = [line.strip() for line in log_file.readlines()]
 
         regex_match = all(

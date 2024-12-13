@@ -1,9 +1,4 @@
-2024-12-13T20:01:48,1,START,,,
-2024-12-13T20:01:48,2,START,,,
-2024-12-13T20:01:48,3,START,,,
-2024-12-13T20:01:48,1,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1', 'primary_key_value': 'bebas'},1,2
-2024-12-13T20:01:48,1,COMMIT,,,
-2024-12-13T20:01:48,,CHECKPOINT,{2, 3}
-2024-12-13T20:01:48,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2', 'primary_key_value': 'bebas'},2,3
-2024-12-13T20:01:48,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2', 'primary_key_value': 'bebas'},2,
-2024-12-13T20:01:48,,CHECKPOINT,{2, 3}
+2024-12-13T20:04:21,,CHECKPOINT,set()
+2024-12-13T20:04:21,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2', 'primary_key_value': 'bebas'},2,3
+2024-12-13T20:04:21,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2', 'primary_key_value': 'bebas'},2,
+2024-12-13T20:04:21,,CHECKPOINT,{2, 3}
