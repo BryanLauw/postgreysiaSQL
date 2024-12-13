@@ -1,0 +1,86 @@
+2024-12-13T11:53:45,1,START,,,
+2024-12-13T11:53:45,2,START,,,
+2024-12-13T11:53:45,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T11:53:45,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T11:53:45,,CHECKPOINT,{1, 2}
+2024-12-13T11:53:45,,CHECKPOINT,{1, 2}
+2024-12-13T11:54:14,,CHECKPOINT,set()
+2024-12-13T11:54:14,,CHECKPOINT,set()
+2024-12-13T11:54:14,1,START,,,
+2024-12-13T11:54:14,2,START,,,
+2024-12-13T11:54:14,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T11:54:14,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T11:54:14,,CHECKPOINT,{1, 2}
+2024-12-13T11:54:14,,CHECKPOINT,{1, 2}
+2024-12-13T11:54:14,,CHECKPOINT,set()
+2024-12-13T11:54:14,,CHECKPOINT,set()
+2024-12-13T11:55:51,,CHECKPOINT,set()
+2024-12-13T11:55:51,,CHECKPOINT,set()
+2024-12-13T11:55:51,1,START,,,
+2024-12-13T11:55:51,2,START,,,
+2024-12-13T11:55:51,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T11:55:51,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T11:55:51,,CHECKPOINT,{1, 2}
+2024-12-13T11:55:51,,CHECKPOINT,{1, 2}
+2024-12-13T11:55:51,,CHECKPOINT,set()
+2024-12-13T11:55:51,,CHECKPOINT,set()
+2024-12-13T12:38:50,1,START,,,
+2024-12-13T12:38:50,2,START,,,
+2024-12-13T12:38:50,3,START,,,
+2024-12-13T12:38:50,1,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T12:38:50,3,COMMIT,,,
+2024-12-13T12:38:50,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T12:38:50,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_3'},4,5
+2024-12-13T12:38:50,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_4'},7,9
+2024-12-13T12:38:50,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_5'},10,12
+2024-12-13T12:38:50,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_6'},13,15
+2024-12-13T12:38:50,,CHECKPOINT,{1, 2}
+2024-12-13T12:38:50,,CHECKPOINT,{1, 2}
+2024-12-13T12:41:29,1,START,,,
+2024-12-13T12:41:29,2,START,,,
+2024-12-13T12:41:29,3,START,,,
+2024-12-13T12:41:29,1,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T12:41:29,3,COMMIT,,,
+2024-12-13T12:41:29,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_3'},4,5
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_4'},7,9
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_5'},10,12
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_6'},13,15
+2024-12-13T12:41:29,,CHECKPOINT,{1, 2}
+2024-12-13T12:41:29,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_7'},20,22
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_8'},25,30
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_9'},33,36
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_10'},40,44
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_11'},50,55
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_12'},60,66
+2024-12-13T12:41:29,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_13'},70,75
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_14'},80,85
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_15'},90,95
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_16'},100,105
+2024-12-13T12:41:29,,CHECKPOINT,{1, 2}
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_17'},110,115
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_18'},120,125
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_19'},130,135
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_20'},140,150
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_21'},160,170
+2024-12-13T12:41:29,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_22'},180,190
+2024-12-13T12:41:29,,CHECKPOINT,{1, 2}
+2024-12-13T12:41:29,,CHECKPOINT,{1, 2}
+2024-12-13T12:48:13,1,START,,,
+2024-12-13T12:48:13,2,START,,,
+2024-12-13T12:48:13,3,START,,,
+2024-12-13T12:48:13,1,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T12:48:13,3,COMMIT,,,
+2024-12-13T12:48:13,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T12:48:13,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_3'},4,5
+2024-12-13T12:48:13,,CHECKPOINT,{1, 2}
+2024-12-13T12:48:13,,CHECKPOINT,{1, 2}
+2024-12-13T12:53:44,1,START,,,
+2024-12-13T12:53:44,2,START,,,
+2024-12-13T12:53:44,3,START,,,
+2024-12-13T12:53:44,1,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T12:53:44,3,COMMIT,,,
+2024-12-13T12:53:44,3,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_2'},2,3
+2024-12-13T12:53:44,2,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_3'},4,5
+2024-12-13T12:53:44,,CHECKPOINT,{1, 2}
+2024-12-13T12:53:44,,CHECKPOINT,{1, 2}
