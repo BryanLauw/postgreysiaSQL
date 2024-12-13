@@ -697,7 +697,12 @@ class StorageEngine:
             return False
     
     def is_hash_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
-        return self.indexes[database_name][table_name][column]["hash"] is not None
+        if database_name in self.indexes and \
+            table_name in self.indexes[database_name] and \
+            column in self.indexes[database_name][table_name]:
+            return self.indexes[database_name][table_name][column].get("bplus") is not None
+        # Return False if any part of the path is missing
+        return False
     
     def is_bplus_index_in_buffer(self, database_name: str, table_name: str, column: str, transaction_id:int) -> bool:
         try:
@@ -712,7 +717,13 @@ class StorageEngine:
             return False
     
     def is_bplus_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
-        return self.indexes[database_name][table_name][column]["bplus"] is not None
+        # Check if database, table, and column exist in the indexes structure
+        if database_name in self.indexes and \
+        table_name in self.indexes[database_name] and \
+        column in self.indexes[database_name][table_name]:
+            return self.indexes[database_name][table_name][column].get("bplus") is not None
+        # Return False if any part of the path is missing
+        return False
 
     def create_bplus_index(self, table : dict, column: str):
         bplus_tree = BPlusTree(order=4)
