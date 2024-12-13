@@ -163,7 +163,6 @@ class OptimizationEngine:
     def optimize_query(self, query: ParsedQuery, database_name:str):
         list_nodes = {
             "JOIN": [],
-            "JOIN":[],
             "SELECT": [],
             "WHERE": [],
         }
@@ -183,18 +182,18 @@ class OptimizationEngine:
         for node in list_nodes["WHERE"]:
             self.QueryOptimizer.pushing_selection(node)
                 
-        # list_nodes["JOIN"].reverse()
-        # self.QueryOptimizer.reorder_join(list_nodes["JOIN"],database_name,self.get_stats)
+        list_nodes["JOIN"].reverse()
+        self.QueryOptimizer.reorder_join(list_nodes["JOIN"],database_name,self.get_stats)
 
         for node in list_nodes["JOIN"]:
             if node.type == "JOIN":
                 continue
             if len(node.val) == 0:
                 self.QueryOptimizer.combine_selection_and_cartesian_product(node)
-        
 
-        for node in list_nodes["SELECT"] :
-            self.QueryOptimizer.pushing_projection(node)
+        if len(list_nodes["JOIN"]) > 0:
+            for node in list_nodes["SELECT"] :
+                self.QueryOptimizer.pushing_projection(node)
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
