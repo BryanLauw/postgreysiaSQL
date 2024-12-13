@@ -10,11 +10,11 @@ import random
 
 # class from other files
 # import QueryProcessor.QueryProcessor as QueryProcessor
-from failure_recovery_checkpoint import CheckpointManager
-from failure_recovery_recovery import Recovery
-from failure_recovery_log_entry import LogEntry
-from failure_recovery_recover_criteria import RecoverCriteria
-from failure_recovery_threading_manager import ThreadingManager
+from .failure_recovery_checkpoint import CheckpointManager
+from .failure_recovery_recovery import Recovery
+from .failure_recovery_log_entry import LogEntry
+from .failure_recovery_recover_criteria import RecoverCriteria
+from .failure_recovery_threading_manager import ThreadingManager
 
 
 class FailureRecovery:

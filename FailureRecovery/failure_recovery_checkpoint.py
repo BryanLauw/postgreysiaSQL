@@ -6,7 +6,7 @@ import time
 import threading
 import logging
 
-from failure_recovery_log_entry import LogEntry
+from .failure_recovery_log_entry import LogEntry
 
 class CheckpointManager:
     def __init__(self, log_file:str="log_kel.log", buffer_size: int = 10, logger=None):
