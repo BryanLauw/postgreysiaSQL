@@ -291,6 +291,24 @@ class StorageEngine:
             if table_name in self.blocks[database_name]:
                 self.buffer[transaction_id] = self.buffer.get(transaction_id, copy.deepcopy(self.blocks))
                 temp = self.buffer[transaction_id][database_name][table_name]["values"]
+                
+                # ngehandle masukin data yang primary keynya udah ada
+                column_pk = []
+                for column in self.buffer[transaction_id][database_name][table_name]["columns"]:
+                    if "PRIMARY KEY" in column.get("constraints", []):
+                        column_pk.append(column["name"])
+                # di sini dicari di seluruh record kalo ada yang sama
+                sama = 0
+                for block in temp:
+                    for record in block:
+                        for column in column_pk:
+                            if record[column] == data_insert[column]:
+                                sama+=1
+                        # misal PK nya 2 terus yang sama juga ada 2
+                        if len(column_pk) != 0 and sama == len(column_pk):
+                            return Exception(f"Sudah ada data yang memiliki primary key yang serupa!")
+                        sama = 0
+            
                 dimasukin = False
                 for block in temp:
                     if len(block) < self.buffer[transaction_id][database_name][table_name]["max_record"]:
@@ -679,7 +697,12 @@ class StorageEngine:
             return False
     
     def is_hash_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
-        return self.indexes[database_name][table_name][column]["hash"] is not None
+        if database_name in self.indexes and \
+            table_name in self.indexes[database_name] and \
+            column in self.indexes[database_name][table_name]:
+            return self.indexes[database_name][table_name][column].get("bplus") is not None
+        # Return False if any part of the path is missing
+        return False
     
     def is_bplus_index_in_buffer(self, database_name: str, table_name: str, column: str, transaction_id:int) -> bool:
         try:
@@ -694,7 +717,13 @@ class StorageEngine:
             return False
     
     def is_bplus_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
-        return self.indexes[database_name][table_name][column]["bplus"] is not None
+        # Check if database, table, and column exist in the indexes structure
+        if database_name in self.indexes and \
+        table_name in self.indexes[database_name] and \
+        column in self.indexes[database_name][table_name]:
+            return self.indexes[database_name][table_name][column].get("bplus") is not None
+        # Return False if any part of the path is missing
+        return False
 
     def create_bplus_index(self, table : dict, column: str):
         bplus_tree = BPlusTree(order=4)
