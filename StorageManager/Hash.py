@@ -31,12 +31,16 @@ class HashTable:
 
     def search(self, key):
         # search for a key in the hash table and return its value (list of value(s) which has (have) the searched key)
+        print("self table =", self.table)
+        print()
         index = self.hash_function(key)
+        print(index)
+        print(self.table[index])
         for pair in self.table[index]:
+            print(pair)
             if pair[0] == key:
                 return pair[1]
-        raise ValueError("Key not found in hash table.")  # key not found
-
+        print("Key not found in hash table.")  # key not found
 
     def delete(self, key, value):
         # delete a key-value pair from the hash table.
@@ -45,7 +49,34 @@ class HashTable:
             if pair[0] == key:
                 if pair[1].count(value) > 0:
                     self.table[bucket][i][1].remove(value)
-        raise KeyError("Key not found in hash table.")  # key not found
+                if len(self.table[bucket][i][1]) == 0:
+                    self.table[bucket].remove(pair)
+                print("Delete success")
+                return
+        raise ValueError("Key not found in hash table.")  # key not found
+
+    def delete_key_value(self, key, value):
+        # delete a key-value pair from the hash table.
+        bucket = self.hash_function(key)
+        for i, pair in enumerate(self.table[bucket]):
+            if pair[0] == key:
+                if pair[1].count(value) > 0:
+                    self.table[bucket][i][1].remove(value)
+                if len(self.table[bucket][i][1]) == 0:
+                    self.table[bucket].remove(pair)
+                print("Delete success")
+                return
+        raise ValueError("Key not found in hash table.")  # key not found
+    
+    def delete_key(self, key):
+        # delete a key from the hash table.
+        bucket = self.hash_function(key)
+        for i, pair in enumerate(self.table[bucket]):
+            if pair[0] == key:
+                self.table[bucket].remove(pair)
+                print("Delete success")
+                return
+        raise ValueError("Key not found in hash table.")
     
     def print_table(self):
         for i, bucket in enumerate(self.table):
