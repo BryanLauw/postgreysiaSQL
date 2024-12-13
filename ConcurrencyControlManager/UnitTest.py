@@ -1,4 +1,8 @@
-from ConcurrencyControlManager import ConcurrencyControlManager, Row, Action
+from ConcurrencyControlManager import ConcurrencyControlManager, Action
+from typing import Any
+
+class Row:
+    pass
 
 class ConcurrencyTester:
     def __init__(self):
