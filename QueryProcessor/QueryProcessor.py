@@ -62,13 +62,13 @@ class QueryProcessor:
             retry = True
             while retry:
                 try:
-                    self.parsedQuery = self.qo.parse_query(query,self.db_name) #hardcode
-                    print("tree")
-                    print(self.parsedQuery.query_tree)
+                    self.parsedQuery = self.qo.parse_query(query,self.db_name) 
+                    # print("tree")
+                    # print(self.parsedQuery.query_tree)
                     if self.parsedQuery.query_tree.val == "UPDATE":
                         try:
-                            if not client_state.get("on_begin", False):
-                                print("masuk")
+                            if not self.client_states.get("on_begin", False):
+                                # print("masuk")
                                 self.current_transactionId = self.cc.begin_transaction()
                                 client_state["transactionId"] = self.current_transactionId
                             write = self.ParsedQueryToDataWrite()
@@ -159,7 +159,7 @@ class QueryProcessor:
                         tree.val
                     )
                 elif tree.type == "NATURAL JOIN":
-                    print("debug natural join")
+                    # print("debug natural join")
                     temp = self.__naturalJoin(
                         self.evaluateSelectTree(tree.childs[0], [], [], transaction_id),
                         self.evaluateSelectTree(tree.childs[1], [], [], transaction_id),

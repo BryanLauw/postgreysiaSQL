@@ -20,15 +20,18 @@ class ConcurrencyControlManager:
     timestamp: Dict[Row, Dict[Action, int]] = {}
     mutex: Lock = Lock()
     condition: Condition = Condition()
+    active_transaction: set[int]
 
     def __init__(self) -> None:
-        self.last_transaction = 0
+        self.last_transaction = 1
+        self.active_transaction = set()
 
     def begin_transaction(self) -> int:
         with self.mutex:
             tmp = self.last_transaction
+            self.active_transaction.add(tmp)
             self.last_transaction += 1
-            return tmp
+        return tmp
 
     def log_object(self, object: Row, transaction_id: int):
         print(object, transaction_id)
@@ -63,9 +66,15 @@ class ConcurrencyControlManager:
                     result.allowed = False
                 timestamp["read"] = current_timestamp
 
-            return result
+        return result
 
     def end_transaction(self, transaction_id: int):
         with self.mutex:
+            run_directly = False
+            self.active_transaction.remove(transaction_id)
             with self.condition:
                 self.condition.notify()
+
+            if len(self.active_transaction) <= 1:
+                run_directly = True
+        return run_directly
