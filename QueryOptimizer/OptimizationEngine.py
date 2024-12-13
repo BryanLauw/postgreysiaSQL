@@ -26,8 +26,7 @@ class OptimizationEngine:
         )
         
         normalized_query = self.QueryParser.transform_to_upper(normalized_query)
-        print(normalized_query)
-
+        
         # Check Syntax
         normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
 
@@ -149,13 +148,12 @@ class OptimizationEngine:
 
         return root
 
-    def optimize_query(self, query: ParsedQuery):
+    def optimize_query(self, query: ParsedQuery, database_name:str):
         list_nodes = {
             "JOIN": [],
-            "NATURAL JOIN":[],
+            "JOIN":[],
             "SELECT": [],
             "WHERE": [],
-            "ROOT": [],
         }
         
         queue_nodes = Queue()
@@ -163,15 +161,23 @@ class OptimizationEngine:
         while not queue_nodes.empty():
             current_node = queue_nodes.get()
             if current_node.type in ["SELECT","NATURAL JOIN","JOIN","WHERE"]:
-                list_nodes[current_node.type].append(current_node)
+                if current_node.type == "NATURAL JOIN":
+                    list_nodes["JOIN"].append(current_node)
+                else:
+                    list_nodes[current_node.type].append(current_node)
             
             for child in current_node.childs:
                 queue_nodes.put(child)
             
         for node in list_nodes["WHERE"]:
             self.QueryOptimizer.pushing_selection(node)
+        
+        list_nodes["JOIN"].reverse()
+        self.QueryOptimizer.reorder_join(list_nodes["JOIN"],database_name,self.get_stats)
 
-        for node in list_nodes["NATURAL JOIN"]:
+        for node in list_nodes["JOIN"]:
+            if node.type == "JOIN":
+                continue
             if len(node.val) == 0:
                 self.QueryOptimizer.combine_selection_and_cartesian_product(node)
         
@@ -188,15 +194,15 @@ if __name__ == "__main__":
 
     # Test SELECT query with JOIN
     # select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
-    select_query = 'select * from users join products on users.id=products.product_id where users.id>1 and products.product_id<1 order by id'
+    select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.id_order = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
     # create_index_query = 'CREATE INDEX nama_idx ON users(id) USING hash'
     # print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
     # parsed_query = optim.parse_query(create_index_query,"database1")
-    print(parsed_query)
-    optim.optimize_query(parsed_query)
+    # print(parsed_query)
+    optim.optimize_query(parsed_query,"database1")
     # optim.optimize_query(parsed_query)
-    print("EVALUATION PLAN TREE: \n",parsed_query)
+    # print("EVALUATION PLAN TREE: \n",parsed_query)
     
     # print(f"COST = {optim.get_cost(parsed_query, 'database1')}")
 
@@ -221,10 +227,10 @@ if __name__ == "__main__":
     #     print(f"Validation error: {e}")
 
     # Test UPDATE query
-    update_query = "UPDATE products SET product_id = product_id + 1.1 - 5 WHERE product_id > 1000"
-    print(update_query)
-    parsed_update_query = optim.parse_query(update_query, "database_sample")
-    print(parsed_update_query)
+    # update_query = "UPDATE products SET product_id = product_id + 1.1 - 5 WHERE product_id > 1000"
+    # print(update_query)
+    # parsed_update_query = optim.parse_query(update_query, "database1")
+    # print(parsed_update_query)
 
     # #Test DELETE query
     # delete_query = "DELETE FROM employees WHERE salary < 3000"
