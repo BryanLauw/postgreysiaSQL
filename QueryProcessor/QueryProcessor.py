@@ -67,7 +67,7 @@ class QueryProcessor:
                     # print(self.parsedQuery.query_tree)
                     if self.parsedQuery.query_tree.val == "UPDATE":
                         try:
-                            if not self.client_states.get("on_begin", False):
+                            if not client_state.get("on_begin", False):
                                 # print("masuk")
                                 self.current_transactionId = self.cc.begin_transaction()
                                 client_state["transactionId"] = self.current_transactionId
@@ -91,7 +91,7 @@ class QueryProcessor:
 
                             print("trans id before write: " ,transaction_id)
                             data_written = data_lama.get_data()[0].get(write.column[0])
-                            object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}','primary_key_value':'{write.conditions[0].operand}'}}"
+                            object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column + "+" + write.conditions[0].operation}','primary_key_value':'{write.conditions[0].operand}'}}"
                             self.rm.write_log_entry(transaction_id, "DATA", object_value, data_written, write.new_value)
                             self.sm.write_block(write, self.db_name, transaction_id)
                             self.sm.commit_buffer(transaction_id)                            
@@ -447,10 +447,11 @@ class QueryProcessor:
 
             conditions = []
             if primary_key and primary_key_value:
+                temp = primary_key.split("+")
                 conditions.append(Condition(
-                    column=primary_key,
-                    operation="=",
-                    operand=primary_key_value
+                    column=temp[0],
+                    operation=temp[1],
+                    operand=int(primary_key_value)
                 ))
 
             data_write = DataWrite(
