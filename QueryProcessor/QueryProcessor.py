@@ -9,14 +9,13 @@ from typing import Tuple
 import FailureRecovery.main as FailureRecovery
     
 class QueryProcessor:
-    # def __init__(self, db_name: str | None):
-    def __init__(self):
+    def __init__(self, db_name: str):
         self.parsedQuery = None
         self.sm = StorageEngine()
         self.qo = OptimizationEngine(self.sm.get_stats)
         self.cc = ConcurrencyControlManager()
         self.rm = FailureRecovery.FailureRecovery()
-        self.db_name = "database1" #SBD
+        self.db_name = db_name #SBD
         # self.db_name = db_name
 
         self.current_transactionId = 0 #SBD
@@ -64,16 +63,7 @@ class QueryProcessor:
                 retry = True
                 while retry:
                     try:
-                        self.parsedQuery = self.qo.parse_query(query,'database1') #hardcode
-                        # try:
-                        #     # self.parsedQuery = self.qo.parse_query(query, self.db_name)
-                        #     self.parsedQuery = self.qo.parse_query(query, "database1")
-                        # except Exception as e:
-                        #     raise Exception(e)
-
-                        # result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
-                        # self.printResult(result)
-                        # print(f"Read {len(result)} row(s).")
+                        self.parsedQuery = self.qo.parse_query(query,self.db_name) #hardcode
 
                         if self.parsedQuery.query_tree.val == "UPDATE":
                             try:
@@ -84,38 +74,52 @@ class QueryProcessor:
                                 write = self.ParsedQueryToDataWrite()
                                 print("transaction id :", transaction_id)
 
+                                # baca data lama
+                                data_lama = self.sm.read_block(DataRetrieval(write.table, write.column, write.conditions), self.db_name, self.current_transactionId)
+                                # cek concurrency control
                                 transaction_id = client_state["transactionId"]
                                 print("trans id real: ", transaction_id)
-                                response = self.cc.validate_object(write.table[0], transaction_id, "write")
+                                response = self.cc.validate_object(data_lama, transaction_id, "write")
                                 print("response dr cc: ",response.allowed)
                                 if not response.allowed:
                                     print("Validation failed. Handling rollback.")
                                     self.handle_rollback(transaction_id)
                                     print("Retrying query after rollback.")
                                     continue  
-
-                                # baca data lama
-                                data_lama = self.sm.read_block(DataRetrieval(write.table, write.column, write.conditions), self.db_name, self.current_transactionId).get_data()[0].get(write.column[0])
-                                print(data_lama)
+                                
+                                # write data
                                 self.sm.write_block(write, self.db_name, self.current_transactionId)
-
+                                data_written = data_lama.get_data()[0].get(write.column[0])
                                 object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}'}}"
                                 print(object_value)
-                                self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_lama, write.new_value[0])
+                                self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_written, write.new_value[0])
                                 
                             except Exception as e:
                                 self.handle_rollback(transaction_id)
                                 print(e) 
                         elif self.parsedQuery.query_tree.val == "SELECT":
-                            # print(self.parsedQuery.query_tree)
-                            result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"")
-                            ret_val = self.printResult(result)
-                            print(f"Read {len(result)} row(s).")
-                            return ret_val                            
+                            try:
+                                if not client_state.get("on_begin", False):
+                                    self.current_transactionId = self.cc.begin_transaction()
+                                    client_state["transactionId"] = self.current_transactionId
+
+                                transaction_id = client_state["transactionId"]
+                                result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"", transaction_id)
+                                ret_val = self.printResult(result)
+                                print(f"Read {len(result)} row(s).")
+                                return ret_val                            
+                            
+                            except Exception as e:
+                                self.handle_rollback(transaction_id)
+                                print(e)
+
                         elif self.parsedQuery.query_tree.val == "CREATE" and self.parsedQuery.query_tree.childs[0].val == "INDEX":
-                            index = self.ParsedQueryToSetIndex()
-                            # TODO: nama index ada di index[3], belum tau mau dipake di mana
-                            self.sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
+                            try:
+                                index = self.ParsedQueryToSetIndex()
+                                # TODO: nama index ada di index[3], belum tau mau dipake di mana
+                                self.sm.set_index(self.db_name, index[0], index[1], self.current_transactionId, index[2])
+                            except Exception as e:
+                                print(e)
                         
                         retry = False
                     except Exception as e:
@@ -130,29 +134,32 @@ class QueryProcessor:
                             client_state["on_begin"] = True
     
 
-    def  evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str) -> list[dict]:
+    def  evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str, transaction_id: int) -> list[dict]:
         if not tree.childs:
             condition = []
             if len(where) > 0:
                 condition = self.__makeCondition(where)
             select = self.removeTablename(select)
             dataRetriev = DataRetrieval([tree.val], select, condition)
-            temp = self.transformData(tree.val,self.__getData(dataRetriev))
+            try:
+                temp = self.transformData(tree.val,self.__getData(dataRetriev, transaction_id))
+            except Exception as e:
+                raise(e)
             return temp
         else:
             if tree.type == "JOIN" or tree.type == "NATURAL JOIN":
                 temp = []
                 if tree.type == "JOIN":
                     temp = self.__joinOn(
-                        self.evaluateSelectTree(tree.childs[0], [], []),
-                        self.evaluateSelectTree(tree.childs[1], [], []),
+                        self.evaluateSelectTree(tree.childs[0], [], [], transaction_id),
+                        self.evaluateSelectTree(tree.childs[1], [], [], transaction_id),
                         tree.val
                     )
                 elif tree.type == "NATURAL JOIN":
                     temp = self.__naturalJoin(
                         "temp1", "temp2",
-                        self.evaluateSelectTree(tree.childs[0], [], []),
-                        self.evaluateSelectTree(tree.childs[1], [], [])
+                        self.evaluateSelectTree(tree.childs[0], [], [], transaction_id),
+                        self.evaluateSelectTree(tree.childs[1], [], [], transaction_id)
                         )
                 if len(select) > 0 and len(where) > 0:
                     temp = self.__filterSelect(temp, select)
@@ -167,20 +174,20 @@ class QueryProcessor:
                 order_by_column = parse[0]
                 is_asc = parse[1] == "ASC"
                 return self.__orderBy(
-                    self.evaluateSelectTree(tree.childs[0], select, where),
+                    self.evaluateSelectTree(tree.childs[0], select, where, transaction_id),
                     order_by_column,
                     is_asc
                 )
             elif tree.type == "LIMIT":
                 limit = int(tree.val)
-                return self.evaluateSelectTree(tree.childs[0], select, where)[:limit]
+                return self.evaluateSelectTree(tree.childs[0], select, where, transaction_id)[:limit]
             else:
                 if tree.type == "SELECT":
                     select = tree.val
                 elif tree.type == "WHERE":
                     where = tree.val
                 for child in tree.childs:
-                    return self.evaluateSelectTree(child, select, where)
+                    return self.evaluateSelectTree(child, select, where, transaction_id)
     
     def removeTablename(self, data):
         result = []
@@ -465,7 +472,7 @@ class QueryProcessor:
             for child in tree.childs:
                 return self.__getTables(child)
     
-    def __getData(self, data_retrieval: DataRetrieval) -> dict|Exception:
+    def __getData(self, data_retrieval: DataRetrieval, transaction_id: int) -> dict|Exception:
         # fetches the required rows of data from the storage manager
         # and returns it as a dictionary
 
@@ -473,19 +480,16 @@ class QueryProcessor:
         # data_retrieval = DataRetrieval(table="students", 
         #                                columns=["a"], 
         #                                conditions=[Condition("a", ">", 1)])
-        # database = "database1"
+        # database = "self.db_name"
         # getData(data_retrieval, database) = {'a': [2, 3, 4, 5]}
 
-        try:
-            for table in data_retrieval.table:
-                response = self.cc.validate_object(table, self.db_name, self.current_transactionId)
-                if not response.allowed:
-                    raise Exception(f"Transaction {self.current_transactionId} cannot read table {table}")
-            data = self.sm.read_block(data_retrieval, self.db_name, self.current_transactionId)
-            return data.data
-        except Exception as e:
-            self.handle_rollback()
-            return e
+        data = self.sm.read_block(data_retrieval, self.db_name, self.current_transactionId)
+        response = self.cc.validate_object(data, transaction_id, "read")
+        if not response.allowed:
+            print("Validation failed. Handling rollback.")
+            print("Retrying query after rollback.")
+            raise Exception(f"Cannot read {data_retrieval.table[0]}.")
+        return data.data
     
     def __transCond(self, cond: str) -> list:
         result = [] 
@@ -602,7 +606,7 @@ class QueryProcessor:
         # delete the required rows of data from the storage manager
         # and returns the number of rows deleted
         # data_deletion = DataDeletion(table="students", conditions=[Condition("a", ">", 1)])
-        # database = "database1"
+        # database = "self.db_name"
         # deleteData(data_deletion, database, transaction_id) = 4
 
         try:
