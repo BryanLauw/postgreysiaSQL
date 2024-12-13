@@ -1,4 +1,4 @@
-from .main_log_entry import LogEntry
+from .failure_recovery_log_entry import LogEntry
 
 def write_log_entry_to_file(log_file: str, entry: LogEntry):
         """

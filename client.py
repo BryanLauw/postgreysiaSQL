@@ -26,6 +26,11 @@ def start_client(host="127.0.0.1", port=65432):
                 print("Goodbye!")
                 break
 
+            # Check for ;
+            if (query[-1] != ';'):
+                print("Invalid semicolon.")
+                continue
+
             if not query:
                 print("Empty query, please re-enter.")
                 continue

@@ -72,7 +72,7 @@ class Statistic:
         self.l_r = l_r
         self.f_r = f_r
         self.V_a_r = V_a_r
-        self.col_data_type = col_data_type
+        self.col_data_type = col_data_type 
         self.col_index = col_index
         self.col_bplus_tree_level = col_bplus_tree_level
 
@@ -399,7 +399,7 @@ class StorageEngine:
         else: 
             hasil_akhir = hasil_operasi
         # return akhir
-        return Rows(hasil_akhir, len(hasil_akhir))
+        return Rows(hasil_akhir, len(hasil_akhir), str(data_retrieval.table))
 
     def write_block(self, data_write: DataWrite, database_name: str, transaction_id: int) -> int | Exception:
         """
@@ -641,11 +641,11 @@ class StorageEngine:
         if self.is_hash_index_exist(database_name, table_name, column):
             self.insert_hash_index(database_name, table_name, column, key, block_index, offset, transaction_id)
     
-    def update_key_to_index(self, database_name:str, table_name:str, column:str, key, block_index, offset, transaction_id:int) -> None:
-        if self.is_bplus_index_exist(database_name, table_name, column):
-            self.update_bplus_index(database_name, table_name, column, key, block_index, offset, transaction_id)
-        if self.is_hash_index_exist(database_name, table_name, column):
-            self.update_key_hash_index(database_name, table_name, column, key, block_index, offset, transaction_id)
+    # def update_key_to_index(self, database_name:str, table_name:str, column:str, key, block_index, offset, transaction_id:int) -> None:
+    #     if self.is_bplus_index_exist(database_name, table_name, column):
+    #         self.update_bplus_index(database_name, table_name, column, key, block_index, offset, transaction_id)
+    #     if self.is_hash_index_exist(database_name, table_name, column):
+    #         self.update_key_hash_index(database_name, table_name, column, old_key, block_index, offset, transaction_id)
 
     def delete_key_value_from_index(self, database_name:str, table_name:str, column:str, key, transaction_id:int) -> None:
         if self.is_bplus_index_exist(database_name, table_name, column):
@@ -653,24 +653,47 @@ class StorageEngine:
         if self.is_hash_index_exist(database_name, table_name, column):
             self.delete_hash_index(database_name, table_name, column, key, transaction_id)
 
-    def print_index_structure(self, database_name:str, table_name:str, column:str, transaction_id:int) -> None:
-        if self.is_hash_index_in_block(database_name, table_name, column) == True:
+    def print_index_structure(self, database_name: str, table_name: str, column: str, transaction_id: int) -> None:
+        # Check if a hash index exists in the block
+        if self.is_hash_index_in_block(database_name, table_name, column):
             print("Hash Table in Block Index:")
-            self.indexes[database_name][table_name][column]["hash"].print_table()
-            print()
-        elif self.is_hash_index_in_buffer(database_name, table_name, column, transaction_id) == True:
-            print("Hash Table in Buffer Index:")
-            self.buffer_index[transaction_id][database_name][table_name][column]["hash"].print_table()
+            hash_index = self.indexes[database_name][table_name][column].get("hash")
+            if hash_index is not None:
+                hash_index.print_table()
+            else:
+                print("No hash index found in block.")
             print()
 
-        if self.is_bplus_index_in_block(database_name, table_name, column) == True:
+        # Check if a hash index exists in the buffer
+        elif self.is_hash_index_in_buffer(database_name, table_name, column, transaction_id):
+            print("Hash Table in Buffer Index:")
+            hash_index = self.buffer_index[transaction_id][database_name][table_name][column].get("hash")
+            if hash_index is not None:
+                hash_index.print_table()
+            else:
+                print("No hash index found in buffer.")
+            print()
+
+        # Check if a BPlus index exists in the block
+        if self.is_bplus_index_in_block(database_name, table_name, column):
             print("BPlus Tree in Block Index:")
-            self.indexes[database_name][table_name][column]["bplus"].print_tree()
+            bplus_index = self.indexes[database_name][table_name][column].get("bplus")
+            if bplus_index is not None:
+                bplus_index.print_tree()
+            else:
+                print("No BPlus index found in block.")
             print()
-        elif self.is_bplus_index_in_buffer(database_name, table_name, column, transaction_id) == True:
+
+        # Check if a BPlus index exists in the buffer
+        elif self.is_bplus_index_in_buffer(database_name, table_name, column, transaction_id):
             print("BPlus Tree in Buffer Index:")
-            print(self.buffer_index[transaction_id][database_name][table_name][column]["bplus"]).print_tree()
+            bplus_index = self.buffer_index[transaction_id][database_name][table_name][column].get("bplus")
+            if bplus_index is not None:
+                bplus_index.print_tree()
+            else:
+                print("No BPlus index found in buffer.")
             print()
+
     """
     ==========================================================================================================================
     """
@@ -722,7 +745,7 @@ class StorageEngine:
         if database_name in self.indexes and \
             table_name in self.indexes[database_name] and \
             column in self.indexes[database_name][table_name]:
-            return self.indexes[database_name][table_name][column].get("bplus") is not None
+            return self.indexes[database_name][table_name][column].get("hash") is not None
         # Return False if any part of the path is missing
         return False
     
@@ -830,13 +853,15 @@ class StorageEngine:
         result_indices = index.search(key)
         return result_indices
 
-    def delete_hash_index(self, database_name:str, table_name:str, column:str, key, value, transaction_id : int):
+    def delete_hash_index(self, database_name:str, table_name:str, column:str, key, transaction_id : int):
         index = self.hash_locator(database_name, table_name, column, transaction_id)
-        index.delete(key, value)
+        removed_value = index.delete_key(key)
+        return removed_value
 
-    def update_key_hash_index(self,database_name:str,table_name:str,column:str,key,block_index,offset,transaction_id : int):
-        self.delete_hash_index(database_name,table_name,column,key,(block_index,offset),transaction_id)
-        self.insert_hash_index(database_name,table_name,column,key,block_index,offset,transaction_id)
+    def update_key_hash_index(self,database_name:str,table_name:str,column:str, old_key, new_key, transaction_id : int):
+        removed_value = self.delete_hash_index(database_name,table_name,column, old_key,transaction_id)
+        for value in removed_value :
+            self.insert_hash_index(database_name, table_name, column, new_key, value[0], value[1], transaction_id)
 
     def debug(self):
         """cuma fungsi debug, literally ngeprint variabel"""

@@ -17,8 +17,8 @@ class HashTable:
     def insert(self, key, value):
         # insert a key-value pair into the hash table
         index = self.hash_function(key)
-        print("index", index)
-        print("value inserted:",value)
+        # print("index", index)
+        # print("value inserted:",value)
         # print(index)
         for i, pair in enumerate(self.table[index]):
             if pair[0] == key:
@@ -31,13 +31,13 @@ class HashTable:
 
     def search(self, key):
         # search for a key in the hash table and return its value (list of value(s) which has (have) the searched key)
-        print("self table =", self.table)
-        print()
+        # print("self table =", self.table)
+        # print()
         index = self.hash_function(key)
-        print(index)
-        print(self.table[index])
+        # print(index)
+        # print(self.table[index])
         for pair in self.table[index]:
-            print(pair)
+            # print(pair)
             if pair[0] == key:
                 return pair[1]
         print("Key not found in hash table.")  # key not found
@@ -73,9 +73,10 @@ class HashTable:
         bucket = self.hash_function(key)
         for i, pair in enumerate(self.table[bucket]):
             if pair[0] == key:
+                removed_value = pair[1]
                 self.table[bucket].remove(pair)
                 print("Delete success")
-                return
+                return removed_value
         raise ValueError("Key not found in hash table.")
     
     def print_table(self):
