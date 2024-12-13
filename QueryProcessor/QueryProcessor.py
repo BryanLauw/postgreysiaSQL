@@ -51,10 +51,10 @@ class QueryProcessor:
                 client_state["on_begin"] = False
                 client_state["transactionId"] = None
         elif(query.upper() == "ROLLBACK" or query.upper() == "ROLLBACK TRANSACTION"):
-                    transaction_id = self.client_states["transactionId"]
+                    transaction_id = client_state["transactionId"]
                     self.handle_rollback(transaction_id)
-                    self.client_states["on_begin"] = False
-                    self.client_states["transactionId"] = None
+                    client_state["on_begin"] = False
+                    client_state["transactionId"] = None
         # elif(query.upper() == "PRINT"):
         #     self.printResult(tables, rows)
 
@@ -91,7 +91,7 @@ class QueryProcessor:
 
                             print("trans id before write: " ,transaction_id)
                             data_written = data_lama.get_data()[0].get(write.column[0])
-                            object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}'}}"
+                            object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}','primary_key_value':'{write.conditions[0].operand}'}}"
                             self.rm.write_log_entry(transaction_id, "DATA", object_value, data_written, write.new_value)
                             self.sm.write_block(write, self.db_name, transaction_id)
                             self.sm.commit_buffer(transaction_id)                            
@@ -443,18 +443,18 @@ class QueryProcessor:
             print(instruction)
             object_value = instruction["object_value"]
             old_value = instruction["old_value"]
-            db, table, column, key_column, key_value = self.__parse_object_value(object_value)
+            db, table, column, primary_key, primary_key_value = self.__parse_object_value(object_value)
 
             conditions = []
-            if key_column and key_value:
+            if primary_key and primary_key_value:
                 conditions.append(Condition(
-                    column=key_column,
+                    column=primary_key,
                     operation="=",
-                    operand=key_value
+                    operand=primary_key_value
                 ))
 
             data_write = DataWrite(
-                table=table,
+                table=[table],
                 column=[column],
                 conditions=conditions,
                 new_value=[old_value]
@@ -484,9 +484,9 @@ class QueryProcessor:
         db = obj['nama_db']
         table = obj['nama_tabel']
         column = obj['nama_kolom']
-        key_column = obj.get('primary_key')
-        key_value = obj.get('key_value')
-        return db, table, column, key_column, key_value
+        primary_key = obj.get('primary_key')
+        primary_key_value = obj.get('primary_key_value')
+        return db, table, column, primary_key, primary_key_value
 
     # UNUSED
     # def getLeaf(self,tree:QueryTree):

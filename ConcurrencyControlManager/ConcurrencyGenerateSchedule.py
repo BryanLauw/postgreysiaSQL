@@ -81,16 +81,17 @@ def runThread(tr: Transaction):
                 + " "
                 + str(r.index(op[1]))
             )
-            sleep(op[2] * 0.01)
+            # sleep(op[2] * 0.01)
 
+        run_directly = cm.end_transaction(ts)
         if response != None and not succeed:
-            with response.condition:
-                response.condition.wait()
+            # If allowed to run directly, don't wait
+            if not run_directly:
+                with response.condition:
+                    response.condition.wait()
         else:
-            cm.end_transaction(ts)
             log(str(ts) + ": COMMIT " + str(trs.index(tr)))
 
-    pass
 
 
 threads: list[Thread] = []
