@@ -31,6 +31,7 @@ class OptimizationEngine:
         normalized_query = self.QueryParser.check_valid_syntax(normalized_query) 
 
         query_components_value = self.QueryParser.get_components_values(normalized_query)
+        print(query_components_value)
         
         if "FROM" in query_components_value:
             comp_with_attr = "FROM"
@@ -64,11 +65,23 @@ class OptimizationEngine:
 
         # WHERE clause
         where_clause = query_components_value.get("WHERE", "")
+        update_clause = query_components_value.get("UPDATE", "")
+        from_clause = query_components_value.get("FROM", "")
 
-        if next(iter(query_components_value), None) == "SELECT":
-            attribute_types = self.QueryValidator.get_attribute_types(where_clause, database_name, table_arr)
-            # Validate comparisons
-            self.QueryValidator.validate_comparisons(where_clause, attribute_types)
+        CO = ['<', '>', '=', '<=', '>=', '<>']
+
+        # if next(iter(query_components_value), None) == "SELECT":
+        attribute_types = self.QueryValidator.get_attribute_types(where_clause, database_name, table_arr)
+        if(len(from_clause) == 1):
+            table_name = from_clause[0]
+            pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
+            where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
+        if(next(iter(query_components_value), None) == "UPDATE"):
+            table_name = update_clause
+            pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
+            where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
+        # Validate comparisons
+        self.QueryValidator.validate_comparisons(where_clause, attribute_types)
 
         # Build the initial query evaluation plan tree
         query_tree = self.__build_query_tree(query_components_value,database_name)
