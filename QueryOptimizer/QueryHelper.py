@@ -189,7 +189,7 @@ class QueryHelper:
         if(join_type in ["NATURAL JOIN",","]):
             other_table = join_tokens.pop(0)
             natural_attributes = list(QueryHelper.gather_attributes(query_tree,database_name,get_stats) & get_stats(database_name,other_table.strip().lower()).V_a_r.keys())
-            natural_attributes = [attr.upper() for attr in natural_attributes]
+            natural_attributes = [attr for attr in natural_attributes]
             join_node = QueryTree(type="NATURAL JOIN", val=natural_attributes)
         else:
             value = join_tokens.pop(0).split(" ON ")
