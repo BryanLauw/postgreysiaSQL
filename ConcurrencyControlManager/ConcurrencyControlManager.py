@@ -4,11 +4,6 @@ from threading import Lock, Condition
 type Action = Union[Literal["write"], Literal["read"]]
 
 
-class Row:
-    data: List[Any]
-    rows_count: int
-
-
 class Response:
     allowed: bool
     transaction_id: int
@@ -17,7 +12,7 @@ class Response:
 
 class ConcurrencyControlManager:
     last_transaction: int
-    timestamp: Dict[Row, Dict[Action, int]] = {}
+    timestamp: Dict[Any, Dict[Action, int]] = {}
     mutex: Lock = Lock()
     condition: Condition = Condition()
     active_transaction: set[int]
@@ -33,20 +28,20 @@ class ConcurrencyControlManager:
             self.last_transaction += 1
         return tmp
 
-    def log_object(self, object: Row, transaction_id: int):
+    def log_object(self, object: Any, transaction_id: int):
         print(object, transaction_id)
 
-    def __get_timestamp__(self, object: Row):
+    def __get_timestamp__(self, object: Any):
         if not object in self.timestamp:
             self.timestamp[object] = {"write": 0, "read": 0}
         return self.timestamp[object]
 
-    def __set_timestamp__(self, object: Row, timestamp: Dict[Action, int]):
+    def __set_timestamp__(self, object: Any, timestamp: Dict[Action, int]):
         self.__get_timestamp__(object)
         self.timestamp[object] = timestamp
 
     def validate_object(
-        self, object: Row, transaction_id: int, action: Action
+        self, object: Any, transaction_id: int, action: Action
     ) -> Response:
         with self.mutex:
             result = Response()
