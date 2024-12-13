@@ -66,23 +66,23 @@ class OptimizationEngine:
         where_clause = query_components_value.get("WHERE", "")
         update_clause = query_components_value.get("UPDATE", "")
         from_clause = query_components_value.get("FROM", "")
-        print(query_components_value)
 
         CO = ['<', '>', '=', '<=', '>=', '<>']
 
-        attribute_types = self.QueryValidator.get_attribute_types(where_clause, database_name, table_arr)
-        if(len(from_clause) == 1 and '.' not in where_clause):
-            table_name = from_clause[0].strip()
-            pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
-            where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
-            query_components_value["WHERE"] = where_clause
-        if(next(iter(query_components_value), None) == "UPDATE" and '.' not in where_clause):
-            table_name = update_clause.strip()
-            pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
-            where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
-            query_components_value["WHERE"] = where_clause
-        # Validate comparisons
-        self.QueryValidator.validate_comparisons(where_clause, attribute_types)
+        if "WHERE" in query_components_value:
+            attribute_types = self.QueryValidator.get_attribute_types(where_clause, database_name, table_arr)
+            if(len(from_clause) == 1 and '.' not in where_clause):
+                table_name = from_clause[0].strip()
+                pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
+                where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
+                query_components_value["WHERE"] = where_clause
+            if(next(iter(query_components_value), None) == "UPDATE" and '.' not in where_clause):
+                table_name = update_clause.strip()
+                pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
+                where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
+                query_components_value["WHERE"] = where_clause
+            # Validate comparisons
+            self.QueryValidator.validate_comparisons(where_clause, attribute_types)
 
         # Build the initial query evaluation plan tree
         query_tree = self.__build_query_tree(query_components_value,database_name)
