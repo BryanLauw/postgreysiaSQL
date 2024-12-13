@@ -47,7 +47,7 @@ class DataDeletion:
         self.conditions = conditions
 
 class Statistic:
-    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int], col_data_type:dict[str, str], col_index:dict[str,(int, int)], col_bplus_tree_level:dict[str, int]) -> None:
+    def __init__(self, n_r:int, b_r:int, l_r:int, f_r:int, V_a_r:dict[str, int], col_data_type:dict[str, str] = None, col_index:dict[str,(int, int)] = None, col_bplus_tree_level:dict[str, int] = None) -> None:
         """
         Deskripsi statistik :
         1. n_r : int ==> jumlah tuple dalam tabel
@@ -306,7 +306,7 @@ class StorageEngine:
                                 sama+=1
                         # misal PK nya 2 terus yang sama juga ada 2
                         if len(column_pk) != 0 and sama == len(column_pk):
-                            return Exception(f"Sudah ada data yang memiliki primary key yang serupa!")
+                            return Exception(f"Sudah ada data yang memiliki primary key(s) yang serupa!")
                         sama = 0
             
                 dimasukin = False
@@ -416,7 +416,25 @@ class StorageEngine:
         for table in data_write.table:
             if table not in self.blocks[database_name]:
                 return Exception(f"Tidak ada tabel dengan nama {table} di database {database_name}")
-            
+
+            temp = self.buffer.get(transaction_id, copy.deepcopy(self.blocks))
+            column_pk = []
+            for columnnya in temp[database_name][table]["columns"]:
+                if "PRIMARY KEY" in columnnya.get("constraints", []):
+                    column_pk.append(columnnya["name"])
+            # di sini dicari di seluruh record kalo ada yang sama
+            sama = 0
+            for block in temp[database_name][table]["values"]:
+                for record in block:
+                    for col_pk in column_pk:
+                        if col_pk in data_write.column:
+                            if record[col_pk] == data_write.new_value[data_write.column.index(col_pk)]:
+                                sama+=1
+                    # misal PK nya 2 terus yang sama juga ada 2
+                    if len(column_pk) != 0 and sama == len(column_pk):
+                        return Exception(f"Sudah ada data yang memiliki primary key(s) yang serupa!")
+                    sama = 0
+
             column_tabel_query = [col["name"] for col in self.blocks[database_name][table]["columns"]]
             if data_write.conditions:
                 for kondisi in data_write.conditions:
@@ -552,11 +570,15 @@ class StorageEngine:
         fr = nr // br if br > 0 else 0
 
         # 5. V(A,r)
-        V_a_r = {}
-
-        for col in columns:
-            attribute = col["name"]
-            V_a_r[attribute] = len(set(row[attribute] for row in blocks if attribute in row))
+        V_a_r = {col["name"]: set() for col in columns}  # Use a set to track unique values
+        for block in blocks:
+            for row in block:
+                for col in columns:
+                    column_name = col["name"]
+                    if column_name in row:
+                        V_a_r[column_name].add(row[column_name])
+        # Convert sets to counts of unique values
+        V_a_r = {column_name: len(unique_values) for column_name, unique_values in V_a_r.items()}
         
         # 6. col_data_type
         col_data_type = self.get_table_datatype(database_name, table_name)
