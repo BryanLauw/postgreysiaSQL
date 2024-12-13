@@ -32,7 +32,29 @@ class QueryTree:
             return siblings[current_index + 1] # Return the next sibling
         
         return None # No more siblings
+    
+    def deep_copy(self):
+        copied_node = QueryTree(self.type, self.val, self.method)
+        
+        copied_node.childs = [child.deep_copy() for child in self.childs]
+        
+        for copied_child in copied_node.childs:
+            copied_child.parent = copied_node
 
+        return copied_node
+
+    def compare(self, other: 'QueryTree') -> bool:
+        if not isinstance(other, QueryTree):
+            return False
+
+        if self.type != other.type or self.val != other.val or self.method != other.method:
+            return False
+
+        if len(self.childs) != len(other.childs):
+            return False
+
+        return all(child.compare(other_child) for child, other_child in zip(self.childs, other.childs))
+    
     def __repr__(self, level=0):
         ret = "\t" * level + f"({self.type}-{self.method}: {self.val})\n"
         for child in self.childs:
