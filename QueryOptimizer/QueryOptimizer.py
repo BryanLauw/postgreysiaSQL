@@ -124,14 +124,14 @@ class QueryOptimizer:
     
     
     def reorder_join(self, node_join: List[QueryTree], database_name: str,get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        def perform_associative(child_node_join: QueryTree, isJoin: bool):
+        def perform_associative(child_node_join: QueryTree, isJoin: bool = False):
             # Index 0 atau 1
             parent_node_join = child_node_join.parent
             if parent_node_join.childs[0].compare(child_node_join):
                 idx = False
             else:
                 idx = True
-            
+                        
             if child_node_join.type == "JOIN":
                 result, operator = QueryHelper.get_other_expression(parent_node_join.val, child_node_join.val)
                 child_node_join.val = parent_node_join.val
@@ -158,9 +158,11 @@ class QueryOptimizer:
         for node in node_join:
             needCommutative = False
             needAssoc = False
+            isTopJoin = node.parent.val not in ["JOIN","NATURAL JOIN"]
             
             # Normal
-            cost_normal = query_cost.calculate_size_cost(node.parent if node.parent.val in ["JOIN","NATURAL JOIN"] else node)
+            print(node.parent)
+            cost_normal = query_cost.calculate_size_cost(node.parent if not isTopJoin else node)
             smalles_cost = 9999
             
             # Komutatif
@@ -168,8 +170,8 @@ class QueryOptimizer:
             # Swap child (komutatif)
             perform_commutative(node_komut)           
             
-            cost_komutatif = query_cost.calculate_size_cost(node_komut.parent if parent_komut.val in ["JOIN","NATURAL JOIN"] else node_komut)
-            if cost2 < smalles_cost:
+            cost_komutatif = query_cost.calculate_size_cost(node_komut.parent if not isTopJoin else node_komut)
+            if cost_komutatif < smalles_cost:
                 smalles_cost = cost_komutatif
                 needCommutative = True
             
@@ -187,7 +189,7 @@ class QueryOptimizer:
                         needCommutative = False
                     
                     # Comut
-                    perform_associative(node_komut)
+                    perform_associative(node_komut,false)
                     cost_comut_assoc = query_cost.calculate_size_cost(parent_komut)
                     if cost_comut_assoc < smalles_cost:
                         smalles_cost = cost_comut_assoc
@@ -206,7 +208,7 @@ class QueryOptimizer:
                         tables_in_join = QueryHelper.get_tables_regex(result)
                         
                         if all(table in tables for table in tables_in_join):
-                            perform_associative(node_assoc)
+                            perform_associative(node_assoc,True)
                             
                             cost_assoc = query_cost.calculate_size_cost(parent_assoc)
                             if cost_assoc < smalles_cost:
@@ -214,7 +216,7 @@ class QueryOptimizer:
                                 needAssoc = True
                                 needCommutative = False
                                 
-                            perform_associative(node_komut)
+                            perform_associative(node_komut,True)
                             
                             cost_comut_assoc = query_cost.calculate_size_cost(parent_assoc)
                             if cost_comut_assoc < smalles_cost:
@@ -225,6 +227,12 @@ class QueryOptimizer:
                 perform_commutative(node)
             if needAssoc:
                 perform_associative(node)
+                
+                last_comut = node.deep_copy()
+                perform_commutative(last_comut)
+                cost_komutatif = query_cost.calculate_size_cost(last_comut)
+                if(cost_komutatif < smalles_cost):
+                    perform_commutative(node)
     
     def __already_pushed_selection(self, node_where: QueryTree):
         child = node_where.childs[0]
