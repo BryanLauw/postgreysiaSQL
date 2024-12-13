@@ -140,6 +140,10 @@ class StorageEngine:
         return self.blocks[database_name][table_name]['columns']
     
     def load(self) -> None:
+        """
+        fungsi buat ngebaca disk dan diimport ke variabel\n
+        Jangan dipakai (kecuali sangat butuh), fungsi ini cukup dipanggil sekali saat __init__
+        """
         try:
             if not (os.path.isfile("data.dat")):
                 pickle.dump({}, open("data.dat", "wb"))
@@ -186,7 +190,7 @@ class StorageEngine:
 
     def save_indexes(self):
         """
-        dump file untuk simpan info index di variabel ke file binary (data.dat)
+        dump file untuk simpan info index di variabel ke file binary (indexes.dat)
         """
         try:
             pickle.dump(self.indexes, open("indexes.dat","wb"))
@@ -208,6 +212,7 @@ class StorageEngine:
         database_name tinggal string, misal "database1"\n
         table_name tinggal string, misal "id_user"\n
         column_type isinya dict[nama_column, tipe_column], misal {"id_user" : "INTEGER", "nama_user" : "VARCHAR(255)"} (tolong caps untuk tipenya, biar bisa diitung bytenya)\n
+        buat type nya, khusus VARCHAR harus pake argumen angka, misal "VARCHAR(100)"\n
         informasi_tambahan misal {"id_user" : ["PRIMARY KEY", "UNIQUE"], "nama_user" : ["UNIQUE", "FOREIGN KEY"]} 
         """
         if database_name in self.blocks:
@@ -220,9 +225,18 @@ class StorageEngine:
                     for i in range(len(self.blocks[database_name][table_name]["columns"])):
                         if self.blocks[database_name][table_name]["columns"][i]["name"] == info:
                             self.blocks[database_name][table_name]["columns"][i]["constraints"] = informasi_tambahan[info]
-                # (STC) calculate max_record in 1 blocks not yet to be implemented
-                # this is a PLACEHOLDER
-                self.blocks[database_name][table_name]["max_record"] = 5
+                # 1 block berkapasitas 4096 byte, asumsi setiap record perlu 4 byte untuk overhead
+                byte_per_record = 4
+                for column in self.blocks[database_name][table_name]["columns"]:
+                    if column["type"] == "INTEGER" or column["type"] == "FLOAT":
+                        byte_per_record+=4
+                    elif column["type"] == "CHAR":
+                        byte_per_record+=1
+                    elif "VARCHAR" in column["type"] or "CHAR" in column["type"]: # VARCHAR atau CHAR
+                        byte_per_record += int(column["type"][8:(len(column["type"])-1)])
+                    else:
+                        return Exception(f"Ada tipe bentukan yang tidak cocok, {column["type"]}")
+                self.blocks[database_name][table_name]["max_record"] = 4096//byte_per_record
                 return True
             return Exception(f"Sudah ada table dengan nama {table_name} di database {database_name}")
         return Exception(f"Tidak ada database dengan nama {database_name}")
