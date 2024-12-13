@@ -19,22 +19,72 @@ class QueryHelper:
         return new_query
     
     @staticmethod
-    def extract_table_and_aliases(from_tokens: list[str]) -> {dict,list[str]}:
+    def extract_table_and_aliases(table_tokens: list[str]) -> {dict, list[str]}:
         alias_map = {}
         attribute_arr = []
-        for token in from_tokens:
-            if token in ["JOIN","NATURAL JOIN",","]:
+        
+        defined_aliases = set()
+        
+        for token in table_tokens:
+            if token in ["JOIN", "NATURAL JOIN", ","]:
                 continue
             
             splitted = token.split()
             attribute_arr.append(splitted[0])
+            defined_aliases.add(splitted[0])  
             
             try:
                 idx_AS = splitted.index("AS")
-                alias_map[splitted[idx_AS+1]] = splitted[idx_AS-1]
+                alias_map[splitted[idx_AS + 1]] = splitted[idx_AS - 1]
+                defined_aliases.add(splitted[idx_AS + 1])
             except ValueError:
                 pass
+            
+            if "ON" in token:
+                splitted = token.split(" ON ")
+                table_aliases_ON = re.findall(r"(\b\w+\b)\.", splitted[1])
+                
+                for table in table_aliases_ON:
+                    if table not in defined_aliases:
+                        raise ValueError(f"Alias or table '{table}' is used before being defined.")
+        
         return alias_map, attribute_arr
+    
+    @staticmethod
+    def get_tables_regex(val: str):
+        table = re.findall(r'\b(\w+)\.(?=\w)', val)
+        if not table:
+            table = [val]
+        return table
+    
+    @staticmethod
+    def get_other_expression(expression, target):
+        # print(expression," : " ,target)
+        tokens = expression.split()
+        operators = {"AND", "OR"}
+        result = []
+        current_operator = None
+
+        for i, token in enumerate(tokens):
+            if token in operators:
+                current_operator = token
+            elif token == target:
+                before_operator = tokens[i - 1] if i > 0 and tokens[i - 1] in operators else None
+                after_operator = tokens[i + 1] if i < len(tokens) - 1 and tokens[i + 1] in operators else None
+                related_operator = before_operator or after_operator
+            else:
+                result.append(token)
+        result = " ".join(result).replace(target, "").strip()
+        return result, current_operator
+    
+    @staticmethod
+    def get_tables_defined(node: QueryTree):
+        if node.type == "TABLE":
+            return [node.val]
+        if node.type == "WHERE":
+            return QueryHelper.get_tables_defined(node.childs[0])        
+        # JOIN
+        return QueryHelper.get_tables_defined(node.childs[0]) + QueryHelper.get_tables_defined(node.childs[1])
     
     @staticmethod
     def remove_aliases(from_clause: Union[list,str]) -> list:
@@ -66,18 +116,55 @@ class QueryHelper:
                  query_components_value[comp] = QueryHelper.rewrite_with_alias(
                      query_components_value[comp], alias_map
                  )
+
+    @staticmethod
+    def extract_table_and_column_from_condition(condition: str) -> tuple:
+        match = re.match(r'([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\s*[=<>!]+\s*.+', condition)
+        if match:
+            table_name = match.group(1)  # Extract table name
+            column_name = match.group(2)  # Extract column name
+            return table_name, column_name
+        return None, None
     
     @staticmethod
-    def parse_where_clause(where_clause: str, current_node: QueryTree) -> QueryTree:
+    def parse_where_clause(where_clause: str, current_node: QueryTree, database_name: str) -> QueryTree:
+        storage_engine = StorageEngine()
+        # print(storage_engine.retrieve_table_of_database(database_name))
         # Tokenize the WHERE clause into conditions
         parsed_result = re.split(r'\sAND\s', where_clause)
         print("parsed", parsed_result)
 
         for parse in parsed_result:
-            parse_node = QueryTree(type="WHERE", val=parse)
-            current_node.add_child(parse_node)
-            parse_node.add_parent(current_node)
-            current_node = parse_node
+            if "OR" in parse:
+                sub_conditions = re.split(r'\sOR\s', parse)
+                for sub_condition in sub_conditions:
+                    sub_condition = sub_condition.strip()
+                    table_name, column = QueryHelper.extract_table_and_column_from_condition(sub_condition)
+                    # print(table_name, column)
+                    try:
+                        if (storage_engine.is_hash_index_in_block(database_name, table_name, column) or 
+                            storage_engine.is_bplus_index_in_block(database_name, table_name, column)):
+                            method = "INDEX SCAN"
+                    except Exception as e:
+                        method = "FULL SCAN"
+                parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                current_node.add_child(parse_node)
+                parse_node.add_parent(current_node)
+                current_node = parse_node
+            else:
+                parse = parse.strip()
+                table_name, column = QueryHelper.extract_table_and_column_from_condition(parse)
+                # print(table_name, column)
+                try:
+                    if (storage_engine.is_hash_index_in_block(database_name, table_name, column) or 
+                        storage_engine.is_bplus_index_in_block(database_name, table_name, column)):
+                        method = "INDEX SCAN"
+                except Exception as e:
+                    method = "FULL SCAN"
+                parse_node = QueryTree(type="WHERE", val=parse, method=method)
+                current_node.add_child(parse_node)
+                parse_node.add_parent(current_node)
+                current_node = parse_node
         return parse_node
 
     @staticmethod
@@ -108,7 +195,7 @@ class QueryHelper:
         if(join_type in ["NATURAL JOIN",","]):
             other_table = join_tokens.pop(0)
             natural_attributes = list(QueryHelper.gather_attributes(query_tree,database_name,get_stats) & get_stats(database_name,other_table.strip().lower()).V_a_r.keys())
-            natural_attributes = [attr.upper() for attr in natural_attributes]
+            natural_attributes = [attr for attr in natural_attributes]
             join_node = QueryTree(type="NATURAL JOIN", val=natural_attributes)
         else:
             value = join_tokens.pop(0).split(" ON ")

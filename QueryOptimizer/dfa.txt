@@ -1,40 +1,49 @@
 start_state q0
-final_states q4 q6 q13 q19 q22 q23 q25 q32
-q0 SELECT q1 DELETE q26 UPDATE q33
-q1 <X> q2
+final_states q4 q6 q13 q19 q22 q23 q25 q32 q48
+q0 SELECT q1 DELETE q26 UPDATE q33 CREATE q39
+q1 <ATTR> q2 * q2
 q2 , q1 FROM q3
-q3 <X> q4
-q4 AS q5 NATURAL q7 JOIN q8 WHERE q16 , q3 <X> q6
-q5 <X> q6
-q6 NATURAL q7 JOIN q8 WHERE q16 , q3
+q3 <WORD> q4
+q4 AS q5 NATURAL q7 JOIN q8 WHERE q16 , q3 ORDER q20 LIMIT q24
+q5 <WORD> q6
+q6 NATURAL q7 JOIN q8 WHERE q16 , q3 ORDER q20 LIMIT q24
 q7 JOIN q3
-q8 <X> q9
-q9 AS q14 ON q10 <X> q15
+q8 <ATTR> q9
+q9 AS q14 ON q10
 q10 <X> q11
 q11 <CO> q12
 q12 <X> q13
-q13 JOIN q8 NATURAL q7 WHERE q16 , q3 <MO> q12 AND q10 OR q10
-q14 <X> q15
+q13 JOIN q8 NATURAL q7 WHERE q16 , q3 <MO> q12 AND q10 OR q10 ORDER q20 LIMIT q24
+q14 <WORD> q15
 q15 ON q10
 q16 <X> q17
 q17 <CO> q18
 q18 <X> q19
-q19 ORDER q20 <MO> q18 AND q16 OR q16 LIMIT 24
+q19 ORDER q20 <MO> q18 AND q16 OR q16 LIMIT q24
 q20 BY q21
-q21 <X> q22
+q21 <ATTR> q22
 q22 ASC q23 DESC q23
 q23 LIMIT q24
 q24 <N> q25
 q26 FROM q27
-q27 <X> q28
+q27 <WORD> q28
 q28 WHERE q29
 q29 <X> q30
 q30 <CO> q31 
 q31 <X> q32
 q32 <MO> q31 AND q29 OR q29
-q33 <X> q34
+q33 <WORD> q34
 q34 SET q35
-q35 <X> q36
+q35 <ATTR> q36
 q36 = q37
 q37 <X> q38
 q38 <MO> q37 WHERE q29
+q39 INDEX q40
+q40 <WORD> q41
+q41 ON q42
+q42 <WORD> q43 
+q43 ( q44
+q44 <ATTR> q45
+q45 ) q46
+q46 USING q47
+q47 hash q48 bplus q48

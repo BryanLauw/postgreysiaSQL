@@ -13,11 +13,11 @@ class QueryParser:
     # Valid Keywords
     keywords = [
         'SELECT', 'DELETE', 'FROM', 'WHERE', 'JOIN', 'NATURAL', 'ON', 'ORDER', 
-        'BY', 'LIMIT', 'UPDATE', 'SET', 'AS', 'DESC' , 'ASC'
+        'BY', 'LIMIT', 'UPDATE', 'SET', 'AS', 'DESC' , 'ASC', 'CREATE','INDEX','USING'
     ]
     
     # Main Components
-    components = ["SELECT", "UPDATE", "DELETE", "FROM", "SET", "WHERE", "ORDER BY", "LIMIT"]
+    components = ["SELECT", "UPDATE", "DELETE","CREATE","INDEX", "USING","FROM", "SET", "WHERE", "ORDER BY", "LIMIT"]
     
     def __init__(self, dfa_path: str):
         self.start_state = ""
@@ -122,6 +122,14 @@ class QueryParser:
         return final_tokens
     
     def check_valid_syntax(self,query: str):
+        def isString(token: str):
+            return re.match(r'^".*"$', token)
+        def isTableAttr(token: str):
+            return re.match(r'\w+\(\w+\)', token)
+        def isAttribute(token: str):
+            return re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', token.replace('.', '')) and token.count('.') <= 1
+        def isNumber(token: str):
+            return re.match(r'^\d+(\.\d+)*$', token.replace('.', '')) and token.count('.') <= 1
         tokens = self.tokenize_query(query)
         cur_state = self.start_state
         for index,token in enumerate(tokens):
@@ -129,13 +137,19 @@ class QueryParser:
             cur_state_rules = self.transitions[cur_state]
             for rule in cur_state_rules:
                 rule_token = rule[0]
-                if((token == rule_token) or (rule_token == "<X>" and (re.match(r'^[A-Za-z_][A-Za-z0-9_]*$|^\d+(\.\d+)*$', token.replace('.', '')) and token.count('.') <= 1 or re.match(r'^".*"$', token))) or
-                   ((rule_token == "<N>" or rule_token == "<X>") and token.isnumeric()) or (rule_token == "<CO>" and token in self.CO) or
-                   (rule_token == "<MO>" and token in self.MO)
+                if((token == rule_token) or
+                   (rule_token == "<ATTR>" and isAttribute(token)) or
+                   (rule_token == "<WORD>" and re.match(r'^[a-zA-Z_]+$', token)) or 
+                   (rule_token == "<X>" and (isString(token) or isAttribute(token) or isNumber(token))) or
+                   (rule_token == "<N>" and isNumber(token)) or 
+                   (rule_token == "<CO>" and token in self.CO) or
+                   (rule_token == "<MO>" and token in self.MO) or
+                   (rule_token == "<TABLE_ATTR>" and isTableAttr(token))
                 ):
                     next_state = rule[1]
                     break
             if not next_state:
+                print("ERROR: ",cur_state)
                 start = index-2 if index-2>=0 else 0
                 end = index+2 if index+2<len(tokens) else len(tokens)-1
                 raise ValueError(f"Syntax error at: {tokens[start:end+1]}")
@@ -183,6 +197,8 @@ class QueryParser:
         return values.strip()
 
     def extract_ORDERBY(self,values: str):
+        if "ASC" not in values and "DESC" not in values:
+            values += " ASC"
         return values.strip()
 
     def extract_LIMIT(self,values: str):
@@ -215,6 +231,10 @@ class QueryParser:
             extracted = self.extract_UPDATE(extracted)
         elif before == "SET":
             extracted = self.extract_SET(extracted)
+        elif before == "CREATE":
+            extracted = after
+        else:
+            extracted = extracted.strip()
         return extracted
     
     def get_components_values(self,query: str):
