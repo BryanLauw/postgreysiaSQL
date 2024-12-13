@@ -180,8 +180,9 @@ class OptimizationEngine:
                 continue
             if len(node.val) == 0:
                 self.QueryOptimizer.combine_selection_and_cartesian_product(node)
-        
-        # self.QueryOptimizer.pushing_projection(query.query_tree.childs[0].childs[0])
+
+        for node in list_nodes["SELECT"] :
+            self.QueryOptimizer.pushing_projection(node)
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
