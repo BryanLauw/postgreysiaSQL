@@ -1,6 +1,7 @@
 import signal
 from FailureRecovery.failure_recovery_log_entry import LogEntry
 from ConcurrencyControlManager.ConcurrencyControlManager import *
+from QueryOptimizer.OptimizationEngine import *
 from StorageManager.classes import *
 import re
 from typing import Tuple
@@ -63,12 +64,12 @@ class QueryProcessor:
             while retry:
                 try:
                     self.parsedQuery = self.qo.parse_query(query,self.db_name) 
-                    print("tree")
-                    print(self.parsedQuery.query_tree)
+                    # print("tree")
+                    # print(self.parsedQuery.query_tree)
                     if self.parsedQuery.query_tree.val == "UPDATE":
                         try:
                             if not self.client_states.get("on_begin", False):
-                                print("masuk")
+                                # print("masuk")
                                 self.current_transactionId = self.cc.begin_transaction()
                                 self.client_states["transactionId"] = self.current_transactionId
                             write = self.ParsedQueryToDataWrite()
@@ -158,7 +159,7 @@ class QueryProcessor:
                         tree.val
                     )
                 elif tree.type == "NATURAL JOIN":
-                    print("debug natural join")
+                    # print("debug natural join")
                     temp = self.__naturalJoin(
                         self.evaluateSelectTree(tree.childs[0], [], [], transaction_id),
                         self.evaluateSelectTree(tree.childs[1], [], [], transaction_id),

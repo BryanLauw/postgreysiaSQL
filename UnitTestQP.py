@@ -1,4 +1,9 @@
 from QueryProcessor.QueryProcessor import *
+
+client_state = {
+    "on_begin": False,
+    "transactionId": None
+}
 qp = QueryProcessor('database1')
 
 print("select * from users natural join users_membership where users.id_user<=10")
