@@ -58,8 +58,9 @@ class QueryProcessor:
             retry = True
             while retry:
                 try:
-                    self.parsedQuery = self.qo.parse_query(query,self.db_name) #hardcode
-
+                    self.parsedQuery = self.qo.parse_query(query,self.db_name) 
+                    print("tree")
+                    print(self.parsedQuery.query_tree)
                     if self.parsedQuery.query_tree.val == "UPDATE":
                         try:
                             if not self.client_states.get("on_begin", False):
@@ -153,9 +154,11 @@ class QueryProcessor:
                         tree.val
                     )
                 elif tree.type == "NATURAL JOIN":
+                    print("debug natural join")
                     temp = self.__naturalJoin(
                         self.evaluateSelectTree(tree.childs[0], [], [], transaction_id),
-                        self.evaluateSelectTree(tree.childs[1], [], [], transaction_id)
+                        self.evaluateSelectTree(tree.childs[1], [], [], transaction_id),
+                        tree.val
                         )
                 if len(select) > 0 and len(where) > 0:
                     temp = self.__filterSelect(temp, select)
@@ -568,12 +571,10 @@ class QueryProcessor:
         name1 = col1[0].split(".")[0]
         col2 = list(table2[0].keys())
         name2 = col2[0].split(".")[0]
-        print(col1)
-        print(col2)
         for row1 in table1:
             for row2 in table2:
                 # Check if rows match on all specified columns
-                if all(row1[col] == row2[col] for col in cols):
+                if all(row1[name1+"."+col] == row2[name2+"."+col] for col in cols):
                     # Merge rows, avoiding duplicate keys from table2
                     joined_row = {**row1, **{k: v for k, v in row2.items() if k not in row1}}
                     joined_table.append(joined_row)
