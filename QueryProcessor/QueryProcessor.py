@@ -62,10 +62,10 @@ class QueryProcessor:
                 return "Commit Transaction"
         
         elif(query.upper() == "ROLLBACK" or query.upper() == "ROLLBACK TRANSACTION"):
-                    transaction_id = self.client_states["transactionId"]
+                    transaction_id = client_state["transactionId"]
                     self.handle_rollback(transaction_id)
-                    self.client_states["on_begin"] = False
-                    self.client_states["transactionId"] = None
+                    client_state["on_begin"] = False
+                    client_state["transactionId"] = None
 
         else:
             retry = True
@@ -100,7 +100,7 @@ class QueryProcessor:
                             # write data
                             print("trans id before write: " ,transaction_id)
                             data_written = data_lama.get_data()[0].get(write.column[0])
-                            object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column + "+" + write.conditions[0].operation}','primary_key_value':'{write.conditions[0].operand}'}}"
+                            object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}','primary_key_value':'{write.conditions[0].operand}'}}"
                             self.rm.write_log_entry(transaction_id, "DATA", object_value, data_written, write.new_value)
                             result = self.sm.write_block(write, self.db_name, transaction_id)
                             self.sm.commit_buffer(transaction_id)             
@@ -540,8 +540,8 @@ class QueryProcessor:
             if primary_key and primary_key_value:
                 temp = primary_key.split("+")
                 conditions.append(Condition(
-                    column=temp[0],
-                    operation=temp[1],
+                    column=primary_key,
+                    operation="=",
                     operand=int(primary_key_value)
                 ))
 
