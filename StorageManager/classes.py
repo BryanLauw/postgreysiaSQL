@@ -832,11 +832,13 @@ class StorageEngine:
 
     def delete_hash_index(self, database_name:str, table_name:str, column:str, key, value, transaction_id : int):
         index = self.hash_locator(database_name, table_name, column, transaction_id)
-        index.delete(key, value)
+        removed_value = index.delete_key(key)
+        return removed_value
 
     def update_key_hash_index(self,database_name:str,table_name:str,column:str,key,block_index,offset,transaction_id : int):
-        self.delete_hash_index(database_name,table_name,column,key,(block_index,offset),transaction_id)
-        self.insert_hash_index(database_name,table_name,column,key,block_index,offset,transaction_id)
+        removed_value = self.delete_hash_index(database_name,table_name,column,key,(block_index,offset),transaction_id)
+        for value in removed_value :
+            self.insert_hash_index(database_name,table_name,column,key,value[0],value[1],transaction_id)
 
     def debug(self):
         """cuma fungsi debug, literally ngeprint variabel"""
