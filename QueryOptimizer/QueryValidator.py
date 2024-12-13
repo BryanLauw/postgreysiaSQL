@@ -23,7 +23,6 @@ class QueryValidator:
 
     def get_attribute_types(self, where_clause: str, database_name: str, table_arr: list[str]) -> dict:
         storage_engine = StorageEngine()
-        where_clause = where_clause.replace(" ", "")
         # Regex to find comparisons (attribute and literal pairs)
         comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
         matches = re.findall(comparison_pattern, where_clause)
@@ -35,7 +34,7 @@ class QueryValidator:
         for left_attr, operator, right_attr in matches:
             for attr in [left_attr, right_attr]:
                 # Skip literals
-                if attr.isdigit() or (attr.startswith(("'", '"')) and attr.endswith(("'", '"'))):
+                if attr.isdigit() or (attr.startswith(("'", '"')) or attr.endswith(("'", '"'))):
                     continue
 
                 if "." in attr:
@@ -72,7 +71,6 @@ class QueryValidator:
 
 
     def validate_comparisons(self, where_clause: str, attribute_types: dict):
-        where_clause = where_clause.replace(" ", "")
         # Regex to find comparisons
         comparison_pattern = r"([\w\.]+)\s*(=|<>|>|>=|<|<=)\s*([\w\.'\"]+)"
         matches = re.findall(comparison_pattern, where_clause)
@@ -117,7 +115,7 @@ class QueryValidator:
             return "float"
         except ValueError:
             pass
-        if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
+        if (value.startswith("'") or value.endswith("'")) or (value.startswith('"') or value.endswith('"')):
             return "varchar"
         raise ValueError(f"Unknown literal type for value: {value}")
 
