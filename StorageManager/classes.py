@@ -369,7 +369,7 @@ class StorageEngine:
         else: 
             hasil_akhir = hasil_operasi
         # return akhir
-        return Rows(hasil_akhir, len(hasil_akhir))
+        return Rows(hasil_akhir, len(hasil_akhir), str(data_retrieval.table))
 
     def write_block(self, data_write: DataWrite, database_name: str, transaction_id: int) -> int | Exception:
         """
