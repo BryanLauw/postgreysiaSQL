@@ -182,22 +182,6 @@ class BPlusTree:
             print(f"[{current_leaf.keys}] → ", end="")
             current_leaf = current_leaf.next
         print("None")
-
-    def get_bplus_tree_level(self) -> int:
-        """
-        Mengembalikan tinggi (level) dari B+ tree.
-        """
-        height = 0
-        current_node = self.root
-
-        while current_node:
-            height += 1
-            if current_node.is_leaf:
-                break
-            current_node = current_node.children[0]  # Traverse down the first child
-
-        return height
-
         
     # DELETION
     # def delete(self, value):
