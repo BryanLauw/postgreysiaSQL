@@ -1,4 +1,4 @@
-from ..main import FailureRecovery
+from failure_recovery import FailureRecovery
 import random
 import time
 

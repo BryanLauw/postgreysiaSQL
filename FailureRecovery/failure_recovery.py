@@ -9,12 +9,12 @@ import signal
 import random
 
 # class from other files
-import QueryProcessor.QueryProcessor as QueryProcessor
-from .main_checkpoint import CheckpointManager
-from .main_recovery import Recovery
-from .main_log_entry import LogEntry
-from .main_recover_criteria import RecoverCriteria
-from .main_threading_manager import ThreadingManager
+# import QueryProcessor.QueryProcessor as QueryProcessor
+from .failure_recovery_checkpoint import CheckpointManager
+from .failure_recovery_recovery import Recovery
+from .failure_recovery_log_entry import LogEntry
+from .failure_recovery_recover_criteria import RecoverCriteria
+from .failure_recovery_threading_manager import ThreadingManager
 
 
 class FailureRecovery:
@@ -51,9 +51,10 @@ class FailureRecovery:
         # init buffer
         self.buffer_log_entries: List[LogEntry] = []
         
-        # initialize threading and checkpoint managersZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
-        self.threading_manager = ThreadingManager(logger=self.logger)
-        self.checkpoint_manager = CheckpointManager(fname, self.threading_manager, interval, buffer_size, self.logger)
+        # initialize threading and checkpoint 
+        # self.threading_manager = ThreadingManager(logger=self.logger)
+        self.checkpoint_manager = CheckpointManager(fname, buffer_size, self.logger)
+        # self.checkpoint_manager = CheckpointManager(fname, interval, buffer_size, self.logger)
 
         # init recovery
         self.recovery = Recovery(fname, self.logger, self.add_entry_to_buffer)
@@ -102,7 +103,7 @@ class FailureRecovery:
             new_value (Optional[str]): The new value of the object (if applicable).
         """
         # Wait if checkpoint is in progress
-        self.threading_manager.wait_for_pause()
+        # self.threading_manager.wait_for_pause()
 
         log_entry = LogEntry(
             timestamp=datetime.now(),
@@ -135,7 +136,7 @@ class FailureRecovery:
         self.buffer_log_entries.append(log_entry)
 
         if len(self.buffer_log_entries) >= self.buffer_size:
-            self.checkpoint_manager.perform_checkpoint(self.buffer_log_entries, self.list_active_transaction)
+            self.checkpoint_manager.perform_checkpoint()
 
         return recovery_result
     
@@ -147,7 +148,7 @@ class FailureRecovery:
         return self.recovery.rollback(self.buffer_log_entries, [log_entry.transaction_id])
 
 
-    def recover(self, log_entry: LogEntry, criteria: RecoverCriteria):
+    def recover(self, log_entry: LogEntry = None, criteria: RecoverCriteria = None):
         """
         Function to recover from specific entry in log file. 
         **FROM FAILURE**
@@ -171,7 +172,6 @@ class FailureRecovery:
         """
         Stop the background checkpoint thread.
         """
-        self.checkpoint_manager.stop()
 
         # perform final checkpoint
         self.checkpoint_manager.perform_checkpoint()
@@ -187,10 +187,3 @@ class FailureRecovery:
         signal.signal(signum, signal.SIG_DFL)
         signal.raise_signal(signum)
 
-if __name__ == "__main__":
-
-    # Initiate main section of the program
-    log_file = "log_edbert.log" # log file name
-    recovery = FailureRecovery(log_file, 10, 5)
-
-    

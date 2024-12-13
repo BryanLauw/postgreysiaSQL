@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime
 
 # class from other files
-from .main_recover_criteria import RecoverCriteria
+from .failure_recovery_recover_criteria import RecoverCriteria
 
 @dataclass
 class LogEntry:
@@ -26,7 +26,7 @@ class LogEntry:
         self.transaction_id: int = transaction_id
         self.event: str = event
         
-        # TODO: BAHAS 3 ini butuh atau ga
+        # TODO: BAHAS 4 ini butuh atau ga
         if isinstance(object_value, dict):
             if 'nama_db' in object_value:
                 self.nama_db: Optional[str] = object_value['nama_db']
@@ -34,6 +34,8 @@ class LogEntry:
                 self.nama_kolom: Optional[str] = object_value['nama_kolom'] 
             if 'primary_key' in object_value:
                 self.primary_key: Optional[str] = object_value['primary_key'] 
+            if 'primary_key_value' in object_value:
+                self.primary_key_value: Optional[str] = object_value['primary_key_value'] 
 
         self.object_value: Optional[str] = object_value
         self.old_value: Optional[str] = old_value
