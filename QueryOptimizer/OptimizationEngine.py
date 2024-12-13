@@ -195,9 +195,10 @@ class OptimizationEngine:
             
             for child in current_node.childs:
                 queue_nodes.put(child)
-            
-        for node in list_nodes["WHERE"]:
-            self.QueryOptimizer.pushing_selection(node)
+        
+        if len(list_nodes["JOIN"]) > 0:
+            for node in list_nodes["WHERE"]:
+                self.QueryOptimizer.pushing_selection(node)
                 
         list_nodes["JOIN"].reverse()
         self.QueryOptimizer.reorder_join(list_nodes["JOIN"],database_name,self.get_stats)
@@ -228,14 +229,17 @@ if __name__ == "__main__":
             parsed_query = optim.parse_query(query,"database1")
             print("BEFORE TREE:")
             print(parsed_query)
-            print(f"BEFORE COST = {optim.get_cost(parsed_query, 'database1')}")
+            if parsed_query.query_tree.val == "SELECT":
+                print(f"BEFORE COST = {optim.get_cost(parsed_query, 'database1')}")
             
             optim.optimize_query(parsed_query,"database1")
             print("AFTER TREE:")
             print(parsed_query)
-            print(f"AFTER COST = {optim.get_cost(parsed_query, 'database1')}")
+            if parsed_query.query_tree.val == "SELECT":
+                print(f"AFTER COST = {optim.get_cost(parsed_query, 'database1')}")
         # except Exception as e:
         #     print(f"Error: {e}")
+        
     # Test SELECT query with JOIN
     # select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
     # select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.order_id = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
