@@ -136,7 +136,7 @@ class FailureRecovery:
         self.buffer_log_entries.append(log_entry)
 
         if len(self.buffer_log_entries) >= self.buffer_size:
-            self.checkpoint_manager.perform_checkpoint(self.buffer_log_entries, self.list_active_transaction)
+            self.checkpoint_manager.perform_checkpoint()
 
         return recovery_result
     
@@ -148,7 +148,7 @@ class FailureRecovery:
         return self.recovery.rollback(self.buffer_log_entries, [log_entry.transaction_id])
 
 
-    def recover(self, log_entry: LogEntry, criteria: RecoverCriteria):
+    def recover(self, log_entry: LogEntry = None, criteria: RecoverCriteria = None):
         """
         Function to recover from specific entry in log file. 
         **FROM FAILURE**

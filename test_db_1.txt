@@ -1,0 +1,6 @@
+2024-12-13T13:55:01,1,START,,,
+2024-12-13T13:55:01,2,START,,,
+2024-12-13T13:55:01,3,START,,,
+2024-12-13T13:55:01,1,DATA,{'nama_db': 'test_db_1', 'nama_kolom': 'db1_kolom1', 'primary_key': 'db1_kolom1_pk_1'},1,2
+2024-12-13T13:55:01,1,COMMIT,,,
+2024-12-13T13:55:01,,CHECKPOINT,{2, 3}
