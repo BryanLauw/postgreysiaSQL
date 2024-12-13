@@ -87,7 +87,11 @@ class QueryProcessor:
                             print("response dr cc: ",response.allowed)
                             if not response.allowed:
                                 print("Validation failed. Handling rollback.")
-                                self.handle_rollback(transaction_id)
+                                run_directly = self.handle_rollback(transaction_id)
+                                if not run_directly :
+                                    with response.condition :
+                                        response.condition.wait()
+                                client_state["transactionId"] = self.cc.begin_transaction()
                                 print("Retrying query after rollback.")
                                 continue  
                             
@@ -115,9 +119,12 @@ class QueryProcessor:
                             print(f"Read {len(result)} row(s).")
                             return ret_val                            
                         
-                        except Exception as e:
-                            self.handle_rollback(transaction_id)
-                            print(e)
+                        except Exception as res:
+                            run_directly = self.handle_rollback(transaction_id)
+                            if not run_directly :
+                                    with res.condition :
+                                        res.condition.wait()
+                            client_state["transactionId"] = self.cc.begin_transaction()
 
                     elif self.parsedQuery.query_tree.val == "CREATE" and self.parsedQuery.query_tree.childs[0].val == "INDEX":
                         try:
@@ -158,10 +165,9 @@ class QueryProcessor:
                 condition = self.__makeCondition(where)
             select = self.removeTablename(select)
             dataRetriev = DataRetrieval([tree.val], select, condition)
-            try:
-                temp = self.transformData(tree.val,self.__getData(dataRetriev, transaction_id))
-            except Exception as e:
-                raise(e)
+            
+            temp = self.transformData(tree.val,self.__getData(dataRetriev, transaction_id))
+            
             return temp
         else: # non-leaf node
             if tree.type == "JOIN" or tree.type == "NATURAL JOIN":
@@ -549,7 +555,7 @@ class QueryProcessor:
             else:
                 print(f"Rollback successful, {result} rows updated.")
 
-        self.cc.end_transaction(transaction_id)
+        return self.cc.end_transaction(transaction_id)
 
     def __parse_object_value(self, object_value: str) -> Tuple[str, str, str, str, str]:
         """Parse the object value to extract table and column information.
@@ -588,7 +594,7 @@ class QueryProcessor:
         if not response.allowed:
             print("Validation failed. Handling rollback.")
             print("Retrying query after rollback.")
-            raise Exception(f"Cannot read {data_retrieval.table[0]}.")
+            raise Exception(response)
         return data.data
     
     def __transCond(self, cond: str) -> list:
