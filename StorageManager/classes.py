@@ -523,7 +523,10 @@ class StorageEngine:
             self.buffer_index[transaction_id][database_name][table_name] = {}
         if column not in self.buffer_index[transaction_id][database_name][table_name]:
             self.buffer_index[transaction_id][database_name][table_name][column] = {}
-            self.initialize_index_structure(database_name,table_name,column)
+        if "bplus" not in self.buffer_index[transaction_id][database_name][table_name][column]:
+            self.buffer_index[transaction_id][database_name][table_name][column]["bplus"] = None
+        if "hash" not in self.buffer_index[transaction_id][database_name][table_name][column]:  
+            self.buffer_index[transaction_id][database_name][table_name][column]["hash"] = None
 
         table = self.blocks[database_name][table_name]
         if index_type == "bplus":
@@ -554,6 +557,24 @@ class StorageEngine:
         if self.is_hash_index_exist(database_name, table_name, column):
             self.delete_hash_index(database_name, table_name, column, key, transaction_id)
 
+    def print_index_structure(self, database_name:str, table_name:str, column:str, transaction_id:int) -> None:
+        if self.is_hash_index_in_block(database_name, table_name, column) == True:
+            print("Hash Table in Block Index:")
+            self.indexes[database_name][table_name][column]["hash"].print_table()
+            print()
+        elif self.is_hash_index_in_buffer(database_name, table_name, column, transaction_id) == True:
+            print("Hash Table in Buffer Index:")
+            self.buffer_index[transaction_id][database_name][table_name][column]["hash"].print_table()
+            print()
+
+        if self.is_bplus_index_in_block(database_name, table_name, column) == True:
+            print("BPlus Tree in Block Index:")
+            self.indexes[database_name][table_name][column]["bplus"].print_tree()
+            print()
+        elif self.is_bplus_index_in_buffer(database_name, table_name, column, transaction_id) == True:
+            print("BPlus Tree in Buffer Index:")
+            print(self.buffer_index[transaction_id][database_name][table_name][column]["bplus"]).print_tree()
+            print()
     """
     ==========================================================================================================================
     """
@@ -590,13 +611,31 @@ class StorageEngine:
             raise ValueError("Hash index not found")
 
     def is_hash_index_in_buffer(self, database_name: str, table_name: str, column: str, transaction_id:int) -> bool:
-        return self.buffer_index[transaction_id][database_name][table_name][column]["hash"] is not None
+        try:
+            return (
+                transaction_id in self.buffer_index and
+                database_name in self.buffer_index[transaction_id] and
+                table_name in self.buffer_index[transaction_id][database_name] and
+                column in self.buffer_index[transaction_id][database_name][table_name] and
+                "hash" in self.buffer_index[transaction_id][database_name][table_name][column]
+            )
+        except KeyError:
+            return False
     
     def is_hash_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
         return self.indexes[database_name][table_name][column]["hash"] is not None
     
     def is_bplus_index_in_buffer(self, database_name: str, table_name: str, column: str, transaction_id:int) -> bool:
-        return self.buffer_index[transaction_id][database_name][table_name][column]["bplus"] is not None
+        try:
+            return (
+                transaction_id in self.buffer_index and
+                database_name in self.buffer_index[transaction_id] and
+                table_name in self.buffer_index[transaction_id][database_name] and
+                column in self.buffer_index[transaction_id][database_name][table_name] and
+                "bplus" in self.buffer_index[transaction_id][database_name][table_name][column]
+            )
+        except KeyError:
+            return False
     
     def is_bplus_index_in_block(self, database_name: str, table_name: str, column: str) -> bool:
         return self.indexes[database_name][table_name][column]["bplus"] is not None
