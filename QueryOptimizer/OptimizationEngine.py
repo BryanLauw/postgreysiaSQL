@@ -71,12 +71,12 @@ class OptimizationEngine:
 
         # if next(iter(query_components_value), None) == "SELECT":
         attribute_types = self.QueryValidator.get_attribute_types(where_clause, database_name, table_arr)
-        if(len(from_clause) == 1):
-            table_name = from_clause[0]
+        if(len(from_clause) == 1 and '.' not in where_clause):
+            table_name = from_clause[0].strip()
             pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
             where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
-        if(next(iter(query_components_value), None) == "UPDATE"):
-            table_name = update_clause
+        if(next(iter(query_components_value), None) == "UPDATE" and '.' not in where_clause):
+            table_name = update_clause.strip()
             pattern = r'(\b\w+\b)\s*(' + '|'.join(map(re.escape, CO)) + r')'
             where_clause = re.sub(pattern, rf'{table_name}.\1 \2', where_clause)
         # Validate comparisons
