@@ -90,17 +90,9 @@ class OptimizationEngine:
         return ParsedQuery(query_tree,normalized_query)
 
     def __build_query_tree(self, components: dict, database_name: str) -> QueryTree:
-        if "DELETE" in components:
-            root = QueryTree(type="ROOT", val="DELETE")
-            top = root
-            where_tree = QueryTree(type="DELETE", val=components["FROM"][0])
-            top.add_child(where_tree)
-            where_tree.add_parent(top)
-            top = where_tree
-        else:
-            query_type = next(iter(components))
-            root = QueryTree(type="ROOT")
-            top = root
+        query_type = next(iter(components))
+        root = QueryTree(type="ROOT")
+        top = root
 
         if "LIMIT" in components:
             limit_tree = QueryTree(type="LIMIT", val=components["LIMIT"])
@@ -120,6 +112,14 @@ class OptimizationEngine:
             top.add_child(select_tree)
             select_tree.add_parent(top)
             top = select_tree
+
+        if "DELETE" in components:
+            root.val = "DELETE"
+            top = root
+            where_tree = QueryTree(type="DELETE", val=components["FROM"][0])
+            top.add_child(where_tree)
+            where_tree.add_parent(top)
+            top = where_tree
             
         if "UPDATE" in components:
             root.val = "UPDATE"
@@ -223,19 +223,19 @@ if __name__ == "__main__":
     optim = OptimizationEngine(storage.get_stats)
 
     while True:
-        # try:
-        query = input("Query: ")
-        parsed_query = optim.parse_query(query,"database1")
-        print("BEFORE TREE:")
-        print(parsed_query)
-        print(f"BEFORE COST = {optim.get_cost(parsed_query, 'database1')}")
-        
-        optim.optimize_query(parsed_query,"database1")
-        print("AFTER TREE:")
-        print(parsed_query)
-        print(f"AFTER COST = {optim.get_cost(parsed_query, 'database1')}")
-        # except Exception as e:
-        #     print(f"Error: {e}")
+        try:
+            query = input("Query: ")
+            parsed_query = optim.parse_query(query,"database1")
+            print("BEFORE TREE:")
+            print(parsed_query)
+            print(f"BEFORE COST = {optim.get_cost(parsed_query, 'database1')}")
+            
+            optim.optimize_query(parsed_query,"database1")
+            print("AFTER TREE:")
+            print(parsed_query)
+            print(f"AFTER COST = {optim.get_cost(parsed_query, 'database1')}")
+        except Exception as e:
+            print(f"Error: {e}")
     # Test SELECT query with JOIN
     # select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
     # select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.order_id = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
