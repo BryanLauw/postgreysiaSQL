@@ -4,8 +4,8 @@ import logging
 import re
 import ast
 
-from failure_recovery_log_entry import LogEntry
-from failure_recovery_util import write_log_entry_to_file
+from .failure_recovery_log_entry import LogEntry
+from .failure_recovery_util import write_log_entry_to_file
 
 class Recovery:
     """
