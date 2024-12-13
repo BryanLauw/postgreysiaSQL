@@ -1,14 +1,14 @@
 import socket
 import threading
+import argparse
 from QueryProcessor.QueryProcessor import QueryProcessor
 
 client_states = {}
 
-def handle_client(client_socket,client_id, query_processor):
+def handle_client(client_socket, client_id, query_processor):
     try:
-        client_states[client_id] = {"on_begin": False, "transactionId": None}
-
-        client_socket.send(b"Welcome to PostgreysiaSQL! You can start using the SQL commands.\n")
+        client_socket.send(b"Welcome to PostgreysiaSQL! You can start using SQL commands.\n")
+        
         while True:
             try:
                 query = client_socket.recv(1024).decode("utf-8").strip()
@@ -17,8 +17,7 @@ def handle_client(client_socket,client_id, query_processor):
                     client_socket.send(b"Goodbye!\n")
                     break
 
-                print(f"Client {client_id} state before query: {client_states[client_id]}")
-                response = query_processor.execute_query(query,client_states[client_id])
+                response = query_processor.execute_query(query, client_id)
                 client_socket.send(f"{response}\n".encode("utf-8"))
             except Exception as e:
                 error_message = f"Error server: {e}"
@@ -26,16 +25,17 @@ def handle_client(client_socket,client_id, query_processor):
     except Exception as e:
         print(f"Client connection error: {e}")
     finally:
-        del client_states[client_id]
+        if client_id in client_states:
+            del client_states[client_id]
         client_socket.close()
 
-def start_server(host="127.0.0.1", port=65432):
+def start_server(database_name, host="127.0.0.1", port=65432):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((host, port))
     server.listen()
     print(f"Server started on {host}:{port}. Waiting for clients...")
     
-    query_processor = QueryProcessor()
+    query_processor = QueryProcessor(database_name)
     client_counter = 0
     
     while True:
@@ -43,8 +43,14 @@ def start_server(host="127.0.0.1", port=65432):
         print(f"Client connected from {addr}")
         client_id = client_counter
         client_counter += 1
+
+        # Start a thread to handle the client
         client_handler = threading.Thread(target=handle_client, args=(client_socket, client_id, query_processor))
         client_handler.start()
 
 if __name__ == "__main__":
-    start_server()
+    parser = argparse.ArgumentParser(description="Start the PostgreysiaSQL server.")
+    parser.add_argument("database_name", type=str, help="The name of the database to use.")
+    args = parser.parse_args()
+
+    start_server(database_name=args.database_name)

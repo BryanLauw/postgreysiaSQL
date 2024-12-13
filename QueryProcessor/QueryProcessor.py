@@ -16,7 +16,7 @@ class QueryProcessor:
         self.cc = ConcurrencyControlManager()
         self.rm = FailureRecovery.FailureRecovery()
         self.db_name = db_name #SBD
-        # self.db_name = db_name
+        self.client_states = {}
 
         self.current_transactionId = 0 #SBD
         self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
@@ -25,31 +25,31 @@ class QueryProcessor:
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGSEGV, self.signal_handler)
 
-    def execute_query(self, query : str, client_state: dict):
-        queries = self.parse_query(query)
+    def execute_query(self, query : str, client_id: int):
         print("Executing query: " + query)
-        transaction_id = client_state.get("transactionId")
+        if client_id not in self.client_states:
+            self.client_states[client_id] = {"transactionId": None, "on_begin": False}
 
         if(query.upper() == "BEGIN" or query.upper() == "BEGIN TRANSACTION"):
-            if not client_state.get("on_begin", False):  # Begin only if not already in a transaction
+            if not self.client_states.get("on_begin", False):  # Begin only if not already in a transaction
                 self.current_transactionId = self.cc.begin_transaction()
                 self.rm.write_log_entry(self.current_transactionId, "START", None, None, None)
-                client_state["transactionId"] = self.current_transactionId
-                client_state["on_begin"] = True
+                self.client_states["transactionId"] = self.current_transactionId
+                self.client_states["on_begin"] = True
             else:
                 print("Transaction already started.")
             # self.rm.start_transaction(self.current_transactionId)
             
         elif(query.upper() == "COMMIT" or query.upper() == "COMMIT TRANSACTION"):
-                transaction_id = client_state["transactionId"]
+                transaction_id = self.client_states["transactionId"]
                 print("transaction id for commit: ", transaction_id)
                 self.rm.write_log_entry(transaction_id, "COMMIT", None, None, None)
                 self.cc.end_transaction(transaction_id)
                 self.sm.commit_buffer(transaction_id)
                 self.sm.save()
                 self.current_transactionId = None
-                client_state["on_begin"] = False
-                client_state["transactionId"] = None
+                self.client_states["on_begin"] = False
+                self.client_states["transactionId"] = None
 
         # elif(query.upper() == "PRINT"):
         #     self.printResult(tables, rows)
@@ -62,17 +62,17 @@ class QueryProcessor:
 
                     if self.parsedQuery.query_tree.val == "UPDATE":
                         try:
-                            if not client_state.get("on_begin", False):  
+                            if not self.client_states.get("on_begin", False):
                                 print("masuk")
                                 self.current_transactionId = self.cc.begin_transaction()
-                                client_state["transactionId"] = self.current_transactionId
+                                self.client_states["transactionId"] = self.current_transactionId
                             write = self.ParsedQueryToDataWrite()
+                            transaction_id = self.client_states["transactionId"]
                             print("transaction id :", transaction_id)
 
                             # baca data lama
-                            data_lama = self.sm.read_block(DataRetrieval(write.table, write.column, write.conditions), self.db_name, self.current_transactionId)
+                            data_lama = self.sm.read_block(DataRetrieval(write.table, write.column, write.conditions), self.db_name, transaction_id)
                             # cek concurrency control
-                            transaction_id = client_state["transactionId"]
                             print("trans id real: ", transaction_id)
                             response = self.cc.validate_object(data_lama, transaction_id, "write")
                             print("response dr cc: ",response.allowed)
@@ -83,22 +83,23 @@ class QueryProcessor:
                                 continue  
                             
                             # write data
-                            self.sm.write_block(write, self.db_name, self.current_transactionId)
+                            self.sm.write_block(write, self.db_name, transaction_id)
                             data_written = data_lama.get_data()[0].get(write.column[0])
                             object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}'}}"
                             print(object_value)
-                            self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_written, write.new_value[0])
+                            self.rm.write_log_entry(transaction_id, "DATA", object_value, data_written, write.new_value[0])
                             
                         except Exception as e:
                             self.handle_rollback(transaction_id)
                             print(e) 
                     elif self.parsedQuery.query_tree.val == "SELECT":
                         try:
-                            if not client_state.get("on_begin", False):
+                            if not self.client_states.get("on_begin", False):
                                 self.current_transactionId = self.cc.begin_transaction()
-                                client_state["transactionId"] = self.current_transactionId
+                                self.client_states["transactionId"] = self.current_transactionId
 
-                            transaction_id = client_state["transactionId"]
+                            transaction_id = self.client_states["transactionId"]
+                            print("select", transaction_id)
                             result = self.evaluateSelectTree(self.parsedQuery.query_tree,[],"", transaction_id)
                             ret_val = self.printResult(result)
                             print(f"Read {len(result)} row(s).")
@@ -119,14 +120,14 @@ class QueryProcessor:
                     retry = False
                 except Exception as e:
                     print(f"Error during query execution: {e}. Rolling back.")
-                    transaction_id = client_state["transactionId"]
+                    transaction_id = self.client_states["transactionId"]
                     self.handle_rollback(transaction_id)
 
                     # Restart transaction after rollback
-                    if not client_state.get("on_begin", False):
+                    if not self.client_states.get("on_begin", False):
                         transaction_id = self.cc.begin_transaction()
                         self.rm.write_log_entry(transaction_id, "START", None, None, None)
-                        client_state["on_begin"] = True
+                        self.client_states["on_begin"] = True
     
 
     def  evaluateSelectTree(self, tree: QueryTree, select: list[str], where: str, transaction_id: int) -> list[dict]:
@@ -523,7 +524,7 @@ class QueryProcessor:
         # database = "self.db_name"
         # getData(data_retrieval, database) = {'a': [2, 3, 4, 5]}
 
-        data = self.sm.read_block(data_retrieval, self.db_name, self.current_transactionId)
+        data = self.sm.read_block(data_retrieval, self.db_name, transaction_id)
         response = self.cc.validate_object(data, transaction_id, "read")
         if not response.allowed:
             print("Validation failed. Handling rollback.")
@@ -697,8 +698,9 @@ class QueryProcessor:
         Custom signal handler to handle SIGINT and SIGSEV.
         """
         print("masuk signal")
-        self.cc.end_transaction(self.current_transactionId)
-        self.sm.commit_buffer(self.current_transactionId)
+        print("ctrl c ", self.client_states)
+        self.cc.end_transaction(self.client_states["transactionId"])
+        self.sm.commit_buffer(self.client_states["transactionId"])
         self.sm.save()
         print("Bye!")
         self.rm.signal_handler(signum, frame)

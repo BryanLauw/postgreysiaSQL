@@ -148,8 +148,22 @@ class QueryValidator:
             raise ValueError(f"Undefined aliases detected: {', '.join(undefined_aliases)}")
     
     def validate_tables(self,table_arr: list[str], database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
+        """validate tables and also gather all attributes accross all tables
+
+        Args:
+            table_arr (list[str])
+            database_name (str)
+            get_stats (Callable[[str, str, int], Union[Statistic, Exception]])
+
+        Returns:
+            result list[str]: list of all attributes from all tables 
+        """
+        result = []
         for table in table_arr:
-            get_stats(database_name,table)
+            attributes = list(get_stats(database_name,table).V_a_r.keys())
+            attributes = [f"{table}.{attr}" for attr in attributes]
+            result += attributes
+        return result
     
     def validate_attribute(self,attribute: str,database_name: str, get_stats: Callable[[str, str, int], Union[Statistic, Exception]],table_arr: list[str]):
         if attribute in ["AND","OR"]:

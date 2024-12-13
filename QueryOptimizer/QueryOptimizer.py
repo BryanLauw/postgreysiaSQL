@@ -8,6 +8,7 @@ from StorageManager.classes import Statistic, StorageEngine
 from .QueryParser import QueryParser
 from .QueryTree import ParsedQuery, QueryTree
 from .QueryHelper import *
+from .QueryCost import *
 from typing import Callable, Union
 from .QueryValidator import QueryValidator
 
@@ -90,11 +91,152 @@ class QueryOptimizer:
         # Change parent of node2 to node1
         node2.parent = node1
     
+    # def __list_child_join(self,node_join: List[QueryTree]):
+    #     childs = {}
+    #     for node in node_join:
+    #         for child in node.childs:
+    #             if child.type not in ["JOIN", "NATURAL JOIN"]:
+    #                 table = QueryHelper.get_tables_regex(child.val)[0]
+    #                 childs[table] = child
+    #     return childs
+        
+    # def reorder_join(self, node_join: List[QueryTree], database_name: str,get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
+    #     parent_root_join = node_join[-1].parent
+    #     childs = self.__list_child_join(node_join)
+        
+    #     table_iterators = {QueryHelper.get_tables_regex(node_join[0].childs[0].val)[0], QueryHelper.get_tables_regex(node_join[0].childs[1].val)[0]}
+    #     joins_with_table = {0:list(table_iterators)}
+    #     for i in range(1,len(node_join)):
+    #         table_iterators.add(QueryHelper.get_tables_regex(node_join[i].childs[1].val)[0])
+    #         if node_join[i].type == "JOIN":
+    #             tables = QueryHelper.get_tables_regex(node_join[i].val)
+    #             joins_with_table[i] = tables
+    #         else: #NATURAL JOIN
+    #             attributes = node_join[i].val
+    #             for table in table_iterators:
+    #                 if all(attr in get_stats(database_name,table) for attr in attributes):
+    #                     joins_with_table[i] = [table,QueryHelper.get_tables_regex(node_join[i].childs[1].val)[0]]
+    #                     break
+        
+    #     print(joins_with_table)
+                
+        # for node in node_join:
+    
+    
+    def reorder_join(self, node_join: List[QueryTree], database_name: str,get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
+        def perform_associative(child_node_join: QueryTree, isJoin: bool = False):
+            # Index 0 atau 1
+            parent_node_join = child_node_join.parent
+            if parent_node_join.childs[0].compare(child_node_join):
+                idx = False
+            else:
+                idx = True
+                        
+            if child_node_join.type == "JOIN":
+                result, operator = QueryHelper.get_other_expression(parent_node_join.val, child_node_join.val)
+                child_node_join.val = parent_node_join.val
+                parent_node_join.val = result
+            
+            child_node_join.parent = parent_node_join.parent
+            parent_node_join.parent = child_node_join
+            
+            parent_node_join.childs[idx] = child_node_join.childs[not idx]
+            child_node_join.childs[not idx] = parent_node_join
+            child_node_join.parent.childs[idx] = child_node_join
+        
+        def perform_commutative(node_join: QueryTree):
+            temp = node_join.childs[0]
+            node_join.childs[0] = node_join.childs[1]
+            node_join.childs[1] = temp
+        
+        def deep_copy_join_nodes(child_node_join: QueryTree, parent_node_join: QueryTree):
+            copy_parent = parent_node_join.deep_copy()
+            copy_node = copy_parent.childs[0] if child_node_join.compare(copy_parent.childs[0]) else copy_parent.childs[1]
+            return copy_parent, copy_node
+            
+        query_cost = QueryCost(get_stats,database_name)
+        for node in node_join:
+            needCommutative = False
+            needAssoc = False
+            isTopJoin = node.parent.val not in ["JOIN","NATURAL JOIN"]
+            
+            # Normal
+            print(node.parent)
+            cost_normal = query_cost.calculate_size_cost(node.parent if not isTopJoin else node)
+            smalles_cost = 9999
+            
+            # Komutatif
+            parent_komut, node_komut = deep_copy_join_nodes(node, node.parent)
+            # Swap child (komutatif)
+            perform_commutative(node_komut)           
+            
+            cost_komutatif = query_cost.calculate_size_cost(node_komut.parent if not isTopJoin else node_komut)
+            if cost_komutatif < smalles_cost:
+                smalles_cost = cost_komutatif
+                needCommutative = True
+            
+            # Associative (With commut and not)
+            if node.parent.type in ["JOIN","NATURAL JOIN"] and node.type == node.parent.type:
+                parent_assoc = node.parent.deep_copy()
+                node_assoc = parent_assoc.childs[0] if node.compare(parent_assoc.childs[0]) else parent_assoc.childs[1]
+                if node.type == "NATURAL JOIN":
+                    # Normal
+                    perform_associative(node_assoc)
+                    cost_assoc = query_cost.calculate_size_cost(parent_assoc)
+                    if cost_assoc < smalles_cost:
+                        smalles_cost = cost_assoc
+                        needAssoc = True
+                        needCommutative = False
+                    
+                    # Comut
+                    perform_associative(node_komut,false)
+                    cost_comut_assoc = query_cost.calculate_size_cost(parent_komut)
+                    if cost_comut_assoc < smalles_cost:
+                        smalles_cost = cost_comut_assoc
+                        needAssoc = True
+                        needCommutative = True
+                    
+                else: 
+                    if node.val in node.parent.val:
+                        result, operator = QueryHelper.get_other_expression(node.parent.val, node.val)
+                        if node_assoc.compare(parent_assoc.childs[0]):
+                            idx = False
+                        else:
+                            idx = True
+                            
+                        tables = QueryHelper.get_tables_defined(node_assoc.childs[not idx]) + QueryHelper.get_tables_defined(parent_assoc.childs[not idx])
+                        tables_in_join = QueryHelper.get_tables_regex(result)
+                        
+                        if all(table in tables for table in tables_in_join):
+                            perform_associative(node_assoc,True)
+                            
+                            cost_assoc = query_cost.calculate_size_cost(parent_assoc)
+                            if cost_assoc < smalles_cost:
+                                smalles_cost = cost_assoc
+                                needAssoc = True
+                                needCommutative = False
+                                
+                            perform_associative(node_komut,True)
+                            
+                            cost_comut_assoc = query_cost.calculate_size_cost(parent_assoc)
+                            if cost_comut_assoc < smalles_cost:
+                                smalles_cost = cost_comut_assoc
+                                needAssoc = True
+                                needCommutative = True
+            if needCommutative:
+                perform_commutative(node)
+            if needAssoc:
+                perform_associative(node)
+                
+                last_comut = node.deep_copy()
+                perform_commutative(last_comut)
+                cost_komutatif = query_cost.calculate_size_cost(last_comut)
+                if(cost_komutatif < smalles_cost):
+                    perform_commutative(node)
+    
     def __already_pushed_selection(self, node_where: QueryTree):
-        # print(node_where.val)
         child = node_where.childs[0]
         if(child.type == "WHERE"):
-            # print("SINI ",child.val)
             return self.__already_pushed_selection(child)
         
         return child.type == "TABLE"
@@ -124,17 +266,7 @@ class QueryOptimizer:
         table_node = self.__find_matching_table(node,table_name)
         self.__insert_node(node,table_node)
         
-        return True
-    
-    def perform_operation(self, node: QueryTree, query_cost_calculator: Callable[[QueryTree], int]) -> bool:
-        if node.type == "WHERE":
-            return self.pushing_selection(node)
-        elif node.type in ["JOIN", "NATURAL JOIN"]:
-            return self.commutative_join(node, query_cost_calculator)
-        if node.type == "SELECT":
-            # print("masuk sini")
-            return self.pushing_projection(node)
-        return False       
+        return True    
     
     def get_table_column(self, data) : 
         matches = re.findall(r'\b[a-zA-Z_]+\.[a-zA-Z_]+\b', data)
@@ -146,21 +278,39 @@ class QueryOptimizer:
             if key not in result:
                 result[key] = []
             result[key].append(item)
+
+    def __split_natural_join(self, node_natural : QueryTree, result:dict) : 
+        table_left = self.__find_tables_from_children(node_natural.childs[0])
+        # print(table_left)
+        table_right = self.__find_tables_from_children(node_natural.childs[1])
+        # print(table_right)
+
+        for item in node_natural.val:
+            value_left = table_left[0] + "." + item
+            # print(value_left)
+            if table_left[0] not in result:
+                result[table_left[0]]= []
+            if value_left.strip() not in result[table_left[0]] : 
+                result[table_left[0]].append(value_left)
+            
+            value_right = table_right[0] + "." + item
+            # print(value_right)
+            if table_right[0] not in result:
+                result[table_right[0]] = []
+            if value_right.strip() not in result[table_right[0]]  : 
+                result[table_right[0]].append(value_right[0])
+
     
     def __split_join(self, node_join : QueryTree, result:dict) :
-        result = {}
-        tabel1, tabel2 = node_join.val.split('=')
-        key = tabel1.split('.')[0] 
-        if key not in result:
-            result[key] = []
-        if tabel1.strip() not in result[key]  : 
-            result[key].append(tabel1)
-        key = tabel2.split('.')[0] 
-        if key not in result:
-            result[key] = []
-        if tabel2.strip() not in result[key] : 
-            result[key].append(tabel2)
-        return result
+        column = self.get_table_column(node_join.val)
+        # print("KOLOM JOIN : ",column)
+        for item in column:
+            # print(item)
+            key = item.split('.')[0] 
+            if key not in result:
+                result[key] = []
+            if item.strip() not in result[key]  : 
+                result[key].append(item)
     
     def __split_where(self, node_where : QueryTree, result:dict) :
         if "OR" in  node_where.val:
@@ -184,31 +334,30 @@ class QueryOptimizer:
             if value.strip() not in result[key]: 
                 result[key].append(value)
     
-    def do_pushing_projection(self, node_select:QueryTree, result:dict = []) : 
-        print("REKURSIF: ",node_select.val,node_select.type)
-        print("RESULT: ",result)
+    def __do_pushing_projection(self, node_select:QueryTree, result:dict = [], index = 0) : 
+        # print("REKURSIF: ",node_select.val,node_select.type)
+        # print("RESULT: ",result)
         if node_select.type == "TABLE" :
+            # parent = node_select.parent
+            # print("PARENT : \n", parent)
             node_baru = QueryTree("SELECT", result[node_select.val.strip()])
             node_baru.parent = node_select.parent
-            node_select.parent.childs[0] = node_baru
+            node_select.parent.childs[index] = node_baru
             node_baru.add_child(node_select)
+            
         elif node_select.type == "WHERE" : 
             self.__split_where(node_select, result)
-            self.do_pushing_projection(node_select.childs[0], result)
+            self.__do_pushing_projection(node_select.childs[0], result)
         elif node_select.type == "JOIN" : 
             self.__split_join(node_select, result)
-            self.do_pushing_projection(node_select.childs[0], result)
-            self.do_pushing_projection(node_select.childs[1], result)
+            self.__do_pushing_projection(node_select.childs[0], result, 0)
+            self.__do_pushing_projection(node_select.childs[1], result, 1)
         elif node_select.type == "NATURAL JOIN" :
-            self.__split_projection(node_select, result)
-            self.do_pushing_projection(node_select.childs[0], result)
-            self.do_pushing_projection(node_select.childs[1], result)
+            self.__split_natural_join(node_select, result)
+            self.__do_pushing_projection(node_select.childs[0], result, 0)
+            self.__do_pushing_projection(node_select.childs[1], result, 1)
         else : 
-            self.do_pushing_projection(node_select.childs[0], result)
-
-
-
-
+            self.__do_pushing_projection(node_select.childs[0], result)
 
     def pushing_projection(self, node: QueryTree) :
         print("PUSHING PROJECTION: ",node.val,node.type)
@@ -217,8 +366,7 @@ class QueryOptimizer:
             # node_select:QueryTree = node
             result:dict = {}
             self.__split_projection(node, result)
-            self.do_pushing_projection(node, result) 
-            
+            self.__do_pushing_projection(node, result) 
         
         return True
     
