@@ -58,14 +58,15 @@ print(storage_engine.search_hash_index("database_name_1", "table_name_1", "colum
 # 4. Delete Key
 print("\n--- DELETE TEST ---")
 # Delete key 5
-storage_engine.delete_hash_index("database_name_1", "table_name_1", "column_1", 5, (2,0),  transaction_id)
+storage_engine.delete_hash_index("database_name_1", "table_name_1", "column_1", 5,  transaction_id)
 print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 5, transaction_id))  # Expected: None (key 5 deleted)
 
 # 5. Update Key
 print("\n--- UPDATE TEST ---")
 # Move key 11 to Block 6, Offset 1
-storage_engine.update_key_hash_index("database_name_1", "table_name_1", "column_1", 11, 6, 1, transaction_id)
-print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 1)
+storage_engine.update_key_hash_index("database_name_1", "table_name_1", "column_1", 11, 100, transaction_id)
+print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 11, transaction_id))  # Expected: (Block 6, Offset 0)
+print(storage_engine.search_hash_index("database_name_1", "table_name_1", "column_1", 100, transaction_id))  # Expected: (Block 6, Offset 0)
 
 # --- End of Testing ---
 print("================== End of Testing. ================")
