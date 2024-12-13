@@ -15,7 +15,7 @@ from .QueryOptimizer import QueryOptimizer
 
 class OptimizationEngine:
     def __init__(self, get_stats: Callable[[str, str, int], Union[Statistic, Exception]]):
-        self.QueryParser = QueryParser("QueryOptimizer/dfa.txt")
+        self.QueryParser = QueryParser("dfa.txt")
         self.QueryValidator = QueryValidator()
         self.QueryOptimizer = QueryOptimizer()
         self.get_stats = get_stats
@@ -168,7 +168,7 @@ class OptimizationEngine:
             "SELECT": [],
             "WHERE": [],
         }
-        
+        print("QUERY AWAL : \n",query.query_tree)
         queue_nodes = Queue()
         queue_nodes.put(query.query_tree)
         while not queue_nodes.empty():
@@ -185,17 +185,21 @@ class OptimizationEngine:
         for node in list_nodes["WHERE"]:
             self.QueryOptimizer.pushing_selection(node)
         
+        print("QUERY AFTER PUSHING SELECTION :\n", query.query_tree)
+        
         # list_nodes["JOIN"].reverse()
-        self.QueryOptimizer.reorder_join(list_nodes["JOIN"],database_name,self.get_stats)
+        # self.QueryOptimizer.reorder_join(list_nodes["JOIN"],database_name,self.get_stats)
 
         for node in list_nodes["JOIN"]:
             if node.type == "JOIN":
                 continue
             if len(node.val) == 0:
                 self.QueryOptimizer.combine_selection_and_cartesian_product(node)
+        
 
         for node in list_nodes["SELECT"] :
             self.QueryOptimizer.pushing_projection(node)
+        print("QUERY AFTER PUSHING PROJECTION :\n", query.query_tree)
 
     def get_cost(self, query: ParsedQuery, database_name: str) -> int:
         # implementasi sementara hanya menghitung size cost
@@ -208,9 +212,9 @@ if __name__ == "__main__":
 
     # Test SELECT query with JOIN
     # select_query = 'SELECT u.id_user FROM users AS u WHERE u.id_user > 1 OR u.nama_user = "A"'
-    select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.id_order = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
+    select_query = 'select * from users JOIN products ON users.id_user=products.product_id JOIN orders ON orders.order_id = products.product_id AND users.id_user=products.product_id where users.id_user>1 order by users.id_user'
     # create_index_query = 'CREATE INDEX nama_idx ON users(id) USING hash'
-    # print("SELECT QUERY\n",select_query,end="\n\n")
+    print("SELECT QUERY\n",select_query,end="\n\n")
     parsed_query = optim.parse_query(select_query,"database1")
     # parsed_query = optim.parse_query(create_index_query,"database1")
     # print(parsed_query)
