@@ -653,24 +653,47 @@ class StorageEngine:
         if self.is_hash_index_exist(database_name, table_name, column):
             self.delete_hash_index(database_name, table_name, column, key, transaction_id)
 
-    def print_index_structure(self, database_name:str, table_name:str, column:str, transaction_id:int) -> None:
-        if self.is_hash_index_in_block(database_name, table_name, column) == True:
+    def print_index_structure(self, database_name: str, table_name: str, column: str, transaction_id: int) -> None:
+        # Check if a hash index exists in the block
+        if self.is_hash_index_in_block(database_name, table_name, column):
             print("Hash Table in Block Index:")
-            self.indexes[database_name][table_name][column]["hash"].print_table()
-            print()
-        elif self.is_hash_index_in_buffer(database_name, table_name, column, transaction_id) == True:
-            print("Hash Table in Buffer Index:")
-            self.buffer_index[transaction_id][database_name][table_name][column]["hash"].print_table()
+            hash_index = self.indexes[database_name][table_name][column].get("hash")
+            if hash_index is not None:
+                hash_index.print_table()
+            else:
+                print("No hash index found in block.")
             print()
 
-        if self.is_bplus_index_in_block(database_name, table_name, column) == True:
+        # Check if a hash index exists in the buffer
+        elif self.is_hash_index_in_buffer(database_name, table_name, column, transaction_id):
+            print("Hash Table in Buffer Index:")
+            hash_index = self.buffer_index[transaction_id][database_name][table_name][column].get("hash")
+            if hash_index is not None:
+                hash_index.print_table()
+            else:
+                print("No hash index found in buffer.")
+            print()
+
+        # Check if a BPlus index exists in the block
+        if self.is_bplus_index_in_block(database_name, table_name, column):
             print("BPlus Tree in Block Index:")
-            self.indexes[database_name][table_name][column]["bplus"].print_tree()
+            bplus_index = self.indexes[database_name][table_name][column].get("bplus")
+            if bplus_index is not None:
+                bplus_index.print_tree()
+            else:
+                print("No BPlus index found in block.")
             print()
-        elif self.is_bplus_index_in_buffer(database_name, table_name, column, transaction_id) == True:
+
+        # Check if a BPlus index exists in the buffer
+        elif self.is_bplus_index_in_buffer(database_name, table_name, column, transaction_id):
             print("BPlus Tree in Buffer Index:")
-            print(self.buffer_index[transaction_id][database_name][table_name][column]["bplus"]).print_tree()
+            bplus_index = self.buffer_index[transaction_id][database_name][table_name][column].get("bplus")
+            if bplus_index is not None:
+                bplus_index.print_tree()
+            else:
+                print("No BPlus index found in buffer.")
             print()
+
     """
     ==========================================================================================================================
     """
@@ -722,7 +745,7 @@ class StorageEngine:
         if database_name in self.indexes and \
             table_name in self.indexes[database_name] and \
             column in self.indexes[database_name][table_name]:
-            return self.indexes[database_name][table_name][column].get("bplus") is not None
+            return self.indexes[database_name][table_name][column].get("hash") is not None
         # Return False if any part of the path is missing
         return False
     
