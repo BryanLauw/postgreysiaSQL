@@ -795,8 +795,7 @@ class StorageEngine:
         #     if "bplus" in dbs[database_name][table_name][column]:
         #         if dbs[database_name][table_name][column]["bplus"] is not None:
         #             return True
-        print(temp)
-        for key, dbs in temp.items():
+        for _, dbs in temp.items():
             if table_name not in dbs:
                 continue
             if column not in dbs[table_name]:
