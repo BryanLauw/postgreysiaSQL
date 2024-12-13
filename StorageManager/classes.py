@@ -612,7 +612,7 @@ class StorageEngine:
      # setindex ke buffer
     def set_index(self, database_name: str, table_name: str, column: str, transaction_id:int,index_type) -> None:
         if transaction_id not in self.buffer_index:
-            self.buffer_index[transaction_id] = {}
+            self.buffer_index[transaction_id] = copy.deepcopy(self.indexes)
         if database_name not in self.buffer_index[transaction_id]:
             self.buffer_index[transaction_id][database_name] = {}
         if table_name not in self.buffer_index[transaction_id][database_name]:
@@ -636,10 +636,11 @@ class StorageEngine:
         print(f"Index of type '{index_type}' created for column '{column}' in table '{table_name}'.")
 
     def insert_key_value_to_index(self, database_name:str, table_name:str, column:str, key, block_index, offset, transaction_id:int) -> None:
-        if self.is_bplus_index_exist(database_name, table_name, column):
+        if self.is_bplus_index_exist(database_name, table_name, column, transaction_id):
             self.insert_bplus_index(database_name, table_name, column, key, block_index, offset, transaction_id)
-        if self.is_hash_index_exist(database_name, table_name, column):
+        if self.is_hash_index_exist(database_name, table_name, column, transaction_id):
             self.insert_hash_index(database_name, table_name, column, key, block_index, offset, transaction_id)
+    
     
     # def update_key_to_index(self, database_name:str, table_name:str, column:str, key, block_index, offset, transaction_id:int) -> None:
     #     if self.is_bplus_index_exist(database_name, table_name, column):
@@ -698,16 +699,17 @@ class StorageEngine:
     ==========================================================================================================================
     """
     def validate_column_buffer(self, database_name: str, table_name: str, column: str, trancaction_id:int) -> None:
-        if database_name not in self.buffer[trancaction_id] :
+        temp = self.buffer.get(trancaction_id, self.blocks)
+        if database_name not in temp:
             if database_name not in self.blocks :
                 raise ValueError(f"Database '{database_name}' does not exist.")
-        if table_name not in self.buffer[trancaction_id][database_name] :
+        if table_name not in temp[database_name] :
             if table_name not in self.blocks[database_name]:
                 raise ValueError(f"Table '{table_name}' does not exist.")
             else :
                 table = self.blocks[database_name][table_name]
         else :
-            table = self.buffer[trancaction_id][database_name][table_name] 
+            table = temp[database_name][table_name] 
         if not any(col["name"] == column for col in table["columns"]):
             raise ValueError(f"Column '{column}' does not exist in table '{table_name}'.")
         
@@ -781,37 +783,60 @@ class StorageEngine:
         return bplus_tree
     
     # setelah insert delete
-    def is_bplus_index_exist(self, database_name: str, table_name: str, column: str) -> bool:
-        for transaction_id, dbs in self.buffer_index.items():
-            if database_name not in dbs:
+    def is_bplus_index_exist(self, database_name: str, table_name: str, column: str, transaction_id: int) -> bool:
+        temp = self.buffer_index.get(transaction_id, self.indexes)
+        # for _, dbs in self.buffer_index.items():
+        #     if database_name not in dbs:
+        #         continue
+        #     if table_name not in dbs[database_name]:
+        #         continue
+        #     if column not in dbs[database_name][table_name]:
+        #         continue
+        #     if "bplus" in dbs[database_name][table_name][column]:
+        #         if dbs[database_name][table_name][column]["bplus"] is not None:
+        #             return True
+        print(temp)
+        for key, dbs in temp.items():
+            if table_name not in dbs:
                 continue
-            if table_name not in dbs[database_name]:
+            if column not in dbs[table_name]:
                 continue
-            if column not in dbs[database_name][table_name]:
-                continue
-            if "bplus" in dbs[database_name][table_name][column]:
-                if dbs[database_name][table_name][column]["bplus"] is not None:
+            if "bplus" in dbs[table_name][column]:
+                if dbs[table_name][column]["bplus"] is not None:
                     return True
         return False
     
-    def is_hash_index_exist(self, database_name: str, table_name: str, column: str) -> bool:
-        for transaction_id, dbs in self.buffer_index.items():
-            if database_name not in dbs:
+    def is_hash_index_exist(self, database_name: str, table_name: str, column: str, transaction_id: int) -> bool:
+        temp = self.buffer_index.get(transaction_id, self.indexes)
+        # for transaction_id, dbs in self.buffer_index.items():
+        #     if database_name not in dbs:
+        #         continue
+        #     if table_name not in dbs[database_name]:
+        #         continue
+        #     if column not in dbs[database_name][table_name]:
+        #         continue
+        #     if "bplus" in dbs[database_name][table_name][column]:
+        #         if dbs[database_name][table_name][column]["hash"] is not None:
+        #             return True
+        for _, dbs in temp.items():
+            if table_name not in dbs:
                 continue
-            if table_name not in dbs[database_name]:
+            if column not in dbs[table_name]:
                 continue
-            if column not in dbs[database_name][table_name]:
-                continue
-            if "bplus" in dbs[database_name][table_name][column]:
-                if dbs[database_name][table_name][column]["hash"] is not None:
+            if "bplus" in dbs[table_name][column]:
+                if dbs[table_name][column]["bplus"] is not None:
                     return True
         return False
     
     def insert_bplus_index(self,database_name:str,table_name:str,column:str,key,block_index,offset,transaction_id : int):
+        if transaction_id not in self.buffer_index:
+            self.buffer_index[transaction_id] = copy.deepcopy(self.indexes)
         index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         index.insert(key,(block_index,offset))
 
     def delete_bplus_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int):
+        if transaction_id not in self.buffer_index:
+            self.buffer_index[transaction_id] = copy.deepcopy(self.indexes)
         index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         index.delete(key)
 
@@ -822,6 +847,8 @@ class StorageEngine:
 
     def search_bplus_index(self,database_name:str,table_name:str,column:str,key,transaction_id : int) -> list:
         self.validate_column_buffer(database_name,table_name,column,transaction_id)
+        if transaction_id not in self.buffer_index:
+            self.buffer_index[transaction_id] = copy.deepcopy(self.indexes)
         index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         result_indices = index.search(key)
         if result_indices :
@@ -833,6 +860,8 @@ class StorageEngine:
 
     def search_bplus_index_range(self, database_name:str,table_name:str, column:str,  transaction_id:int,start,end) -> list:
         self.validate_column_buffer(database_name,table_name,column,transaction_id)
+        if transaction_id not in self.buffer_index:
+            self.buffer_index[transaction_id] = copy.deepcopy(self.indexes)
         index : BPlusTree = self.buffer_index[transaction_id][database_name][table_name][column]['bplus']
         result_indices = index.search_range(start, end)
         if result_indices :
@@ -883,6 +912,8 @@ class StorageEngine:
             self.insert_hash_index(database_name, table_name, column, new_key, value[0], value[1], transaction_id)
     
     def get_value_for_position(self, database_name:str, table_name:str, block_index, offset, transaction_id:int):
+        if transaction_id not in self.buffer_index:
+            self.buffer_index[transaction_id] = copy.deepcopy(self.indexes)
         data = self.buffer[transaction_id][database_name][table_name]["values"]
         return data[block_index][offset]
 
@@ -890,6 +921,12 @@ class StorageEngine:
         """cuma fungsi debug, literally ngeprint variabel"""
         print(self.blocks)
 
+    def debug_buffer(self):
+        print(self.buffer)
+
     def debug_indexes(self):
         """cuma fungsi debug, literally ngeprint variabel"""
         print(self.indexes)
+
+    def debug_buffer_index(self):
+        print(self.buffer_index)
