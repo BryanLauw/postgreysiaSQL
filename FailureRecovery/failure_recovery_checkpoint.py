@@ -2,12 +2,12 @@
 from datetime import datetime
 from typing import Optional, List, Set
 from dataclasses import dataclass
-from .main_log_entry import LogEntry
 import time
 import threading
 import logging
 
-from .main_threading_manager import ThreadingManager
+from failure_recovery_log_entry import LogEntry
+from failure_recovery_threading_manager import ThreadingManager
 
 class CheckpointManager:
     def __init__(self, log_file:str="log_kel.log", threading_manager: ThreadingManager = None, interval: int = 10, buffer_size: int = 10, logger=None):
