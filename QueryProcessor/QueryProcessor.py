@@ -1,7 +1,6 @@
 import signal
-from FailureRecovery.main_log_entry import LogEntry
-from ConcurrencyControlManager.ConcurrencyControlManager import *
 from QueryOptimizer.OptimizationEngine import *
+from ConcurrencyControlManager.ConcurrencyControlManager import *
 from StorageManager.classes import *
 import re
 from typing import Tuple
