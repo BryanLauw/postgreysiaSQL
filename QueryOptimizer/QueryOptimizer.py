@@ -156,7 +156,7 @@ class QueryOptimizer:
                         needCommutative = False
                     
                     # Comut
-                    self.perform_associative(node_komut,false)
+                    self.perform_associative(node_komut,False)
                     cost_comut_assoc = query_cost.calculate_size_cost(parent_komut)
                     if cost_comut_assoc < smalles_cost:
                         smalles_cost = cost_comut_assoc
@@ -199,7 +199,7 @@ class QueryOptimizer:
                 self.perform_commutative(last_comut)
                 cost_komutatif = query_cost.calculate_size_cost(last_comut)
                 if(cost_komutatif < smalles_cost):
-                    perform_commutative(node)
+                    self.perform_commutative(node)
     
     def __already_pushed_selection(self, node_where: QueryTree):
         child = node_where.childs[0]

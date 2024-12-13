@@ -22,7 +22,7 @@ class OptimizationEngine:
 
     def parse_query(self, query: str,database_name: str) -> ParsedQuery:
         normalized_query = QueryHelper.remove_excessive_whitespace(
-            QueryHelper.normalize_string(query).lower()
+            QueryHelper.to_lower_except_quotes(QueryHelper.normalize_string(query))
         )
         
         normalized_query = self.QueryParser.transform_to_upper(normalized_query)
