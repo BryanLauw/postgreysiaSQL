@@ -51,6 +51,11 @@ class QueryProcessor:
                 self.client_states["on_begin"] = False
                 self.client_states["transactionId"] = None
 
+        elif(query.upper() == "ROLLBACK" or query.upper() == "ROLLBACK TRANSACTION"):
+            transaction_id = self.client_states["transactionId"]
+            self.handle_rollback(transaction_id)
+            self.client_states["on_begin"] = False
+            self.client_states["transactionId"] = None
         # elif(query.upper() == "PRINT"):
         #     self.printResult(tables, rows)
 
@@ -58,8 +63,9 @@ class QueryProcessor:
             retry = True
             while retry:
                 try:
-                    self.parsedQuery = self.qo.parse_query(query,self.db_name) #hardcode
-
+                    self.parsedQuery = self.qo.parse_query(query,self.db_name) 
+                    print("tree")
+                    print(self.parsedQuery.query_tree)
                     if self.parsedQuery.query_tree.val == "UPDATE":
                         try:
                             if not self.client_states.get("on_begin", False):
@@ -80,14 +86,14 @@ class QueryProcessor:
                                 print("Validation failed. Handling rollback.")
                                 self.handle_rollback(transaction_id)
                                 print("Retrying query after rollback.")
-                                continue  
+                                continue
                             
                             # write data
-                            self.sm.write_block(write, self.db_name, transaction_id)
                             data_written = data_lama.get_data()[0].get(write.column[0])
                             object_value = f"{{'nama_db':'{self.db_name}','nama_tabel':'{write.table[0]}','nama_kolom':'{write.column[0]}','primary_key':'{write.conditions[0].column}'}}"
-                            print(object_value)
-                            self.rm.write_log_entry(transaction_id, "DATA", object_value, data_written, write.new_value[0])
+                            self.rm.write_log_entry(self.current_transactionId, "DATA", object_value, data_written, write.new_value)
+                            self.sm.write_block(write, self.db_name, self.current_transactionId)
+                            self.sm.commit_buffer(self.current_transactionId)
                             
                         except Exception as e:
                             self.handle_rollback(transaction_id)
@@ -153,10 +159,11 @@ class QueryProcessor:
                         tree.val
                     )
                 elif tree.type == "NATURAL JOIN":
+                    print("debug natural join")
                     temp = self.__naturalJoin(
-                        "temp1", "temp2",
                         self.evaluateSelectTree(tree.childs[0], [], [], transaction_id),
-                        self.evaluateSelectTree(tree.childs[1], [], [], transaction_id)
+                        self.evaluateSelectTree(tree.childs[1], [], [], transaction_id),
+                        tree.val
                         )
                 if len(select) > 0 and len(where) > 0:
                     temp = self.__filterSelect(temp, select)
@@ -428,10 +435,12 @@ class QueryProcessor:
         """
         print("rollback transaction id: " ,transaction_id)
         undo_list = self.rm.write_log_entry(transaction_id, "ABORT", None, None, None)
+        print (undo_list)
 
 
         # Retrieve undo instructions from FailureRecovery
-        for instruction in undo_list:
+        for instruction in undo_list['undo']:
+            print(instruction)
             object_value = instruction["object_value"]
             old_value = instruction["old_value"]
             db, table, column, key_column, key_value = self.__parse_object_value(object_value)
@@ -563,41 +572,55 @@ class QueryProcessor:
         # print(result)
         return result
     
-    
-    def __naturalJoin(self, tablename1: str, tablename2: str, table1: List[dict], table2: List[dict]) -> List[dict]:
-        """
-        input: 
-        tablename1 = "table1"
-        tablename2 = "table2"
-
-        table1 = [
-            {"id": "1", "name": "Alice"},
-            {"id": "2", "name": "Bob"},
-            {"id": "3", "name": "Charlie"}
-        ]
-
-        table2 = [
-            {"id": "1", "age": "25"},
-            {"id": "2", "age": "30"},
-            {"id": "4", "age": "35"}
-        ]
-
-        result = [
-            {"id": "1", "name": "Alice", "age": "25"},
-            {"id": "2", "name": "Bob", "age": "30"}
-        ]
-        """
-        common_columns = list(set(table1[0].keys()) & set(table2[0].keys()))
-        
-        result = []
-
+    def __naturalJoin(self, table1: list[dict], table2: list[dict], cols: list[str]) -> list[dict]:
+        joined_table = []
+        col1 = list(table1[0].keys())
+        name1 = col1[0].split(".")[0]
+        col2 = list(table2[0].keys())
+        name2 = col2[0].split(".")[0]
         for row1 in table1:
             for row2 in table2:
-                if all(row1[col] == row2[col] for col in common_columns):
-                    combined_row = {**row1, **{key: row2[key] for key in row2 if key not in common_columns}}
-                    result.append(combined_row)
+                # Check if rows match on all specified columns
+                if all(row1[name1+"."+col] == row2[name2+"."+col] for col in cols):
+                    # Merge rows, avoiding duplicate keys from table2
+                    joined_row = {**row1, **{k: v for k, v in row2.items() if k not in row1}}
+                    joined_table.append(joined_row)
+        return joined_table
 
-        return result   
+    
+    # def __naturalJoin(self, tablename1: str, tablename2: str, table1: List[dict], table2: List[dict]) -> List[dict]:
+    #     """
+    #     input: 
+    #     tablename1 = "table1"
+    #     tablename2 = "table2"
+
+    #     table1 = [
+    #         {"id": "1", "name": "Alice"},
+    #         {"id": "2", "name": "Bob"},
+    #         {"id": "3", "name": "Charlie"}
+    #     ]
+
+    #     table2 = [
+    #         {"id": "1", "age": "25"},
+    #         {"id": "2", "age": "30"},
+    #         {"id": "4", "age": "35"}
+    #     ]
+
+    #     result = [
+    #         {"id": "1", "name": "Alice", "age": "25"},
+    #         {"id": "2", "name": "Bob", "age": "30"}
+    #     ]
+    #     """
+    #     common_columns = list(set(table1[0].keys()) & set(table2[0].keys()))
+        
+    #     result = []
+
+    #     for row1 in table1:
+    #         for row2 in table2:
+    #             if all(row1[col] == row2[col] for col in common_columns):
+    #                 combined_row = {**row1, **{key: row2[key] for key in row2 if key not in common_columns}}
+    #                 result.append(combined_row)
+    #     return result   
     # UNUSED
     # def __get_filters_for_table(tree: QueryTree, table_name: str) -> List[tuple]:
     #     # contoh query SELECT students.name, students.age FROM students WHERE students.age > 20 AND students.grade = 'A';
